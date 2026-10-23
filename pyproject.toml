@@ -43,7 +43,7 @@ ignore = ["S101"]  # asserts are the self-checks
 known-first-party = ["advocate_api", "advocate_shared", "advocate_workers", "legal_ai"]
 
 [tool.ruff.lint.per-file-ignores]
-"tools/*" = ["S608"]  # generates seed SQL from repo-owned YAML, never user input
+"tools/*" = ["S603", "S608"]  # dev scripts: seed SQL from repo-owned YAML; commands come from the developer
 "**/tests/*" = ["S105", "S106", "S608"]
 
 [tool.pyright]
