@@ -32,6 +32,8 @@ def checks(tokens: dict) -> list[tuple[str, str, str, str, float]]:
             for bg in backgrounds:
                 rows.append((theme, f"{fg} on {bg}", c[fg], c[bg], 3.0))
         rows.append((theme, "onPrimary on primaryFill", c["onPrimary"], c["primaryFill"], 4.5))
+        for fg in ("ink", "ink2", "ink3", "primary"):  # hero case card sits on primarySoft
+            rows.append((theme, f"{fg} on primarySoft", c[fg], c["primarySoft"], 4.5))
         for name, (fg, bg) in tokens["color"]["status"][theme].items():
             rows.append((theme, f"status.{name}", fg, bg, 4.5))
         if theme == "sunlight":

@@ -64,7 +64,8 @@ def tokens_dart(tokens: dict) -> str:
         "// ignore_for_file: lines_longer_than_80_chars, public_member_api_docs\n",
         "import 'package:advocate_app/core/theme/app_colors.dart';",
         "import 'package:flutter/animation.dart';",
-        "import 'package:flutter/painting.dart';\n",
+        "import 'package:flutter/painting.dart';",
+        "import 'package:flutter/physics.dart';\n",
     ]
     border = tokens["border"]
     for theme in ("light", "dark", "sunlight"):

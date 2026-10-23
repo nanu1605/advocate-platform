@@ -1,0 +1,3 @@
+tags:
+  golden:
+    description: Pixel comparisons; reference images are rendered on Windows (run with `just goldens`).

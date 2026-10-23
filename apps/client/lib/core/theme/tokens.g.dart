@@ -5,6 +5,7 @@
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:flutter/animation.dart';
 import 'package:flutter/painting.dart';
+import 'package:flutter/physics.dart';
 
 const lightColors = AppColors(
   bg: Color(0xFFFAF8F3),
