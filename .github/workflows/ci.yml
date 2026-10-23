@@ -1,4 +1,4 @@
-﻿name: CI
+name: CI
 
 on:
   push:
@@ -85,7 +85,7 @@ jobs:
       - run: flutter pub get
       - run: flutter test --tags golden
       - if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: golden-failures
           path: apps/client/test/golden/failures/
