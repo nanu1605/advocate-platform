@@ -1,0 +1,555 @@
+[
+ {
+  "courtCaseData": {
+   "cnr": "TEST010000012024",
+   "cnrCourtCode": "TESTMPHCIND",
+   "courtComplexCode": "TESTMPHCIND",
+   "courtName": "High Court of Madhya Pradesh, Bench at Indore",
+   "state": "MP",
+   "caseType": "WP",
+   "caseStatus": "PENDING",
+   "registrationNumber": "WP/1234/2024",
+   "filingNumber": "WP/1241/2024",
+   "filingDate": "2024-03-11",
+   "registrationDate": "2024-03-11",
+   "petitioners": [
+    "Asha Verma"
+   ],
+   "respondents": [
+    "State of Madhya Pradesh",
+    "Collector, Indore"
+   ],
+   "petitionerAdvocates": [
+    "Neha Sharma"
+   ],
+   "respondentAdvocates": [
+    "Government Advocate"
+   ],
+   "judges": [
+    "Justice Demo One"
+   ],
+   "courtNo": 12,
+   "purpose": "Admission",
+   "nextHearingDate": "2026-10-27",
+   "lastHearingDate": "2026-10-13",
+   "decisionDate": null,
+   "historyOfCaseHearings": [
+    {
+     "judge": "Justice Demo One",
+     "businessOnDate": "2026-09-29",
+     "hearingDate": "2026-10-13",
+     "purposeOfListing": "Notice"
+    },
+    {
+     "judge": "Justice Demo One",
+     "businessOnDate": "2026-10-13",
+     "hearingDate": "2026-10-27",
+     "purposeOfListing": "Admission"
+    }
+   ],
+   "businessOnDateEntries": [
+    {
+     "date": "2026-09-29",
+     "business": "Notice: heard, put up on next date",
+     "nextPurpose": "Notice",
+     "nextHearingDate": "2026-10-13"
+    },
+    {
+     "date": "2026-10-13",
+     "business": "Admission: heard, put up on next date",
+     "nextPurpose": "Admission",
+     "nextHearingDate": "2026-10-27"
+    }
+   ],
+   "interimOrders": [
+    {
+     "orderDate": "2026-10-13",
+     "description": "COPY OF ORDER",
+     "orderUrl": "order-1.pdf"
+    }
+   ],
+   "judgmentOrders": [],
+   "provisions": []
+  },
+  "entityInfo": {
+   "cnr": "TEST010000012024",
+   "dateCreated": "2026-10-01T10:00:00Z",
+   "dateModified": "2026-10-20T18:00:00Z"
+  },
+  "_listing": {
+   "courtNo": "12",
+   "listingNo": "23",
+   "bench": "Single Bench",
+   "listType": "Daily"
+  }
+ },
+ {
+  "courtCaseData": {
+   "cnr": "TEST020000022024",
+   "cnrCourtCode": "TESTMPHCIND",
+   "courtComplexCode": "TESTMPHCIND",
+   "courtName": "High Court of Madhya Pradesh, Bench at Indore",
+   "state": "MP",
+   "caseType": "CRA",
+   "caseStatus": "PENDING",
+   "registrationNumber": "CRA/455/2023",
+   "filingNumber": "CRA/462/2023",
+   "filingDate": "2023-07-04",
+   "registrationDate": "2023-07-04",
+   "petitioners": [
+    "Mohan Lal"
+   ],
+   "respondents": [
+    "State of Madhya Pradesh"
+   ],
+   "petitionerAdvocates": [
+    "Neha Sharma",
+    "Rakesh Jain"
+   ],
+   "respondentAdvocates": [
+    "Public Prosecutor"
+   ],
+   "judges": [
+    "Justice Demo Two"
+   ],
+   "courtNo": 7,
+   "purpose": "Final Hearing",
+   "nextHearingDate": "2026-10-27",
+   "lastHearingDate": "2026-09-15",
+   "decisionDate": null,
+   "historyOfCaseHearings": [
+    {
+     "judge": "Justice Demo Two",
+     "businessOnDate": "2026-09-15",
+     "hearingDate": "2026-10-27",
+     "purposeOfListing": "Final Hearing"
+    }
+   ],
+   "businessOnDateEntries": [
+    {
+     "date": "2026-09-15",
+     "business": "Final Hearing: heard, put up on next date",
+     "nextPurpose": "Final Hearing",
+     "nextHearingDate": "2026-10-27"
+    }
+   ],
+   "interimOrders": [
+    {
+     "orderDate": "2026-09-15",
+     "description": "COPY OF ORDER",
+     "orderUrl": "order-1.pdf"
+    }
+   ],
+   "judgmentOrders": [],
+   "provisions": []
+  },
+  "entityInfo": {
+   "cnr": "TEST020000022024",
+   "dateCreated": "2026-10-01T10:00:00Z",
+   "dateModified": "2026-10-20T18:00:00Z"
+  },
+  "_listing": {
+   "courtNo": "7",
+   "listingNo": "5",
+   "bench": "Division Bench",
+   "listType": "Daily"
+  }
+ },
+ {
+  "courtCaseData": {
+   "cnr": "TEST030000032024",
+   "cnrCourtCode": "TESTDCIND",
+   "courtComplexCode": "TESTDCIND",
+   "courtName": "District and Sessions Court, Indore",
+   "state": "MP",
+   "caseType": "CS",
+   "caseStatus": "PENDING",
+   "registrationNumber": "CS/210/2022",
+   "filingNumber": "CS/217/2022",
+   "filingDate": "2022-02-21",
+   "registrationDate": "2022-02-21",
+   "petitioners": [
+    "Sunita Patel"
+   ],
+   "respondents": [
+    "Ravi Kumar"
+   ],
+   "petitionerAdvocates": [
+    "Arun Mehta"
+   ],
+   "respondentAdvocates": [
+    "Neha Sharma"
+   ],
+   "judges": [
+    "Demo Civil Judge"
+   ],
+   "courtNo": 4,
+   "purpose": "Evidence",
+   "nextHearingDate": "2026-10-27",
+   "lastHearingDate": "2026-10-06",
+   "decisionDate": null,
+   "historyOfCaseHearings": [
+    {
+     "judge": "Demo Civil Judge",
+     "businessOnDate": "2026-10-06",
+     "hearingDate": "2026-10-27",
+     "purposeOfListing": "Evidence"
+    }
+   ],
+   "businessOnDateEntries": [
+    {
+     "date": "2026-10-06",
+     "business": "Evidence: heard, put up on next date",
+     "nextPurpose": "Evidence",
+     "nextHearingDate": "2026-10-27"
+    }
+   ],
+   "interimOrders": [],
+   "judgmentOrders": [],
+   "provisions": []
+  },
+  "entityInfo": {
+   "cnr": "TEST030000032024",
+   "dateCreated": "2026-10-01T10:00:00Z",
+   "dateModified": "2026-10-20T18:00:00Z"
+  },
+  "_listing": {
+   "courtNo": "4",
+   "listingNo": "3",
+   "bench": null,
+   "listType": "Daily"
+  }
+ },
+ {
+  "courtCaseData": {
+   "cnr": "TEST040000042024",
+   "cnrCourtCode": "TESTMPHCIND",
+   "courtComplexCode": "TESTMPHCIND",
+   "courtName": "High Court of Madhya Pradesh, Bench at Indore",
+   "state": "MP",
+   "caseType": "MCRC",
+   "caseStatus": "PENDING",
+   "registrationNumber": "MCRC/8899/2025",
+   "filingNumber": "MCRC/8906/2025",
+   "filingDate": "2025-11-18",
+   "registrationDate": "2025-11-18",
+   "petitioners": [
+    "Deepak Yadav"
+   ],
+   "respondents": [
+    "State of Madhya Pradesh"
+   ],
+   "petitionerAdvocates": [
+    "Neha Sharma"
+   ],
+   "respondentAdvocates": [
+    "Public Prosecutor"
+   ],
+   "judges": [
+    "Justice Demo Three"
+   ],
+   "courtNo": 15,
+   "purpose": "Bail",
+   "nextHearingDate": "2026-11-05",
+   "lastHearingDate": "2026-10-22",
+   "decisionDate": null,
+   "historyOfCaseHearings": [
+    {
+     "judge": "Justice Demo Three",
+     "businessOnDate": "2026-10-22",
+     "hearingDate": "2026-11-05",
+     "purposeOfListing": "Bail"
+    }
+   ],
+   "businessOnDateEntries": [
+    {
+     "date": "2026-10-22",
+     "business": "Bail: heard, put up on next date",
+     "nextPurpose": "Bail",
+     "nextHearingDate": "2026-11-05"
+    }
+   ],
+   "interimOrders": [],
+   "judgmentOrders": [],
+   "provisions": []
+  },
+  "entityInfo": {
+   "cnr": "TEST040000042024",
+   "dateCreated": "2026-10-01T10:00:00Z",
+   "dateModified": "2026-10-20T18:00:00Z"
+  },
+  "_listing": {
+   "courtNo": "15",
+   "listingNo": "41",
+   "bench": "Single Bench",
+   "listType": "Daily"
+  }
+ },
+ {
+  "courtCaseData": {
+   "cnr": "TEST050000052024",
+   "cnrCourtCode": "TESTDCIND",
+   "courtComplexCode": "TESTDCIND",
+   "courtName": "District and Sessions Court, Indore",
+   "state": "MP",
+   "caseType": "CS",
+   "caseStatus": "DISPOSED",
+   "registrationNumber": "CS/77/2021",
+   "filingNumber": "CS/84/2021",
+   "filingDate": "2021-01-12",
+   "registrationDate": "2021-01-12",
+   "petitioners": [
+    "Neeraj Gupta"
+   ],
+   "respondents": [
+    "Prakash Traders"
+   ],
+   "petitionerAdvocates": [
+    "Neha Sharma"
+   ],
+   "respondentAdvocates": [
+    "Vivek Joshi"
+   ],
+   "judges": [
+    "Demo Civil Judge"
+   ],
+   "courtNo": 4,
+   "purpose": "Judgment",
+   "nextHearingDate": null,
+   "lastHearingDate": "2026-08-20",
+   "decisionDate": "2026-08-20",
+   "historyOfCaseHearings": [
+    {
+     "judge": "Demo Civil Judge",
+     "businessOnDate": "2026-08-06",
+     "hearingDate": "2026-08-20",
+     "purposeOfListing": "Arguments"
+    },
+    {
+     "judge": "Demo Civil Judge",
+     "businessOnDate": "2026-08-20",
+     "hearingDate": null,
+     "purposeOfListing": "Judgment"
+    }
+   ],
+   "businessOnDateEntries": [
+    {
+     "date": "2026-08-06",
+     "business": "Arguments: heard, put up on next date",
+     "nextPurpose": "Arguments",
+     "nextHearingDate": "2026-08-20"
+    },
+    {
+     "date": "2026-08-20",
+     "business": "Judgment: heard, put up on next date",
+     "nextPurpose": "Judgment",
+     "nextHearingDate": null
+    }
+   ],
+   "interimOrders": [],
+   "judgmentOrders": [
+    {
+     "orderDate": "2026-08-20",
+     "orderType": "JUDGMENT",
+     "orderUrl": "order-2.pdf"
+    }
+   ],
+   "provisions": []
+  },
+  "entityInfo": {
+   "cnr": "TEST050000052024",
+   "dateCreated": "2026-10-01T10:00:00Z",
+   "dateModified": "2026-10-20T18:00:00Z"
+  }
+ },
+ {
+  "courtCaseData": {
+   "cnr": "TEST060000062024",
+   "cnrCourtCode": "TESTSC",
+   "courtComplexCode": "TESTSC",
+   "courtName": "Supreme Court of India",
+   "state": null,
+   "caseType": "SLP(C)",
+   "caseStatus": "PENDING",
+   "registrationNumber": "SLP(C)/3021/2024",
+   "filingNumber": "SLP(C)/3028/2024",
+   "filingDate": "2024-05-30",
+   "registrationDate": "2024-05-30",
+   "petitioners": [
+    "Indore Development Authority"
+   ],
+   "respondents": [
+    "Kamla Bai",
+    "Ramesh Chand"
+   ],
+   "petitionerAdvocates": [
+    "Demo Senior Counsel"
+   ],
+   "respondentAdvocates": [
+    "Neha Sharma"
+   ],
+   "judges": [
+    "Justice Demo Four"
+   ],
+   "courtNo": 3,
+   "purpose": "After Notice",
+   "nextHearingDate": "2026-11-12",
+   "lastHearingDate": "2026-08-01",
+   "decisionDate": null,
+   "historyOfCaseHearings": [
+    {
+     "judge": "Justice Demo Four",
+     "businessOnDate": "2026-08-01",
+     "hearingDate": "2026-11-12",
+     "purposeOfListing": "Notice"
+    }
+   ],
+   "businessOnDateEntries": [
+    {
+     "date": "2026-08-01",
+     "business": "Notice: heard, put up on next date",
+     "nextPurpose": "Notice",
+     "nextHearingDate": "2026-11-12"
+    }
+   ],
+   "interimOrders": [],
+   "judgmentOrders": [],
+   "provisions": []
+  },
+  "entityInfo": {
+   "cnr": "TEST060000062024",
+   "dateCreated": "2026-10-01T10:00:00Z",
+   "dateModified": "2026-10-20T18:00:00Z"
+  },
+  "_listing": {
+   "courtNo": "3",
+   "listingNo": "18",
+   "bench": "Division Bench",
+   "listType": "Miscellaneous"
+  }
+ },
+ {
+  "courtCaseData": {
+   "cnr": "TEST070000072024",
+   "cnrCourtCode": "TESTMPHCJBP",
+   "courtComplexCode": "TESTMPHCJBP",
+   "courtName": "High Court of Madhya Pradesh, Jabalpur",
+   "state": "MP",
+   "caseType": "WP",
+   "caseStatus": "PENDING",
+   "registrationNumber": "WP/99/2024",
+   "filingNumber": "WP/106/2024",
+   "filingDate": "2024-01-08",
+   "registrationDate": "2024-01-08",
+   "petitioners": [
+    "Gopal Singh"
+   ],
+   "respondents": [
+    "Union of India"
+   ],
+   "petitionerAdvocates": [
+    "N. Sharma"
+   ],
+   "respondentAdvocates": [
+    "Central Government Counsel"
+   ],
+   "judges": [
+    "Justice Demo Five"
+   ],
+   "courtNo": 21,
+   "purpose": "Orders",
+   "nextHearingDate": "2026-10-28",
+   "lastHearingDate": "2026-09-30",
+   "decisionDate": null,
+   "historyOfCaseHearings": [
+    {
+     "judge": "Justice Demo Five",
+     "businessOnDate": "2026-09-30",
+     "hearingDate": "2026-10-28",
+     "purposeOfListing": "Orders"
+    }
+   ],
+   "businessOnDateEntries": [
+    {
+     "date": "2026-09-30",
+     "business": "Orders: heard, put up on next date",
+     "nextPurpose": "Orders",
+     "nextHearingDate": "2026-10-28"
+    }
+   ],
+   "interimOrders": [],
+   "judgmentOrders": [],
+   "provisions": []
+  },
+  "entityInfo": {
+   "cnr": "TEST070000072024",
+   "dateCreated": "2026-10-01T10:00:00Z",
+   "dateModified": "2026-10-20T18:00:00Z"
+  },
+  "_listing": {
+   "courtNo": "21",
+   "listingNo": "9",
+   "bench": "Single Bench",
+   "listType": "Daily"
+  }
+ },
+ {
+  "courtCaseData": {
+   "cnr": "TEST080000082024",
+   "cnrCourtCode": "TESTMPHCIND",
+   "courtComplexCode": "TESTMPHCIND",
+   "courtName": "High Court of Madhya Pradesh, Bench at Indore",
+   "state": "MP",
+   "caseType": "WP",
+   "caseStatus": "PENDING",
+   "registrationNumber": "WP/555/2024",
+   "filingNumber": "WP/562/2024",
+   "filingDate": "2024-06-17",
+   "registrationDate": "2024-06-17",
+   "petitioners": [
+    "Meena Chouhan"
+   ],
+   "respondents": [
+    "Indore Municipal Corporation"
+   ],
+   "petitionerAdvocates": [
+    "Neha Sharma"
+   ],
+   "respondentAdvocates": [
+    "Demo Panel Lawyer"
+   ],
+   "judges": [
+    "Justice Demo One"
+   ],
+   "courtNo": 12,
+   "purpose": "Admission",
+   "nextHearingDate": null,
+   "lastHearingDate": "2026-07-10",
+   "decisionDate": null,
+   "historyOfCaseHearings": [
+    {
+     "judge": "Justice Demo One",
+     "businessOnDate": "2026-07-10",
+     "hearingDate": null,
+     "purposeOfListing": "Admission"
+    }
+   ],
+   "businessOnDateEntries": [
+    {
+     "date": "2026-07-10",
+     "business": "Admission: heard, put up on next date",
+     "nextPurpose": "Admission",
+     "nextHearingDate": null
+    }
+   ],
+   "interimOrders": [],
+   "judgmentOrders": [],
+   "provisions": []
+  },
+  "entityInfo": {
+   "cnr": "TEST080000082024",
+   "dateCreated": "2026-10-01T10:00:00Z",
+   "dateModified": "2026-10-20T18:00:00Z"
+  }
+ }
+]
