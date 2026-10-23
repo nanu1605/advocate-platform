@@ -33,6 +33,7 @@ dev = [
 [tool.ruff]
 line-length = 120
 target-version = "py314"
+extend-exclude = ["docs"]  # spike scripts run inside their own containers
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "S", "ASYNC", "RUF"]

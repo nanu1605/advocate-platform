@@ -1,0 +1,1 @@
+﻿Spike 11a (editor) and 11f (pdfrx) test files. Run them in a throwaway Flutter project with `flutter pub add flutter_quill pdfrx`; paths point at the founder's checkout. Results: ADR 0004 and ADR 0005.
