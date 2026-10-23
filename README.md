@@ -6,7 +6,7 @@ Current status: [`PROJECT_STATE.md`](PROJECT_STATE.md).
 
 ## Local setup (Windows 11)
 
-Prerequisites: Docker Desktop, Node 24, `uv`, Flutter stable on PATH, VS Build Tools 2022 (C++), `just`,
+Prerequisites: Docker Desktop, Node 24, `uv`, Flutter stable on PATH, VS Build Tools 2022 (C++ desktop + C++ ATL), `just`,
 Windows **Developer Mode** on (Flutter plugins need symlinks).
 
 ```bash
