@@ -1,5 +1,5 @@
 # PROJECT_STATE
-Current phase: 0 — Foundations (status: building — Track A done, Track B waiting on founder accounts)
+Current phase: 0 — Foundations (status: Track A done; Track B on hold by founder, 24 Oct 2026)
 Last updated: 2026-10-24
 
 ## Done (this phase)
@@ -19,12 +19,13 @@ Last updated: 2026-10-24
 - Spikes: 11a editor (ADR 0004), 11f pdfrx host part (ADR 0005), 11g Devanagari PDFs (ADR 0006).
 
 ## In progress
-- Nothing running. Track B (spec tasks 6-staging, 9, 10, spikes 11b–e) waits for accounts.
+- Nothing running. On hold by founder (24 Oct 2026): Track B accounts (spec tasks 6-staging, 9, 10, spikes 11b–e), native-speaker Hindi review, privacy-policy page.
 
 ## Next up
-1. Founder: enable Windows Developer Mode (Settings → System → For developers); local Windows builds need it. Before the P1 beta: native-speaker review of `app_hi.arb` (spec §5.10) and the lawyer-drafted privacy policy live at https://jainavinfotech.in/privacy (the consent screen links there).
-2. Track B as accounts arrive: Supabase staging (Mumbai), PowerSync e2e + spike 11b, Terraform staging + Sentry + Codemagic, spikes 11c/11d/11e.
-3. Device checks left open by spikes 11a (Windows IME) and 11f (low-end Android scroll).
+1. Local Windows build: Developer Mode is on; Build Tools 2022 still needs the "C++ ATL" component (`Microsoft.VisualStudio.Component.VC.ATL`) for `flutter_secure_storage_windows` (`atlstr.h`). CI already builds Windows.
+2. When the hold lifts, before the P1 beta: native-speaker review of `app_hi.arb` (spec §5.10) and the lawyer-drafted privacy policy live at https://jainavinfotech.in/privacy (the consent screen links there).
+3. Track B as accounts arrive: Supabase staging (Mumbai), PowerSync e2e + spike 11b, Terraform staging + Sentry + Codemagic, spikes 11c/11d/11e.
+4. Device checks left open by spikes 11a (Windows IME) and 11f (low-end Android scroll).
 
 ## Deviations from spec (with ADR links)
 - Kit: 5 P2-only components deferred to P2 start — [ADR 0001](docs/adr/0001-defer-p2-kit-components.md).
