@@ -8,6 +8,7 @@ Last updated: 2026-10-24
 - Design tokens → light/dark/sunlight themes; contrast check (`tools/check_contrast.py`) passes every §5.6 pair.
 - Flutter app: Riverpod, go_router with onboarding redirect, feature flags, en/hi ARB, P1 shell (phone bar, Windows rail, Ctrl+K palette, window size memory), Settings.
 - Component kit: 17 components (ADR 0001) + `/dev/kitchen-sink`; 180 goldens (3 themes × en/hi × 1.0/2.0); 90 accessibility checks.
+- Pseudo-locale overflow check (spec §16.4): `tools/pseudo_l10n.py` reruns the widget tests with English 40% longer, in CI and `just pseudo`. The onboarding flow test runs in en and hi, through to Settings.
 - Onboarding: language → phone OTP → itemised consent → app lock (device auth or salted PIN, 5-try sign-out) → Today.
 - Supabase local (Mumbai-equivalent schema): 12 P0 tables, RLS on all, API-only write marker (ADR 0003), 300 pgTAP assertions (5 actors × CRUD).
 - FastAPI: JWKS JWT, run-as-user transactions, org context, error shape, Redis rate limit, Send-SMS hook (3/10 min, 10/day), `/v1/me`, `/v1/consents`, `/v1/orgs`, `/v1/devices`; cross-org isolation tested.
@@ -34,7 +35,6 @@ Last updated: 2026-10-24
 - Dart API client is hand-typed (spec §7.1 allows "generated or typed").
 - `Idempotency-Key` handling arrives with the first job/money/message endpoint (P1 import); no P0 POST needs it.
 - Contrast is enforced on tokens (exact); Flutter's pixel-sampling contrast guideline misreads thin anti-aliased glyphs and is not used.
-- 40% pseudo-locale overflow check (spec §16.4) not built yet; Hindi goldens at 2.0× text currently catch overflow.
 - iOS `hi.lproj/InfoPlist.strings` is generated but not yet registered in the Xcode project (needs the Codemagic/iOS build, Track B).
 - Feature flags are compiled-in (all off) until PowerSync syncs `feature_flags`.
 - Windows `APPLY_STANDARD_SETTINGS` defines `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`: `local_auth_windows` 2.0.2 builds with `/await`, which MSVC 14.51 rejects (STL1011). Remove when the plugin moves to C++20 `<coroutine>`.

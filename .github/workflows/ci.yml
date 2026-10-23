@@ -67,6 +67,8 @@ jobs:
       - run: dart format --output=none --set-exit-if-changed lib test
       - run: flutter analyze
       - run: flutter test --exclude-tags golden
+      - name: Pseudo-locale overflow check (English +40%)
+        run: python3 ../../tools/pseudo_l10n.py flutter test test/widget
 
   goldens:
     name: Goldens (Windows renderer)

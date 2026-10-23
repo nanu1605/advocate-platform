@@ -35,6 +35,11 @@ test:
     uv run pytest
     npx supabase test db
     cd apps/client; flutter test --exclude-tags golden
+    uv run python tools/pseudo_l10n.py flutter test test/widget
+
+# Widget tests with English 40% longer, to catch overflow (spec §16.4)
+pseudo:
+    uv run python tools/pseudo_l10n.py flutter test test/widget
 
 # Golden tests (Windows renders the reference images; CI runs them on windows-latest)
 goldens:
