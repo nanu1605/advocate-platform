@@ -1,0 +1,15 @@
+{
+  "appName": "Pairavi",
+  "appNameHi": "पैरवी",
+  "tagline": "Court-ready, every day.",
+  "taglineHi": "हर पेशी के लिए तैयार",
+  "legalEntity": "Jainav Infotech Private Limited",
+  "poweredBy": "by Jainav Infotech",
+  "poweredByHi": "जैनव इन्फोटेक द्वारा",
+  "supportEmail": "support@jainavinfotech.in",
+  "website": "https://jainavinfotech.in",
+  "fontFamily": "Mukta",
+  "iconSource": "brand/icon-1024.png",
+  "logoSource": "brand/logo.svg",
+  "tokens": "design/tokens.json"
+}

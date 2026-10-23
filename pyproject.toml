@@ -1,0 +1,57 @@
+[project]
+name = "advocate-platform"
+version = "0.0.0"
+requires-python = ">=3.14"
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["packages/shared", "packages/legal_ai", "services/api", "services/workers"]
+
+[tool.uv.sources]
+advocate-shared = { workspace = true }
+legal-ai = { workspace = true }
+advocate-api = { workspace = true }
+advocate-workers = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "advocate-shared",
+    "legal-ai",
+    "advocate-api",
+    "advocate-workers",
+    "ruff",
+    "pyright",
+    "pytest",
+    "pytest-asyncio",
+    "pillow",
+    "pre-commit",
+    "pyyaml",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "ASYNC", "RUF"]
+ignore = ["S101"]  # asserts are the self-checks
+
+[tool.ruff.lint.isort]
+known-first-party = ["advocate_api", "advocate_shared", "advocate_workers", "legal_ai"]
+
+[tool.ruff.lint.per-file-ignores]
+"tools/*" = ["S608"]  # generates seed SQL from repo-owned YAML, never user input
+"**/tests/*" = ["S105", "S106", "S608"]
+
+[tool.pyright]
+pythonVersion = "3.14"
+typeCheckingMode = "standard"
+include = ["packages", "services", "tools"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["packages", "services"]

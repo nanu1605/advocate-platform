@@ -1,0 +1,38 @@
+# Local backend (ADR 0002). Supabase runs separately via `npx supabase start` (ports 553xx).
+# `just dev` starts Supabase + this file.
+name: advocate
+
+x-python: &python
+  build:
+    context: ../..
+    dockerfile: infra/docker/python.Dockerfile
+  env_file:
+    - path: ../../.env
+      required: false
+  environment:
+    APP_ENV: local
+    REDIS_URL: redis://redis:6379/0
+    DATABASE_URL: postgresql+asyncpg://postgres:postgres@host.docker.internal:55322/postgres
+    SUPABASE_URL: http://127.0.0.1:55321   # token issuer as the app sees it
+    SUPABASE_JWKS_URL: http://host.docker.internal:55321/auth/v1/.well-known/jwks.json
+  extra_hosts:
+    - host.docker.internal:host-gateway
+  depends_on: [redis]
+
+services:
+  redis:
+    image: redis:8-alpine
+    ports: ["6379:6379"]
+
+  api:
+    <<: *python
+    command: uvicorn advocate_api.main:app --host 0.0.0.0 --port 8000
+    ports: ["8000:8000"]
+
+  worker:
+    <<: *python
+    command: celery -A advocate_workers.celery_app worker --loglevel=INFO
+
+  beat:
+    <<: *python
+    command: celery -A advocate_workers.celery_app beat --loglevel=INFO

@@ -1,0 +1,55 @@
+# Sample plans (spec §14.2) — placeholders to validate in beta. Loaded into the `plans` table by the seeder.
+# Money in paise; INR caps as rupees (they compare against measured cost_inr).
+plans:
+  - id: free
+    name: Free
+    price_paise: 0
+    interval: month
+    limits:
+      tracked_cases: 5
+      ai_credits: 20
+      automatic_ai_cap_inr: 5
+      court_data_budget_inr: 20
+      storage_gb: 1
+      min_seats: 1
+      advocate_watch: false
+      auto_match: weekly
+  - id: solo
+    name: Solo
+    price_paise: 69900
+    interval: month
+    limits:
+      tracked_cases: 60
+      ai_credits: 420
+      automatic_ai_cap_inr: 40
+      court_data_budget_inr: 240
+      storage_gb: 10
+      min_seats: 1
+      advocate_watch: true
+      auto_match: daily
+  - id: solo_yearly
+    name: Solo (yearly)
+    price_paise: 699000
+    interval: year
+    limits:
+      tracked_cases: 60
+      ai_credits: 420
+      automatic_ai_cap_inr: 40
+      court_data_budget_inr: 240
+      storage_gb: 10
+      min_seats: 1
+      advocate_watch: true
+      auto_match: daily
+  - id: chamber
+    name: Chamber
+    price_paise: 59900          # per member per month
+    interval: month
+    limits:                     # per member, pooled across the chamber
+      tracked_cases: 60
+      ai_credits: 360
+      automatic_ai_cap_inr: 35
+      court_data_budget_inr: 240
+      storage_gb: 50
+      min_seats: 3
+      advocate_watch: true
+      auto_match: daily

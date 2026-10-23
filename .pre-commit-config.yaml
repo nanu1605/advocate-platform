@@ -1,0 +1,36 @@
+# Local hooks use the pinned tool versions from uv.lock / Flutter SDK. Install: `uv run pre-commit install`.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        types: [python]
+      - id: dart-format
+        name: dart format
+        entry: dart format
+        language: system
+        files: ^apps/client/(lib|test)/.*\.dart$
+      - id: brand-sync
+        name: brand sync up to date
+        entry: uv run python tools/brand_sync.py --check
+        language: system
+        pass_filenames: false
+        files: ^(brand/brand\.json|design/tokens\.json)$
+      - id: seed-sync
+        name: seed SQL up to date
+        entry: uv run python tools/gen_seed.py --check
+        language: system
+        pass_filenames: false
+        files: ^config/plans\.yaml$
+      - id: no-env-files
+        name: no .env files
+        entry: .env files must not be committed
+        language: fail
+        files: (^|/)\.env$
