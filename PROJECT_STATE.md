@@ -1,30 +1,21 @@
 # PROJECT_STATE
-Current phase: 0 — Foundations (status: Track A done; Track B on hold by founder, 24 Oct 2026)
+Current phase: 1 — Court diary MVP (status: building; started 24 Oct 2026 with the Phase 0 gate open, Track B on hold)
 Last updated: 2026-10-24
 
 ## Done (this phase)
-- Monorepo per spec §8.1; private GitHub repo `nanu1605/advocate-platform`; `justfile`, ruff, pyright, very_good_analysis, pre-commit.
-- Brand system: `brand/brand.json`, placeholder icon/logo, `tools/brand_sync.py` (Flutter constants + tokens, Android/iOS/Windows names).
-- Design tokens → light/dark/sunlight themes; contrast check (`tools/check_contrast.py`) passes every §5.6 pair.
-- Flutter app: Riverpod, go_router with onboarding redirect, feature flags, en/hi ARB, P1 shell (phone bar, Windows rail, Ctrl+K palette, window size memory), Settings.
-- Component kit: 17 components (ADR 0001) + `/dev/kitchen-sink`; 180 goldens (3 themes × en/hi × 1.0/2.0); 90 accessibility checks.
-- Pseudo-locale overflow check (spec §16.4): `tools/pseudo_l10n.py` reruns the widget tests with English 40% longer, in CI and `just pseudo`. The onboarding flow test runs in en and hi, through to Settings.
-- Onboarding: language → phone OTP → itemised consent → app lock (device auth or salted PIN, 5-try sign-out) → Today; 5 wrong codes lock the OTP until a new one is sent ([ADR 0008](docs/adr/0008-otp-lockout.md)); consent screen links the privacy policy.
-- Hindi strings: internal two-reviewer pass with a skeptical verify, 23 fixes (24 Oct 2026); native-speaker review still due.
-- Supabase local (Mumbai-equivalent schema): 12 P0 tables, RLS on all, API-only write marker (ADR 0003), 300 pgTAP assertions (5 actors × CRUD).
-- FastAPI: JWKS JWT, run-as-user transactions, org context, error shape, Redis rate limit, Send-SMS hook (3/10 min, 10/day), `/v1/me`, `/v1/consents`, `/v1/orgs`, `/v1/devices`; cross-org isolation tested.
-- Celery app + beat (IST) with the `jobs.is_recent` window job; Docker Compose for Redis/API/worker/beat.
-- `legal_ai.LLMClient` guard: refuses non-India profiles, other regions, the Mantle endpoint; strips sampling params.
-- CI workflow (backend + pgTAP + pytest, Flutter, Windows goldens, Android + Windows builds) and Dependabot; all 5 jobs green on GitHub Actions, actions on their Node 24 majors.
-- Spikes: 11a editor (ADR 0004), 11f pdfrx host part (ADR 0005), 11g Devanagari PDFs (ADR 0006).
+- Plan: [phase-1-plan.md](docs/phases/phase-1-plan.md) (Track A local, Track B on hold).
+- Schema for the 26 P1 tables with RLS, write-path triggers and the beta tracked-case allowance; five reference courts;
+  709 new pgTAP assertions (5 actors × CRUD + every trigger), 1009 in all ([ADR 0009](docs/adr/0009-p1-schema-additions.md)).
+- Phase 0 Track A: see [phase-0-report.md](docs/phases/phase-0-report.md).
 
 ## In progress
-- Nothing running. On hold by founder (24 Oct 2026): Track B accounts (spec tasks 6-staging, 9, 10, spikes 11b–e), native-speaker Hindi review, privacy-policy page.
+- Nothing running. On hold by founder (24 Oct 2026): Track B accounts (P0 tasks 12–15, P1 tasks B0–B5), native-speaker
+  Hindi review, privacy-policy page.
 
 ## Next up
-1. When the hold lifts, before the P1 beta: native-speaker review of `app_hi.arb` (spec §5.10) and the lawyer-drafted privacy policy live at https://jainavinfotech.in/privacy (the consent screen links there).
-2. Track B as accounts arrive: Supabase staging (Mumbai), PowerSync e2e + spike 11b, Terraform staging + Sentry + Codemagic, spikes 11c/11d/11e.
-3. Device checks left open by spikes 11a (Windows IME) and 11f (low-end Android scroll).
+1. P1 task 2: `court_data` package (interface, manual + eCourtsIndia providers, router, breaker, cost ledger, fixtures).
+2. P1 task 3: transliteration search key (Python + Dart, 50-pair fixture).
+3. P1 task 4: local sync (self-hosted PowerSync in Docker) and the Flutter data layer.
 
 ## Deviations from spec (with ADR links)
 - Kit: 5 P2-only components deferred to P2 start — [ADR 0001](docs/adr/0001-defer-p2-kit-components.md).
@@ -39,6 +30,8 @@ Last updated: 2026-10-24
 - iOS `hi.lproj/InfoPlist.strings` is generated but not yet registered in the Xcode project (needs the Codemagic/iOS build, Track B).
 - Feature flags are compiled-in (all off) until PowerSync syncs `feature_flags`.
 - Wrong-OTP lockout (spec §15.2) is enforced in the app, backed by Supabase's code expiry and per-IP verify limit; Supabase phone OTP allows no server-side per-number count — [ADR 0008](docs/adr/0008-otp-lockout.md).
+- Phase 1 started before the Phase 0 gate closed (founder go-ahead, 24 Oct 2026); both gates wait on Track B.
+- P1 schema additions to §9.2 and how §9.3 column rules are enforced — [ADR 0009](docs/adr/0009-p1-schema-additions.md).
 - Windows `APPLY_STANDARD_SETTINGS` defines `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`: `local_auth_windows` 2.0.2 builds with `/await`, which MSVC 14.51 rejects (STL1011). Remove when the plugin moves to C++20 `<coroutine>`.
 
 ## Questions for the founder

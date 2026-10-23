@@ -1,67 +1,8 @@
 -- RLS matrix for Phase 0 tables (spec §9.3): five actors × read / insert / update / delete.
--- Actors, in matrix order: owner, advocate, junior, clerk (all in chamber A), outsider (owns solo org B).
--- tests.try() runs a statement inside a savepoint, returns rows affected (or -1 when denied), then rolls back,
--- so every check starts from the same fixture.
 begin;
-create extension if not exists pgtap with schema extensions;
-select * from no_plan();
+\ir _setup.psql
 
-create schema tests;
-grant usage on schema tests to authenticated, anon;
-
-create function tests.act(uid uuid, api boolean) returns void language plpgsql as $$
-begin
-  perform set_config('role', 'authenticated', true);
-  perform set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
-  perform set_config('app.write_path', case when api then 'api' else '' end, true);
-end $$;
-
-create function tests.try(stmt text) returns int language plpgsql as $$
-declare n int;
-begin
-  begin
-    execute stmt;
-    get diagnostics n = row_count;
-    raise exception using errcode = 'TSTRB', message = n::text;
-  exception
-    when insufficient_privilege then return -1;
-    when sqlstate 'TSTRB' then return sqlerrm::int;
-  end;
-end $$;
-
-create function tests.matrix(label text, stmt text, api boolean, expected int[]) returns setof text
-language plpgsql as $$
-declare
-  actors uuid[] := array[
-    '00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-0000000000a2',
-    '00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-0000000000a4',
-    '00000000-0000-0000-0000-0000000000b1']::uuid[];
-  names text[] := array['owner', 'advocate', 'junior', 'clerk', 'outsider'];
-  got int;
-begin
-  for i in 1..5 loop
-    perform tests.act(actors[i], api);
-    got := tests.try(stmt);
-    perform set_config('role', 'none', true);
-    return next is(got, expected[i], format('%s — %s%s', label, names[i], case when api then ' (api)' else '' end));
-  end loop;
-end $$;
-
--- ---------------------------------------------------------------- fixture (as postgres)
-insert into auth.users (id, phone, aud, role) values
-  ('00000000-0000-0000-0000-0000000000a1', '918888800001', 'authenticated', 'authenticated'),
-  ('00000000-0000-0000-0000-0000000000a2', '918888800002', 'authenticated', 'authenticated'),
-  ('00000000-0000-0000-0000-0000000000a3', '918888800003', 'authenticated', 'authenticated'),
-  ('00000000-0000-0000-0000-0000000000a4', '918888800004', 'authenticated', 'authenticated'),
-  ('00000000-0000-0000-0000-0000000000b1', '918888800005', 'authenticated', 'authenticated');
-
-insert into public.organizations (id, name, kind, owner_id) values
-  ('0000000a-0000-0000-0000-000000000000', 'Chamber A', 'chamber', '00000000-0000-0000-0000-0000000000a1'),
-  ('0000000b-0000-0000-0000-000000000000', 'Solo B', 'solo', '00000000-0000-0000-0000-0000000000b1');
-insert into public.memberships (org_id, user_id, role) values
-  ('0000000a-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a2', 'advocate'),
-  ('0000000a-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a3', 'junior'),
-  ('0000000a-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a4', 'clerk');
+-- ---------------------------------------------------------------- P0 fixture (as postgres)
 insert into public.invites (org_id, role, code, expires_at) values
   ('0000000a-0000-0000-0000-000000000000', 'clerk', 'FIXTURE1', now() + interval '7 days');
 insert into public.devices (user_id, platform) select id, 'android' from public.profiles;
