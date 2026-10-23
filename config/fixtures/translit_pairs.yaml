@@ -1,0 +1,66 @@
+# Shared test vectors for transliteration search. Both search_key implementations
+# (packages/shared/src/advocate_shared/search_key.py, apps/client/lib/core/search_key.dart) must give `key`
+# for the `hi` form and every spelling in `en` (spec §4.3 AC: 50 Hindi/English name pairs), and for each `text`.
+pairs:
+  - {hi: शर्मा, en: [Sharma], key: srm}
+  - {hi: वर्मा, en: [Verma, Varma], key: vrm}
+  - {hi: गुप्ता, en: [Gupta], key: gupt}
+  - {hi: जैन, en: [Jain], key: jen}
+  - {hi: अग्रवाल, en: [Agrawal, Agarwal], key: grvl}
+  - {hi: मिश्रा, en: [Mishra], key: misr}
+  - {hi: तिवारी, en: [Tiwari], key: tivri}
+  - {hi: शुक्ला, en: [Shukla], key: sukl}
+  - {hi: दुबे, en: [Dubey, Dube], key: dube}
+  - {hi: पांडे, en: [Pandey, Pande], key: pnde}
+  - {hi: यादव, en: [Yadav], key: ydv}
+  - {hi: सिंह, en: [Singh], key: sin}
+  - {hi: चौहान, en: [Chouhan, Chauhan], key: cohn}
+  - {hi: पटेल, en: [Patel], key: ptel}
+  - {hi: ठाकुर, en: [Thakur], key: tkur}
+  - {hi: श्रीवास्तव, en: [Shrivastava, Srivastava, Shrivastav], key: srivstv}
+  - {hi: सक्सेना, en: [Saxena], key: sksen}
+  - {hi: त्रिपाठी, en: [Tripathi], key: tripti}
+  - {hi: चौधरी, en: [Choudhary, Chaudhary, Chaudhari], key: codri}
+  - {hi: राठौर, en: [Rathore, Rathor], key: rtor}
+  - {hi: ख़ान, en: [Khan], key: kn}
+  - {hi: क़ुरैशी, en: [Qureshi], key: kuresi}
+  - {hi: अंसारी, en: [Ansari], key: nsri}
+  - {hi: दीक्षित, en: [Dixit, Dikshit], key: diksit}
+  - {hi: चतुर्वेदी, en: [Chaturvedi], key: cturvedi}
+  - {hi: द्विवेदी, en: [Dwivedi], key: dvivedi}
+  - {hi: उपाध्याय, en: [Upadhyay, Upadhyaya], key: updyy}
+  - {hi: मालवीय, en: [Malviya], key: mlviy}
+  - {hi: भार्गव, en: [Bhargava, Bhargav], key: brgv}
+  - {hi: मेहता, en: [Mehta], key: meht}
+  - {hi: जोशी, en: [Joshi], key: josi}
+  - {hi: सिद्दीक़ी, en: [Siddiqui, Siddiqi], key: sidiki}
+  - {hi: राजपूत, en: [Rajput], key: rjput}
+  - {hi: कुशवाहा, en: [Kushwaha], key: kusvh}
+  - {hi: रघुवंशी, en: [Raghuvanshi], key: rguvnsi}
+  - {hi: राजकुमार, en: [Rajkumar], key: rjkumr}
+  - {hi: किशोर, en: [Kishore, Kishor], key: kisor}
+  - {hi: लक्ष्मी, en: [Lakshmi, Laxmi], key: lksmi}
+  - {hi: ज्ञानेन्द्र, en: [Gyanendra], key: gynendr}
+  - {hi: नरेंद्र, en: [Narendra], key: nrendr}
+  - {hi: संजीव, en: [Sanjeev, Sanjiv], key: snjiv}
+  - {hi: पूजा, en: [Pooja, Puja], key: puj}
+  - {hi: दीपक, en: [Deepak], key: dipk}
+  - {hi: कृष्ण, en: [Krishna], key: krisn}
+  - {hi: मोहम्मद, en: [Mohammad, Mohamad], key: mohmd}
+  - {hi: अभिषेक, en: [Abhishek], key: bisek}
+  - {hi: हुसैन, en: [Hussain, Husain], key: husen}
+  - {hi: फ़ातिमा, en: [Fatima], key: ftim}
+  - {hi: अंबिका, en: [Ambika], key: nbik}
+  - {hi: राम कुमार शर्मा, en: [Ram Kumar Sharma, RAM KUMAR SHARMA], key: rm kumr srm}
+other:
+  - {text: MPHC010012342024, key: mphc010012342024}  # CNRs and case numbers stay as typed
+  - {text: WP/1234/2024, key: vp 1234 2024}
+  - {text: "WP १२३४", key: vp 1234}
+  - {text: N. Sharma, key: n srm}
+  - {text: "शर्", key: sr}  # a half-typed query still prefixes the full key
+  - {text: "\u0959ान", key: kn}  # precomposed nukta letter
+  - {text: "ग\u095dवाल", key: grvl}  # precomposed rh
+  - {text: "गढ\u093cवाल", key: grvl}  # decomposed rh
+  - {text: Garhwal, key: grvl}
+  - {text: "", key: ""}
+  - {text: "A.", key: ""}

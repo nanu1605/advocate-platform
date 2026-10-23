@@ -9,6 +9,9 @@ Last updated: 2026-10-24
 - `court_data` package: provider interface and models, eCourtsIndia provider (from their public docs), router with
   fallback and circuit breaker (5 failures → 10 min), per-call cost records; synthetic stand-in API (8 made-up cases,
   dates shiftable to today) for tests and local runs; 26 contract and router tests.
+- Transliteration search key, one algorithm in Python (`advocate_shared.search_key`) and Dart (`core/search_key.dart`),
+  both tested against `config/fixtures/translit_pairs.yaml`: 50 Hindi/English name pairs with common spelling variants,
+  plus CNRs, case numbers, nukta forms and half-typed queries.
 - Phase 0 Track A: see [phase-0-report.md](docs/phases/phase-0-report.md).
 
 ## In progress
@@ -16,9 +19,9 @@ Last updated: 2026-10-24
   Hindi review, privacy-policy page.
 
 ## Next up
-1. P1 task 3: transliteration search key (Python + Dart, 50-pair fixture).
-2. P1 task 4: local sync (self-hosted PowerSync in Docker) and the Flutter data layer.
-3. P1 task 5: P1 API endpoints.
+1. P1 task 4: local sync (self-hosted PowerSync in Docker) and the Flutter data layer.
+2. P1 task 5: P1 API endpoints.
+3. P1 task 6: workers (find-cases, schedules, diff and fan-out, Tomorrow's Board).
 
 ## Deviations from spec (with ADR links)
 - Kit: 5 P2-only components deferred to P2 start — [ADR 0001](docs/adr/0001-defer-p2-kit-components.md).
@@ -38,6 +41,8 @@ Last updated: 2026-10-24
 - Court data: no "manual provider" class — manual tracking is `matters.tracking = 'manual'` plus manual hearings, which
   workers skip; LegalKart joins the router when keys exist (Track B). Contract tests run on a synthetic stand-in until
   spike 11e records real responses; section equivalents join the interface with the P3 law converter.
+- Search keys use a small shared romanisation table in Python and Dart instead of `indic-transliteration` (§7.2): the two
+  sides must give identical keys, which one table guarantees. `indic-transliteration` stays available for display needs.
 - Windows `APPLY_STANDARD_SETTINGS` defines `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`: `local_auth_windows` 2.0.2 builds with `/await`, which MSVC 14.51 rejects (STL1011). Remove when the plugin moves to C++20 `<coroutine>`.
 
 ## Questions for the founder
