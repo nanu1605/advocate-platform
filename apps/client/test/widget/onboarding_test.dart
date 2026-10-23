@@ -12,6 +12,35 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../helpers.dart';
 
+/// The whole app on a 400 × 860 phone with fake auth, API and lock storage.
+Future<(FakeAuth, FakeApi, MemoryLockStore)> _pumpApp(
+  WidgetTester tester,
+) async {
+  tester.view.physicalSize = const Size(400, 860);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
+  final auth = FakeAuth();
+  final api = FakeApi();
+  final store = MemoryLockStore();
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        prefsProvider.overrideWithValue(prefs),
+        authRepositoryProvider.overrideWithValue(auth),
+        apiClientProvider.overrideWithValue(api),
+        deviceRegistrarProvider.overrideWithValue(FakeRegistrar()),
+        lockStoreProvider.overrideWithValue(store),
+        deviceAuthProvider.overrideWithValue(FakeDeviceAuth()),
+      ],
+      child: const App(),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return (auth, api, store);
+}
+
 void main() {
   setUpAll(loadAppFonts);
 
@@ -21,29 +50,7 @@ void main() {
     testWidgets(
       'first run in $locale: language → phone → OTP → consent → PIN → Today → Settings',
       (tester) async {
-        tester.view.physicalSize = const Size(400, 860);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.reset);
-        SharedPreferences.setMockInitialValues({});
-        final prefs = await SharedPreferences.getInstance();
-        final auth = FakeAuth();
-        final api = FakeApi();
-        final store = MemoryLockStore();
-
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              prefsProvider.overrideWithValue(prefs),
-              authRepositoryProvider.overrideWithValue(auth),
-              apiClientProvider.overrideWithValue(api),
-              deviceRegistrarProvider.overrideWithValue(FakeRegistrar()),
-              lockStoreProvider.overrideWithValue(store),
-              deviceAuthProvider.overrideWithValue(FakeDeviceAuth()),
-            ],
-            child: const App(),
-          ),
-        );
-        await tester.pumpAndSettle();
+        final (auth, api, store) = await _pumpApp(tester);
 
         // 1. Language.
         await tester.tap(find.text(language));
@@ -104,4 +111,33 @@ void main() {
       },
     );
   }
+
+  testWidgets('five wrong codes lock the code until a new one is sent', (
+    tester,
+  ) async {
+    final (auth, _, _) = await _pumpApp(tester);
+    final l = lookupAppLocalizations(const Locale('en'));
+    await tester.tap(find.text('English'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '9876543210');
+    await tester.tap(find.text(l.sendCode));
+    await tester.pumpAndSettle();
+
+    for (var i = 1; i <= 5; i++) {
+      await tester.enterText(find.byType(TextField), '00000$i');
+      await tester.pumpAndSettle();
+      expect(find.text(i < 5 ? l.otpInvalid : l.otpLocked), findsOneWidget);
+    }
+    final verify = find.widgetWithText(FilledButton, l.verify);
+    expect(tester.widget<FilledButton>(verify).onPressed, isNull);
+
+    // A new code (after the resend wait) unlocks entry again.
+    await tester.pump(const Duration(seconds: 60));
+    await tester.tap(find.text(l.resend));
+    await tester.pumpAndSettle();
+    expect(auth.sent, hasLength(2));
+    await tester.enterText(find.byType(TextField), '123456');
+    await tester.pumpAndSettle();
+    expect(find.text(l.consentTitle), findsOneWidget);
+  });
 }

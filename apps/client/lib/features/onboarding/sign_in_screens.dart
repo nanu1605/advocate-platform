@@ -90,10 +90,14 @@ class OtpScreen extends ConsumerStatefulWidget {
 
 class _OtpScreenState extends ConsumerState<OtpScreen> {
   static const _resendAfter = 60;
+
+  /// Spec §15.2: after 5 wrong codes this code is dead until a new one is sent (ADR 0008).
+  static const _maxWrong = 5;
   final _code = TextEditingController();
   String? _error;
   bool _busy = false;
   int _wait = _resendAfter;
+  int _wrong = 0;
   Timer? _timer;
 
   @override
@@ -118,7 +122,10 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     super.dispose();
   }
 
+  bool get _locked => _wrong >= _maxWrong;
+
   Future<void> _verify() async {
+    if (_locked) return;
     if (_code.text.length != 6) {
       setState(() => _error = context.l10n.otpInvalid);
       return;
@@ -141,7 +148,13 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       }
       // The router moves on to consent when the session appears.
     } on Object catch (e) {
-      if (mounted) setState(() => _error = authErrorText(context, e));
+      if (mounted) {
+        setState(() {
+          if (classifyAuthError(e) == AuthFailure.invalidCode) _wrong++;
+          _error = _locked ? context.l10n.otpLocked : authErrorText(context, e);
+          if (_locked) _code.clear();
+        });
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -150,7 +163,11 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   Future<void> _resend() async {
     try {
       await ref.read(authRepositoryProvider).sendOtp(widget.phone);
-      setState(_startTimer);
+      setState(() {
+        _wrong = 0;
+        _error = null;
+        _startTimer();
+      });
     } on Object catch (e) {
       if (mounted) setState(() => _error = authErrorText(context, e));
     }
@@ -163,7 +180,11 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       title: l.otpTitle,
       subtitle: l.otpSentTo('+91 ${widget.phone}'),
       showBack: true,
-      primary: BusyButton(label: l.verify, busy: _busy, onPressed: _verify),
+      primary: BusyButton(
+        label: l.verify,
+        busy: _busy,
+        onPressed: _locked ? null : _verify,
+      ),
       secondary: TextButton(
         onPressed: _wait > 0 ? null : _resend,
         child: Text(_wait > 0 ? l.resendIn(_wait) : l.resend),

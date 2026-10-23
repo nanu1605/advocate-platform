@@ -1,3 +1,4 @@
+import 'package:advocate_app/core/brand/brand.g.dart';
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
@@ -6,6 +7,7 @@ import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Version of the itemised notice below; bump it when the notice text changes (stored in `consents`).
 const consentNoticeVersion = 'v1';
@@ -92,7 +94,17 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
         item(AppIcons.folderSimple, l.consentWhatTitle, l.consentWhat),
         item(AppIcons.question, l.consentWhyTitle, l.consentWhy),
         item(AppIcons.mapPin, l.consentWhereTitle, l.consentWhere),
-        // ponytail: "Read the full privacy policy" link waits for the lawyer-drafted policy URL (spec §15.9).
+        // The lawyer-drafted policy (spec §15.9) must be live at this URL before the P1 beta.
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: TextButton(
+            onPressed: () => launchUrl(
+              Uri.parse('${Brand.website}/privacy'),
+              mode: LaunchMode.externalApplication,
+            ),
+            child: Text(l.consentPolicy),
+          ),
+        ),
         const Divider(),
         CheckboxListTile(
           value: _required,

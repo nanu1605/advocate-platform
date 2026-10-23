@@ -21,6 +21,7 @@
   "@resendIn": { "placeholders": { "seconds": { "type": "int" } } },
   "resend": "Resend code",
   "otpInvalid": "That code didn't work. Check it and try again.",
+  "otpLocked": "Too many wrong codes. Request a new code.",
   "changeNumber": "Change number",
 
   "consentTitle": "Your data, your control",

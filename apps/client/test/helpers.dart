@@ -11,6 +11,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Loads every font in FontManifest.json (Mukta, Phosphor, Material Icons) so tests render real glyphs.
 Future<void> loadAppFonts() async {
@@ -96,7 +97,13 @@ class FakeAuth implements AuthRepository {
 
   @override
   Future<void> verifyOtp(String phone, String code) async {
-    if (code != '123456') throw Exception('bad code');
+    if (code != '123456') {
+      // What Supabase Auth returns for a wrong or expired code.
+      throw const AuthException(
+        'Token has expired or is invalid',
+        statusCode: '403',
+      );
+    }
     _signedIn = true;
     _changes.add(true);
   }
