@@ -16,3 +16,4 @@ insert into public.feature_flags (key, value) values ('brief_me', 'false') on co
 insert into public.feature_flags (key, value) values ('drafting', 'false') on conflict (key) do nothing;
 insert into public.feature_flags (key, value) values ('research', 'false') on conflict (key) do nothing;
 insert into public.feature_flags (key, value) values ('strategy', 'false') on conflict (key) do nothing;
+insert into public.feature_flags (key, value) values ('advocate_watch', 'false') on conflict (key) do nothing;

@@ -8,7 +8,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
 from advocate_api.courts import court_data
-from advocate_api.db import CurrentOrg, UserDb
+from advocate_api.db import CurrentOrg, UserDb, engine
 from advocate_api.errors import ApiError
 from advocate_api.idempotency import IdempotencyKey
 from advocate_api.jobs import create_job
@@ -135,3 +135,7 @@ async def test_court_data_calls_are_costed(probe, team):
     assert rows == [{"operation": "case_detail", "status": "ok", "cost_inr": pytest.approx(1.5)}]
     [ledger] = await sql("select kind, cost_inr from public.usage_ledger where org_id = :o", o=team.org_id)
     assert ledger["kind"] == "provider_call"
+
+
+def test_database_errors_carry_no_parameters():
+    assert engine().sync_engine.hide_parameters  # errors are logged: never party names or notes (§7.2)

@@ -40,6 +40,17 @@ async def _call(method: str, path: str, **kwargs: Any) -> httpx.Response:
     return r
 
 
+def _missing(r: httpx.Response) -> bool:
+    """A missing object is 400 with code NoSuchKey; a bad service key reads as NoSuchBucket or AccessDenied, which is
+    a server fault, not a missing file."""
+    if r.status_code == 404:
+        return True
+    try:
+        return r.status_code == 400 and r.json().get("code") == "NoSuchKey"
+    except ValueError:
+        return False
+
+
 async def upload_url(bucket: str, path: str) -> str:
     r = await _call("POST", f"/object/upload/sign/{bucket}/{path}")
     r.raise_for_status()
@@ -49,7 +60,7 @@ async def upload_url(bucket: str, path: str) -> str:
 async def download_url(bucket: str, path: str, filename: str | None = None) -> str:
     body: dict[str, Any] = {"expiresIn": DOWNLOAD_TTL_S}
     r = await _call("POST", f"/object/sign/{bucket}/{path}", json=body)
-    if r.status_code in (400, 404):
+    if _missing(r):
         raise ApiError(404, "FILE_NOT_FOUND", "File not found")
     r.raise_for_status()
     url = _public(r.json()["signedURL"])
@@ -59,7 +70,7 @@ async def download_url(bucket: str, path: str, filename: str | None = None) -> s
 async def info(bucket: str, path: str) -> dict[str, Any] | None:
     """Size and content type of a stored object, or None if it isn't there."""
     r = await _call("GET", f"/object/info/{bucket}/{path}")
-    if r.status_code in (400, 404):
+    if _missing(r):
         return None
     r.raise_for_status()
     return r.json()

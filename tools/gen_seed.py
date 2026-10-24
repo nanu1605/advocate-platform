@@ -9,8 +9,9 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "supabase/seed/010_reference.sql"
-# Later-phase entry points stay hidden until their phase (spec §5.2).
-FLAGS = ["ask", "voice", "scan_to_case", "brief_me", "drafting", "research", "strategy"]
+# Later-phase entry points stay hidden until their phase (spec §5.2). advocate_watch (§11.5) waits for spike 11e to
+# confirm the provider's cause-list search filters by advocate and date.
+FLAGS = ["ask", "voice", "scan_to_case", "brief_me", "drafting", "research", "strategy", "advocate_watch"]
 
 
 def lit(value: object) -> str:

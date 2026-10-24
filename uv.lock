@@ -89,13 +89,17 @@ name = "advocate-shared"
 version = "0.0.0"
 source = { editable = "packages/shared" }
 dependencies = [
+    { name = "court-data" },
     { name = "pydantic-settings" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "structlog" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "court-data", editable = "packages/court_data" },
     { name = "pydantic-settings" },
+    { name = "sqlalchemy", extras = ["asyncio"] },
     { name = "structlog" },
 ]
 
@@ -105,13 +109,23 @@ version = "0.0.0"
 source = { editable = "services/workers" }
 dependencies = [
     { name = "advocate-shared" },
+    { name = "asyncpg" },
     { name = "celery", extra = ["redis"] },
+    { name = "court-data" },
+    { name = "httpx" },
+    { name = "redis" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "advocate-shared", editable = "packages/shared" },
+    { name = "asyncpg" },
     { name = "celery", extras = ["redis"] },
+    { name = "court-data", editable = "packages/court_data" },
+    { name = "httpx" },
+    { name = "redis" },
+    { name = "sqlalchemy", extras = ["asyncio"] },
 ]
 
 [[package]]
