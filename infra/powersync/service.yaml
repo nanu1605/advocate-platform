@@ -1,0 +1,29 @@
+# Local PowerSync service (ADR 0010): replicates the local Supabase database and serves devices.
+# Values come from PS_* variables set in infra/docker/compose.yml; none are production secrets.
+telemetry:
+  disable_telemetry_sharing: true
+
+replication:
+  connections:
+    - type: postgresql
+      uri: !env PS_DATA_SOURCE_URI
+      sslmode: disable # local Docker network only
+
+storage:
+  type: postgresql
+  uri: !env PS_STORAGE_URI
+  sslmode: disable
+
+port: !env PS_PORT::number
+
+sync_config:
+  path: sync-config.yaml
+
+# Supabase access tokens (ES256), verified against the project's JWKS.
+client_auth:
+  jwks_uri: !env PS_JWKS_URL
+  audience: ["authenticated"]
+
+api:
+  tokens:
+    - !env PS_ADMIN_TOKEN

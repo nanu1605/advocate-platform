@@ -1,0 +1,54 @@
+# What each device receives (spec §9.4). Mirrors the read rules in §9.3;
+# services/api/tests/test_sync.py checks it as six users.
+# Buckets are keyed by organisation or user only, never by CNR (1,000-bucket limit per user).
+# Time windows are boolean columns kept current by jobs: queries can't use now().
+# The service reads this file at start-up; restart it after changes.
+config:
+  edition: 3
+
+with:
+  user_orgs: SELECT org_id FROM memberships WHERE user_id = auth.user_id() AND status = 'active'
+
+streams:
+  reference:
+    auto_subscribe: true
+    queries:
+      - SELECT * FROM courts
+      - SELECT * FROM court_holidays
+      - SELECT * FROM plans
+      - SELECT * FROM feature_flags
+      - SELECT * FROM app_config
+
+  org:
+    auto_subscribe: true
+    queries:
+      - SELECT * FROM organizations WHERE id IN user_orgs
+      - SELECT * FROM memberships WHERE org_id IN user_orgs
+      - SELECT * FROM matters WHERE org_id IN user_orgs AND deleted_at IS NULL
+      - SELECT * FROM hearings WHERE org_id IN user_orgs AND deleted_at IS NULL
+      - SELECT * FROM orders WHERE org_id IN user_orgs AND deleted_at IS NULL
+      - SELECT * FROM org_cause_list_entries WHERE org_id IN user_orgs AND is_current = true
+      - SELECT * FROM board_entries WHERE org_id IN user_orgs AND is_current = true
+      - SELECT * FROM found_cases WHERE org_id IN user_orgs AND (decision = 'pending' OR decision = 'skipped')
+      - SELECT * FROM clients WHERE org_id IN user_orgs AND deleted_at IS NULL
+      - SELECT * FROM matter_clients WHERE org_id IN user_orgs
+      - SELECT * FROM notes WHERE org_id IN user_orgs AND visibility = 'team' AND deleted_at IS NULL
+      - SELECT * FROM tasks WHERE org_id IN user_orgs AND deleted_at IS NULL
+      - SELECT * FROM deadlines WHERE org_id IN user_orgs AND deleted_at IS NULL
+      - SELECT * FROM documents WHERE org_id IN user_orgs AND deleted_at IS NULL
+
+  private_notes:
+    auto_subscribe: true
+    query: >-
+      SELECT * FROM notes WHERE org_id IN user_orgs AND author_id = auth.user_id()
+      AND visibility = 'private' AND deleted_at IS NULL
+
+  user:
+    auto_subscribe: true
+    queries:
+      - SELECT * FROM profiles WHERE id = auth.user_id()
+      - SELECT * FROM order_reads WHERE user_id = auth.user_id()
+      - SELECT * FROM document_offline_prefs WHERE user_id = auth.user_id()
+      - SELECT * FROM notification_prefs WHERE user_id = auth.user_id()
+      - SELECT * FROM notifications WHERE user_id = auth.user_id() AND in_window = true
+      - SELECT * FROM jobs WHERE user_id = auth.user_id() AND is_recent = true

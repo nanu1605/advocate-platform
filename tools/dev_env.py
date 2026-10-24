@@ -38,6 +38,7 @@ def main() -> None:
         "SUPABASE_URL": "http://127.0.0.1:55321",
         "SUPABASE_ANON_KEY": LOCAL_ANON_KEY,
         "API_URL": "http://127.0.0.1:8000",
+        "POWERSYNC_URL": "http://127.0.0.1:55380",
     }
     write_once(ROOT / "apps/client/env.local.json", json.dumps(app_env, indent=2) + "\n")
 

@@ -2,6 +2,7 @@ import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/core/theme/app_theme.dart';
+import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/shell/home_shell.dart';
 import 'package:advocate_app/ui/fields.dart';
 import 'package:advocate_app/ui/icons.dart';
@@ -21,11 +22,12 @@ class TodayScreen extends ConsumerWidget {
     final theme = ref.watch(settingsProvider.select((s) => s.theme));
     final sunlight = theme == AppThemeMode.sunlight;
     final date = Formats(Localizations.localeOf(context)).date(DateTime.now());
+    final sync = ref.watch(syncViewProvider).value?.status ?? SyncStatus.synced;
     return Scaffold(
       appBar: AppBar(
         title: Text('${l.navToday} · $date'),
         actions: [
-          const SyncIndicator(SyncStatus.synced),
+          SyncIndicator(sync),
           // Sunlight is one tap from Today because people need it outdoors (spec §5.6).
           IconButton(
             tooltip: l.sunlightToggle,
