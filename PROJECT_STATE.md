@@ -20,6 +20,11 @@ Last updated: 2026-10-24
   jobs get/cancel, case search (cached, rate-limited, costed), add by CNR, manual cases, refresh, official link,
   delete, document upload/complete/download URLs, order PDF URL (fetched once, shared), Tomorrow's Board, feedback.
   Shared plumbing: Idempotency-Key, after-commit job enqueueing, court-data budgets and cost records, Storage signing.
+- P1 workers ([ADR 0012](docs/adr/0012-p1-workers.md)): find-my-cases (cancellable, scored, capped), fetch for added
+  cases, on-demand refresh, the §11.5 schedule (cause lists 18:30/20:30/22:00, post-hearing refresh and two retries,
+  weekly sweep, auto-match, `advocate_watch` behind a flag, Today at 07:30), change detection with per-user event keys,
+  fan-out to every tracking organisation, Tomorrow's Board with expected slots and clash groups, order PDF pipeline,
+  ClamAV upload scan (fails closed), window flags, stale-job sweeper, §11.8 budgets. 104 worker tests.
 - Phase 0 Track A: see [phase-0-report.md](docs/phases/phase-0-report.md).
 
 ## In progress
@@ -27,9 +32,11 @@ Last updated: 2026-10-24
   Hindi review, privacy-policy page.
 
 ## Next up
-1. P1 task 6: workers (find-cases, fetch and refresh, schedules, diff and fan-out, Tomorrow's Board, document scan).
-2. P1 task 7: onboarding rest and Found cases.
-3. P1 task 8: Today and Tomorrow's Board screens.
+1. P1 task 7: onboarding rest and Found cases (needs app text for the new job error codes, a local notification
+   when find-my-cases finishes, and the Bar Council state saved as the court-state code or a name `find.STATE_CODES` knows).
+2. P1 task 8: Today and Tomorrow's Board screens (the app re-applies the clash rule after Assign to / proxy arranged
+   until the next board build).
+3. P1 task 9: Cases and case page.
 
 ## Deviations from spec (with ADR links)
 - Kit: 5 P2-only components deferred to P2 start — [ADR 0001](docs/adr/0001-defer-p2-kit-components.md).
@@ -58,6 +65,9 @@ Last updated: 2026-10-24
   new path and can't read or overwrite. Download URLs are 5 minutes — [ADR 0011](docs/adr/0011-p1-api.md).
 - Case search takes no Idempotency-Key (read-only, cached 24 h, rate-limited); order PDF URLs are a GET per §10.2,
   guarded by a lock and the shared file cache. Court-data webhooks wait for LegalKart keys (Track B).
+- Workers: no free "available dates" call, so cause lists are retried per CNR; the weekly sweep is fortnightly (no
+  change signal); one budget threshold per budget instead of §11.8's staged pause order; expected slots and clashes
+  are a documented heuristic — [ADR 0012](docs/adr/0012-p1-workers.md).
 - Windows `APPLY_STANDARD_SETTINGS` defines `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`: `local_auth_windows` 2.0.2 builds with `/await`, which MSVC 14.51 rejects (STL1011). Remove when the plugin moves to C++20 `<coroutine>`.
 
 ## Questions for the founder
