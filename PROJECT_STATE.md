@@ -6,6 +6,9 @@ Last updated: 2026-10-24
 - Plan: [phase-1-plan.md](docs/phases/phase-1-plan.md) (Track A local, Track B on hold).
 - Schema for the 26 P1 tables with RLS, write-path triggers and the beta tracked-case allowance; five reference courts;
   709 new pgTAP assertions (5 actors × CRUD + every trigger), 1009 in all ([ADR 0009](docs/adr/0009-p1-schema-additions.md)).
+- `court_data` package: provider interface and models, eCourtsIndia provider (from their public docs), router with
+  fallback and circuit breaker (5 failures → 10 min), per-call cost records; synthetic stand-in API (8 made-up cases,
+  dates shiftable to today) for tests and local runs; 26 contract and router tests.
 - Phase 0 Track A: see [phase-0-report.md](docs/phases/phase-0-report.md).
 
 ## In progress
@@ -13,9 +16,9 @@ Last updated: 2026-10-24
   Hindi review, privacy-policy page.
 
 ## Next up
-1. P1 task 2: `court_data` package (interface, manual + eCourtsIndia providers, router, breaker, cost ledger, fixtures).
-2. P1 task 3: transliteration search key (Python + Dart, 50-pair fixture).
-3. P1 task 4: local sync (self-hosted PowerSync in Docker) and the Flutter data layer.
+1. P1 task 3: transliteration search key (Python + Dart, 50-pair fixture).
+2. P1 task 4: local sync (self-hosted PowerSync in Docker) and the Flutter data layer.
+3. P1 task 5: P1 API endpoints.
 
 ## Deviations from spec (with ADR links)
 - Kit: 5 P2-only components deferred to P2 start — [ADR 0001](docs/adr/0001-defer-p2-kit-components.md).
@@ -32,6 +35,9 @@ Last updated: 2026-10-24
 - Wrong-OTP lockout (spec §15.2) is enforced in the app, backed by Supabase's code expiry and per-IP verify limit; Supabase phone OTP allows no server-side per-number count — [ADR 0008](docs/adr/0008-otp-lockout.md).
 - Phase 1 started before the Phase 0 gate closed (founder go-ahead, 24 Oct 2026); both gates wait on Track B.
 - P1 schema additions to §9.2 and how §9.3 column rules are enforced — [ADR 0009](docs/adr/0009-p1-schema-additions.md).
+- Court data: no "manual provider" class — manual tracking is `matters.tracking = 'manual'` plus manual hearings, which
+  workers skip; LegalKart joins the router when keys exist (Track B). Contract tests run on a synthetic stand-in until
+  spike 11e records real responses; section equivalents join the interface with the P3 law converter.
 - Windows `APPLY_STANDARD_SETTINGS` defines `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`: `local_auth_windows` 2.0.2 builds with `/await`, which MSVC 14.51 rejects (STL1011). Remove when the plugin moves to C++20 `<coroutine>`.
 
 ## Questions for the founder

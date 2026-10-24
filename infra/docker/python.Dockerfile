@@ -6,6 +6,7 @@ WORKDIR /src
 COPY pyproject.toml uv.lock ./
 COPY packages/shared packages/shared
 COPY packages/legal_ai packages/legal_ai
+COPY packages/court_data packages/court_data
 COPY services/api services/api
 COPY services/workers services/workers
 RUN uv sync --frozen --no-dev --all-packages
