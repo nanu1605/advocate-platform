@@ -1,56 +1,12 @@
 import 'package:advocate_app/core/l10n/l10n.dart';
-import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
-import 'package:advocate_app/core/theme/app_theme.dart';
-import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/shell/home_shell.dart';
 import 'package:advocate_app/ui/fields.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
-/// Today (P0 shell). Matters, board and tasks arrive with court data in P1.
-class TodayScreen extends ConsumerWidget {
-  const TodayScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l = context.l10n;
-    final theme = ref.watch(settingsProvider.select((s) => s.theme));
-    final sunlight = theme == AppThemeMode.sunlight;
-    final date = Formats(Localizations.localeOf(context)).date(DateTime.now());
-    final sync = ref.watch(syncViewProvider).value?.status ?? SyncStatus.synced;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('${l.navToday} · $date'),
-        actions: [
-          SyncIndicator(sync),
-          // Sunlight is one tap from Today because people need it outdoors (spec §5.6).
-          IconButton(
-            tooltip: l.sunlightToggle,
-            isSelected: sunlight,
-            icon: const Icon(AppIcons.sunDim),
-            selectedIcon: const Icon(AppIcons.sunDimFill),
-            onPressed: () => ref
-                .read(settingsProvider.notifier)
-                .setTheme(
-                  sunlight ? AppThemeMode.system : AppThemeMode.sunlight,
-                ),
-          ),
-        ],
-      ),
-      body: EmptyState(
-        icon: AppIcons.coffee,
-        message: l.todayEmpty,
-        actionLabel: l.addFirstCase,
-        onAction: () => showAddSheet(context),
-      ),
-    );
-  }
-}
 
 class CasesScreen extends StatelessWidget {
   const CasesScreen({super.key});

@@ -22,6 +22,7 @@ dependencies:
   package_info_plus: ^10.2.2
   path_provider: ^2.1.6
   powersync: ^2.5.0
+  share_plus: ^13.3.1
   shared_preferences: ^2.5.6
   supabase_flutter: ^2.18.3
   url_launcher: ^6.3.3

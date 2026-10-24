@@ -332,8 +332,12 @@ final kitSections = <KitSection>[
       ),
     ]),
   ),
-  KitSection('board_phone', (_) => const BoardTable(_board)),
-  KitSection('board_desktop', (_) => const BoardTable(_board), width: 1000),
+  KitSection('board_phone', (context) => BoardTable(_board(context))),
+  KitSection(
+    'board_desktop',
+    (context) => BoardTable(_board(context)),
+    width: 1000,
+  ),
   KitSection(
     'dialogs',
     (context) => _col([
@@ -375,35 +379,64 @@ final kitSections = <KitSection>[
   const KitSection('scaffold_desktop', _scaffold, width: 1100, height: 640),
 ];
 
-const _board = [
-  BoardRow(
-    caseNumber: 'WP 1234/2024',
-    court: 'MPHC Indore',
-    courtNo: '12',
-    itemNo: '23',
-    purpose: 'Hearing',
-    client: 'R. Sharma',
-    assignee: 'Priya',
-  ),
-  BoardRow(
-    caseNumber: 'CRA 455/2023',
-    court: 'MPHC Indore',
-    courtNo: '7',
-    itemNo: '41',
-    purpose: 'Arguments',
-    client: 'M. Lal',
-    assignee: 'Self',
-  ),
-  BoardRow(
-    caseNumber: 'CS 210/2022',
-    court: 'District Court Indore',
-    courtNo: '5',
-    itemNo: '8',
-    purpose: 'Evidence',
-    client: 'A. Gupta',
-    clash: true,
-  ),
-];
+List<BoardRow> _board(BuildContext context) {
+  final l = context.l10n;
+  final menu = IconButton(
+    tooltip: l.boardMoreActions('WP 1234/2024'),
+    icon: const Icon(AppIcons.dotsThreeVertical),
+    onPressed: _noop,
+  );
+  return [
+    BoardRow(
+      caseNumber: 'WP 1234/2024',
+      court: 'MPHC Indore',
+      title: 'Sharma v. State of MP',
+      courtNo: '12',
+      itemNo: '23',
+      purpose: 'Hearing',
+      client: 'R. Sharma',
+      assignee: 'Priya',
+      onTap: _noop,
+      menu: menu,
+    ),
+    BoardRow(
+      caseNumber: 'CRA 455/2023',
+      court: 'MPHC Indore',
+      courtNo: '7',
+      itemNo: '41',
+      purpose: 'Arguments',
+      client: 'M. Lal',
+      assignee: 'Self',
+      proxy: true,
+      onTap: _noop,
+      menu: menu,
+    ),
+    BoardRow(
+      caseNumber: 'CS 210/2022',
+      court: 'District Court Indore',
+      courtNo: '5',
+      itemNo: '8',
+      purpose: 'Evidence',
+      client: 'A. Gupta',
+      clash: true,
+      note: 'Clashes with WP 1234/2024 at MPHC Indore, about 11:58 am. Times are estimated from item numbers.',
+      onTap: _noop,
+      actions: [
+        OutlinedButton.icon(
+          onPressed: _noop,
+          icon: const Icon(AppIcons.userSwitch),
+          label: Text(l.boardAssignTo),
+        ),
+        OutlinedButton.icon(
+          onPressed: _noop,
+          icon: const Icon(AppIcons.handshake),
+          label: Text(l.boardProxyMark),
+        ),
+      ],
+      menu: menu,
+    ),
+  ];
+}
 
 /// The shell picks its layout from MediaQuery, so size it to the section box.
 Widget _scaffold(BuildContext context) => LayoutBuilder(

@@ -195,6 +195,47 @@ void main() {
     },
   );
 
+  test('refresh is org-scoped with an idempotency key', () async {
+    final (api, adapter) = _client((_) => (202, {'job_id': 'j3'}));
+    expect(
+      await api.refreshMatter(
+        orgId: 'o1',
+        matterId: 'm1',
+        idempotencyKey: 'key-5678',
+      ),
+      'j3',
+    );
+    final r = adapter.requests.single;
+    expect((r.method, r.path), ('POST', '/v1/matters/m1/refresh'));
+    expect(r.headers['X-Org-Id'], 'o1');
+    expect(r.headers['Idempotency-Key'], 'key-5678');
+  });
+
+  test('a case refreshed in the last 6 h is RATE_LIMITED', () async {
+    final (api, _) = _client(
+      (_) => (
+        429,
+        {
+          'error': {
+            'code': 'RATE_LIMITED',
+            'message': 'This case was refreshed recently',
+            'retryable': true,
+            'details': {'retry_after_s': 3600},
+          },
+        },
+      ),
+    );
+    await expectLater(
+      api.refreshMatter(orgId: 'o1', matterId: 'm1', idempotencyKey: 'key-1'),
+      throwsA(
+        isA<ApiException>()
+            .having((e) => e.code, 'code', 'RATE_LIMITED')
+            .having((e) => e.status, 'status', 429)
+            .having((e) => e.details['retry_after_s'], 'retry after', 3600),
+      ),
+    );
+  });
+
   test('no response at all is NETWORK, retryable', () async {
     final dio = Dio(BaseOptions(baseUrl: 'http://api.test'))
       ..interceptors.add(

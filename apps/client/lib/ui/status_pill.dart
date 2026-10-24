@@ -3,7 +3,18 @@ import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:flutter/material.dart';
 
-enum PillKind { listed, newOrder, adjourned, urgent, disposed, manual, clash }
+enum PillKind {
+  listed,
+  newOrder,
+  adjourned,
+  urgent,
+  disposed,
+  manual,
+  clash,
+
+  /// A task past its due date.
+  overdue,
+}
 
 /// Status pill: always icon + text, never colour alone (spec §5.6). Sunlight: coloured border on white.
 class StatusPill extends StatelessWidget {
@@ -15,7 +26,7 @@ class StatusPill extends StatelessWidget {
     PillKind.listed => StatusKind.listed,
     PillKind.newOrder => StatusKind.newOrder,
     PillKind.adjourned => StatusKind.adjourned,
-    PillKind.urgent || PillKind.clash => StatusKind.urgent,
+    PillKind.urgent || PillKind.clash || PillKind.overdue => StatusKind.urgent,
     PillKind.disposed || PillKind.manual => StatusKind.disposed,
   };
 
@@ -27,6 +38,7 @@ class StatusPill extends StatelessWidget {
     PillKind.disposed => AppIcons.archive,
     PillKind.manual => AppIcons.pencilSimple,
     PillKind.clash => AppIcons.arrowsLeftRight,
+    PillKind.overdue => AppIcons.clock,
   };
 
   static String label(BuildContext context, PillKind k) {
@@ -39,6 +51,7 @@ class StatusPill extends StatelessWidget {
       PillKind.disposed => l.statusDisposed,
       PillKind.manual => l.statusManual,
       PillKind.clash => l.statusClash,
+      PillKind.overdue => l.statusOverdue,
     };
   }
 

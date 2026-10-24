@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:advocate_app/core/clock.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -117,7 +118,6 @@ class DeviceAuth {
 
 final lockStoreProvider = Provider<LockStore>((_) => LockStore());
 final deviceAuthProvider = Provider<DeviceAuth>((_) => DeviceAuth());
-final clockProvider = Provider<DateTime Function()>((_) => DateTime.now);
 
 /// Loaded before runApp so the very first frame is already locked.
 final initialLockProvider = Provider<AppLockState>((_) => const AppLockState());

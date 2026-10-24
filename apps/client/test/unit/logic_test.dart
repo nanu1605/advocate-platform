@@ -285,4 +285,14 @@ void main() {
       expect(hi.difference(en), isEmpty, reason: 'missing in app_en.arb');
     },
   );
+
+  test('Hindi =1 branches print the count, never a literal 1', () {
+    // intl puts Hindi 0 in the "one" category, so =1{1 केस} would read "1 केस" for a count of 0.
+    final hi = File('l10n/app_hi.arb').readAsStringSync();
+    expect(RegExp(r'=1\{[^{}]*(?<![\d\w])1(?![\d\w])').hasMatch(hi), isFalse);
+    expect(
+      lookupAppLocalizations(const Locale('hi')).pages(0),
+      isNot(contains('1')),
+    );
+  });
 }

@@ -72,7 +72,8 @@ class HomeShell extends ConsumerWidget {
     ];
 
     return AppScaffold(
-      location: location,
+      // The board belongs to Today.
+      location: location.startsWith('/board/') ? '/today' : location,
       phoneDestinations: phone,
       railDestinations: rail,
       onNavigate: context.go,

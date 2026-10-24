@@ -1,7 +1,7 @@
 import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/shell/home_shell.dart';
-import 'package:advocate_app/features/shell/screens.dart';
+import 'package:advocate_app/features/today/today_screen.dart';
 import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

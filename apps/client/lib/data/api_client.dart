@@ -194,6 +194,23 @@ class ApiClient {
     return (matterId: r['matter_id'] as String, created: r['created'] as bool);
   }
 
+  /// On-demand refresh of an auto-tracked case (spec §11.5 pull-to-refresh / F5); returns the job id. At most one
+  /// per case per 6 h per org: a case refreshed recently throws RATE_LIMITED (429, details `{retry_after_s}`),
+  /// which means "already up to date", not a failure. MANUAL_CASE, TRACKING_OFF (409), NOT_FOUND.
+  Future<String> refreshMatter({
+    required String orgId,
+    required String matterId,
+    required String idempotencyKey,
+  }) async {
+    final r = await _send<Map<String, dynamic>>(
+      () => _dio.post(
+        '/v1/matters/$matterId/refresh',
+        options: _org(orgId, idempotencyKey),
+      ),
+    );
+    return r['job_id'] as String;
+  }
+
   Options _org(String orgId, [String? idempotencyKey]) =>
       Options(headers: {'X-Org-Id': orgId, 'Idempotency-Key': ?idempotencyKey});
 

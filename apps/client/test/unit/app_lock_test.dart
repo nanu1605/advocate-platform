@@ -1,3 +1,4 @@
+import 'package:advocate_app/core/clock.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

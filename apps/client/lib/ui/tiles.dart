@@ -125,7 +125,7 @@ class TaskItem extends StatelessWidget {
                       color: overdue ? c.of(StatusKind.urgent).fg : null,
                     ),
                   ),
-                if (overdue) const StatusPill(PillKind.urgent),
+                if (overdue) const StatusPill(PillKind.overdue),
                 if (assignee != null)
                   Text(assignee!, style: context.text.bodySmall),
               ],
