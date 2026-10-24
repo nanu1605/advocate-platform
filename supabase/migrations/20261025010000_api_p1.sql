@@ -82,3 +82,65 @@ begin
   end if;
   return new;
 end $$;
+
+-- Assignees reference memberships; deleting a user or an organisation removes memberships first, which a plain
+-- NO ACTION key rejects while an assignment exists. Clear the assignee instead.
+alter table public.matters drop constraint matters_org_id_assigned_to_fkey,
+  add foreign key (org_id, assigned_to) references public.memberships (org_id, user_id) on delete set null (assigned_to);
+alter table public.board_entries drop constraint board_entries_org_id_assignee_id_fkey,
+  add foreign key (org_id, assignee_id) references public.memberships (org_id, user_id) on delete set null (assignee_id);
+alter table public.tasks drop constraint tasks_org_id_assignee_id_fkey,
+  add foreign key (org_id, assignee_id) references public.memberships (org_id, user_id) on delete set null (assignee_id);
+
+-- The allowance count can't see another transaction's uncommitted matters, so concurrent adds could overshoot it.
+-- One lock per organisation serialises them; the API takes the same lock before its own pre-check.
+create or replace function public.matters_allowance() returns trigger
+language plpgsql as $$
+declare
+  allowance int := (select (value #>> '{}')::int from public.app_config where key = 'beta_tracked_case_allowance');
+begin
+  if allowance is not null and new.tracking = 'auto' and new.deleted_at is null
+     and (tg_op = 'INSERT' or old.tracking <> 'auto' or old.deleted_at is not null) then
+    perform pg_advisory_xact_lock(hashtextextended('allowance:' || new.org_id::text, 0));
+    if (select count(*) from public.matters m
+        where m.org_id = new.org_id and m.tracking = 'auto' and m.deleted_at is null and m.id <> new.id) >= allowance then
+      raise exception 'TRACKED_CASE_LIMIT' using errcode = 'P0001', detail = allowance::text;
+    end if;
+  end if;
+  return new;
+end $$;
+
+-- Deleting a matter soft-deletes everything hanging off it in one transaction, including rows the caller can't
+-- write or even see under RLS (orders, cause-list rows, colleagues' private notes). Owners and advocates only.
+create or replace function public.delete_matter(target uuid) returns void
+language plpgsql security definer set search_path = '' as $$
+declare
+  org uuid := (select org_id from public.matters where id = target and deleted_at is null);
+begin
+  if org is null or not public.is_member(org) then
+    raise exception 'MATTER_NOT_FOUND' using errcode = 'P0001';
+  end if;
+  if not public.has_role(org, array['owner', 'advocate']) then
+    raise exception 'insufficient role' using errcode = '42501';
+  end if;
+  perform set_config('app.write_path', 'api', true);
+  update public.matters set deleted_at = now() where id = target;
+  update public.hearings set deleted_at = now() where matter_id = target and deleted_at is null;
+  update public.orders set deleted_at = now() where matter_id = target and deleted_at is null;
+  update public.notes set deleted_at = now() where matter_id = target and deleted_at is null;
+  update public.tasks set deleted_at = now() where matter_id = target and deleted_at is null;
+  update public.deadlines set deleted_at = now() where matter_id = target and deleted_at is null;
+  update public.documents set deleted_at = now() where matter_id = target and deleted_at is null;
+  update public.board_entries set is_current = false where matter_id = target and is_current;
+  update public.org_cause_list_entries set is_current = false where matter_id = target and is_current;
+  insert into public.audit_log (org_id, user_id, action, entity, entity_id)
+  values (org, auth.uid(), 'matter_deleted', 'matters', target);
+end $$;
+revoke all on function public.delete_matter(uuid) from public, anon;
+grant execute on function public.delete_matter(uuid) to authenticated;
+
+-- Uploads must be one of the types the API accepts (spec §4.3); Storage rejects anything else.
+update storage.buckets set allowed_mime_types = array[
+  'application/pdf', 'image/jpeg', 'image/png',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+] where id = 'documents';

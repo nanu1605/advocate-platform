@@ -67,5 +67,7 @@ async def info(bucket: str, path: str) -> dict[str, Any] | None:
 
 async def put(bucket: str, path: str, data: bytes, content_type: str) -> None:
     r = await _call("POST", f"/object/{bucket}/{path}", content=data, headers={"Content-Type": content_type})
-    if r.status_code != 409:  # already stored by a concurrent request: same content
-        r.raise_for_status()
+    # Already stored (Storage answers 400 with statusCode "409"): content-addressed paths hold the same bytes.
+    if r.status_code == 409 or (r.status_code == 400 and r.json().get("statusCode") == "409"):
+        return
+    r.raise_for_status()

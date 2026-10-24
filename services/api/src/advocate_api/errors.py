@@ -32,6 +32,7 @@ DB_RULES = {
     "INVITE_INVALID": (404, "This invite is not valid"),
     "ALREADY_MEMBER": (409, "You are already in this team"),
     "TEAM_LIMIT": (409, "This team is full"),
+    "MATTER_NOT_FOUND": (404, "Case not found"),
 }
 
 HTTP_CODES = {
