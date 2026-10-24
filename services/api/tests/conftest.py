@@ -2,6 +2,10 @@
 
 import os
 import socket
+import uuid
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Any
 
 import httpx
 import pytest
@@ -69,3 +73,66 @@ async def api():
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
+
+
+async def sql(statement: str, **params: Any) -> list[dict[str, Any]]:
+    """One statement as the database owner (bypasses RLS): fixtures and assertions on server-side rows."""
+    from advocate_api.db import engine
+
+    async with engine().begin() as c:
+        result = await c.execute(text(statement), params)
+        return [dict(r) for r in result.mappings()] if result.returns_rows else []
+
+
+@dataclass
+class Team:
+    org_id: str
+    users: dict[str, str]  # name -> user id
+    tokens: dict[str, str]
+
+    def h(self, who: str, **extra: str) -> dict[str, str]:
+        """Auth plus X-Org-Id for this team's organisation."""
+        return auth(self.tokens[who], **{"X-Org-Id": self.org_id, **extra})
+
+
+async def make_team(members: Mapping[str, tuple[str, str | None]], *, kind: str = "chamber") -> Team:
+    """Fresh users for the given test numbers and one organisation. `members` maps a name to (phone, role);
+    role None leaves that user outside the organisation. The member with role 'owner' owns it. Profiles get the
+    name (title-cased) as full_name."""
+    phones = [phone for phone, _ in members.values()]
+    await sql(
+        "delete from public.organizations where owner_id in (select id from auth.users where phone = any(:p))",
+        p=phones,
+    )
+    await sql("delete from auth.users where phone = any(:p)", p=phones)
+    tokens = {name: sign_in(phone) for name, (phone, _) in members.items()}
+    rows = await sql("select id, phone from auth.users where phone = any(:p)", p=phones)
+    ids = {r["phone"]: str(r["id"]) for r in rows}
+    users = {name: ids[phone] for name, (phone, _) in members.items()}
+    for name, uid in users.items():
+        await sql("update public.profiles set full_name = :n where id = :u", n=name.title(), u=uid)
+    owner = next(name for name, (_, role) in members.items() if role == "owner")
+    org_id = str(uuid.uuid4())
+    await sql(
+        "insert into public.organizations (id, name, kind, owner_id) values (:id, :n, :k, :o)",
+        id=org_id, n=f"{owner.title()} chamber", k=kind, o=users[owner],
+    )  # fmt: skip
+    for name, (_, role) in members.items():
+        if role and role != "owner":
+            await sql(
+                "insert into public.memberships (org_id, user_id, role, display_name) values (:o, :u, :r, :n)",
+                o=org_id, u=users[name], r=role, n=name.title(),
+            )  # fmt: skip
+    return Team(org_id, users, tokens)
+
+
+@pytest.fixture
+def enqueued(monkeypatch) -> list[tuple[str, str]]:
+    """Celery tasks the request would have sent, as (task name, job id), instead of sending them."""
+    calls: list[tuple[str, str]] = []
+
+    async def fake(task: str, job_id: uuid.UUID) -> None:
+        calls.append((task, str(job_id)))
+
+    monkeypatch.setattr("advocate_api.jobs.enqueue", fake)
+    return calls

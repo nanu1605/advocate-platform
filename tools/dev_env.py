@@ -11,6 +11,10 @@ LOCAL_ANON_KEY = (  # well-known key of every local Supabase stack
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9"
     ".CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"
 )
+LOCAL_SERVICE_ROLE_KEY = (  # well-known key of every local Supabase stack; real keys live in Secrets Manager
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0"
+    ".EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
+)
 
 
 def write_once(path: Path, content: str) -> None:
@@ -32,7 +36,8 @@ def main() -> None:
         "APP_ENV=local\nTZ=Asia/Kolkata\n"
         "DATABASE_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:55322/postgres\n"
         "REDIS_URL=redis://localhost:6379/0\nSUPABASE_URL=http://127.0.0.1:55321\n"
-        f"SUPABASE_ANON_KEY={LOCAL_ANON_KEY}\nAUTH_HOOK_SECRET={secret}\n",
+        f"SUPABASE_ANON_KEY={LOCAL_ANON_KEY}\nSUPABASE_SERVICE_ROLE_KEY={LOCAL_SERVICE_ROLE_KEY}\n"
+        f"AUTH_HOOK_SECRET={secret}\n",
     )
     app_env = {
         "SUPABASE_URL": "http://127.0.0.1:55321",

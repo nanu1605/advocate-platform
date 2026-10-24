@@ -43,7 +43,7 @@ jobs:
       - name: Start local Supabase
         run: |
           uv run python tools/dev_env.py
-          npx supabase start --exclude studio,imgproxy,mailpit,storage-api
+          npx supabase start --exclude studio,imgproxy,mailpit
       - name: Row-level security tests (pgTAP)
         run: npx supabase test db
       - name: Start local sync service

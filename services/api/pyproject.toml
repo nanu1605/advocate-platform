@@ -4,6 +4,8 @@ version = "0.0.0"
 requires-python = ">=3.14"
 dependencies = [
     "advocate-shared",
+    "court-data",
+    "celery[redis]",
     "fastapi",
     "uvicorn[standard]",
     "sqlalchemy[asyncio]",
