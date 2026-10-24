@@ -1,8 +1,16 @@
+import 'dart:async';
+
 import 'package:advocate_app/core/theme/app_colors.dart';
+import 'package:advocate_app/data/sync/sync.dart';
+import 'package:advocate_app/ui/icons.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Shared frame for onboarding steps: heading, body, one primary action pinned at the bottom.
+/// Shared frame for onboarding steps: heading, body, one primary action pinned at the bottom. The offline
+/// banner shows while sync reports the device offline, or when [offline] says so (spec §5.4).
 class OnboardingLayout extends StatelessWidget {
   const OnboardingLayout({
     required this.title,
@@ -10,7 +18,9 @@ class OnboardingLayout extends StatelessWidget {
     this.subtitle,
     this.primary,
     this.secondary,
+    this.notice,
     this.showBack = false,
+    this.offline = false,
     super.key,
   });
 
@@ -19,50 +29,74 @@ class OnboardingLayout extends StatelessWidget {
   final List<Widget> children;
   final Widget? primary;
   final Widget? secondary;
+
+  /// The step's error, pinned above [primary] so it is on screen (and in the semantics tree, so read out) even
+  /// when 200% text pushes the end of the body out of view (spec §5.9).
+  final String? notice;
   final bool showBack;
+  final bool offline;
 
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: showBack ? AppBar(shape: const Border()) : null,
     body: SafeArea(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: Column(
-            children: [
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+      child: Column(
+        children: [
+          Consumer(
+            builder: (_, ref, _) =>
+                offline || (ref.watch(syncViewProvider).value?.offline ?? false)
+                ? const OfflineBanner()
+                : const SizedBox.shrink(),
+          ),
+          Expanded(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
                   children: [
-                    Semantics(
-                      header: true,
-                      child: Text(title, style: context.text.displaySmall),
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+                        children: [
+                          Semantics(
+                            header: true,
+                            child: Text(
+                              title,
+                              style: context.text.displaySmall,
+                            ),
+                          ),
+                          if (subtitle != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              subtitle!,
+                              style: context.text.bodyLarge?.copyWith(
+                                color: context.colors.ink2,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          ...children,
+                        ],
+                      ),
                     ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        subtitle!,
-                        style: context.text.bodyLarge?.copyWith(
-                          color: context.colors.ink2,
+                    if (primary != null || secondary != null || notice != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (notice != null) StepNotice(notice!),
+                            ?primary,
+                            ?secondary,
+                          ],
                         ),
                       ),
-                    ],
-                    const SizedBox(height: 24),
-                    ...children,
                   ],
                 ),
               ),
-              if (primary != null || secondary != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [?primary, ?secondary],
-                  ),
-                ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     ),
   );
@@ -93,6 +127,57 @@ class BusyButton extends StatelessWidget {
             ),
           )
         : Text(label),
+  );
+}
+
+/// A message under a form or step, read out when it appears: icon + text in the status colour.
+class StepNotice extends StatelessWidget {
+  const StepNotice(this.message, {this.kind = StatusKind.urgent, super.key});
+
+  final String message;
+  final StatusKind kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = context.colors.of(kind).fg;
+    return Semantics(
+      liveRegion: true,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              kind == StatusKind.success
+                  ? AppIcons.checkCircleFill
+                  : AppIcons.warningCircle,
+              size: inlineIconSize(context, 22),
+              color: fg,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: context.text.bodyLarge?.copyWith(color: fg),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Reads [message] out where the platform takes announcements (Windows, iOS). Elsewhere a field's error text
+/// and [StepNotice] are live regions already (spec §5.9: form errors are announced).
+void announce(BuildContext context, String message) {
+  if (!MediaQuery.supportsAnnounceOf(context)) return;
+  unawaited(
+    SemanticsService.sendAnnouncement(
+      View.of(context),
+      message,
+      Directionality.of(context),
+    ),
   );
 }
 

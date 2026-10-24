@@ -12,6 +12,7 @@ class AuthRepository {
 
   bool get isSignedIn => _client.auth.currentSession != null;
   String? get accessToken => _client.auth.currentSession?.accessToken;
+  String? get userId => _client.auth.currentUser?.id;
 
   Stream<bool> get changes =>
       _client.auth.onAuthStateChange.map((s) => s.session != null);

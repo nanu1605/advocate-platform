@@ -320,8 +320,11 @@ const schema = Schema([
   ]),
 
   // Local only, never uploaded: ticks on the Found cases screen survive the app being killed (§4.1).
-  // `id` is the found case's id.
-  Table.localOnly('found_selection', [Column.text('org_id')]),
+  // `id` is the found case's id; `selected` is an explicit tick (1) or untick (0), no row = the default.
+  Table.localOnly('found_selection', [
+    Column.text('org_id'),
+    Column.integer('selected'),
+  ]),
 ]);
 
 /// Columns that are jsonb or arrays in Postgres. They are JSON text on the device and are decoded before upload,

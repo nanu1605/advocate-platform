@@ -25,6 +25,10 @@ Last updated: 2026-10-24
   weekly sweep, auto-match, `advocate_watch` behind a flag, Today at 07:30), change detection with per-user event keys,
   fan-out to every tracking organisation, Tomorrow's Board with expected slots and clash groups, order PDF pipeline,
   ClamAV upload scan (fails closed), window flags, stale-job sweeper, §11.8 budgets. 104 worker tests.
+- P1 onboarding ([ADR 0013](docs/adr/0013-p1-onboarding.md)): role, join by code, advocate details, "Finding your
+  cases" with live progress and cancel, Found cases (Add all / select, groups, filters, transliteration search,
+  allowance, Windows keys, selection kept across restarts), Add by CNR sheet, notification explainer; account and
+  current-org state, error texts in both languages, session cleanup on every sign-out path.
 - Phase 0 Track A: see [phase-0-report.md](docs/phases/phase-0-report.md).
 
 ## In progress
@@ -32,11 +36,10 @@ Last updated: 2026-10-24
   Hindi review, privacy-policy page.
 
 ## Next up
-1. P1 task 7: onboarding rest and Found cases (needs app text for the new job error codes, a local notification
-   when find-my-cases finishes, and the Bar Council state saved as the court-state code or a name `find.STATE_CODES` knows).
-2. P1 task 8: Today and Tomorrow's Board screens (the app re-applies the clash rule after Assign to / proxy arranged
+1. P1 task 8: Today and Tomorrow's Board screens (the app re-applies the clash rule after Assign to / proxy arranged
    until the next board build).
-3. P1 task 9: Cases and case page.
+2. P1 task 9: Cases and case page ("Found for you" opens `/found`; Add by CNR sheet is in `features/found_cases`).
+3. P1 task 10: Calendar, Clients, Documents.
 
 ## Deviations from spec (with ADR links)
 - Kit: 5 P2-only components deferred to P2 start — [ADR 0001](docs/adr/0001-defer-p2-kit-components.md).
@@ -68,6 +71,8 @@ Last updated: 2026-10-24
 - Workers: no free "available dates" call, so cause lists are retried per CNR; the weekly sweep is fortnightly (no
   change signal); one budget threshold per budget instead of §11.8's staged pause order; expected slots and clashes
   are a documented heuristic — [ADR 0012](docs/adr/0012-p1-workers.md).
+- Found cases rows show status as text, not a StatusPill; the allowance message has no "see plans" link until P3;
+  notification permission through a method channel instead of a plugin — [ADR 0013](docs/adr/0013-p1-onboarding.md).
 - Windows `APPLY_STANDARD_SETTINGS` defines `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`: `local_auth_windows` 2.0.2 builds with `/await`, which MSVC 14.51 rejects (STL1011). Remove when the plugin moves to C++20 `<coroutine>`.
 
 ## Questions for the founder

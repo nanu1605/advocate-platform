@@ -45,9 +45,12 @@ class SelectableRow extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Checkbox(
-                value: selected,
-                onChanged: (v) => onChanged(v ?? false),
+              // The row is the keyboard stop (Space toggles it); a second stop on the checkbox would repeat it.
+              ExcludeFocus(
+                child: Checkbox(
+                  value: selected,
+                  onChanged: (v) => onChanged(v ?? false),
+                ),
               ),
               const SizedBox(width: 4),
               Expanded(
@@ -134,11 +137,19 @@ class GroupHeader extends StatelessWidget {
           Expanded(
             child: Text('$title ($total)', style: context.text.titleMedium),
           ),
+          // Says what it does and whether the rows are showing: "Show Disposed (4)", not just "Disposed".
           if (onToggleExpanded != null)
-            IconButton(
-              tooltip: title,
-              onPressed: onToggleExpanded,
-              icon: Icon(expanded ? AppIcons.caretUp : AppIcons.caretDown),
+            MergeSemantics(
+              child: Semantics(
+                expanded: expanded,
+                child: IconButton(
+                  tooltip: expanded
+                      ? l.groupHide(title)
+                      : l.groupShow(title, total),
+                  onPressed: onToggleExpanded,
+                  icon: Icon(expanded ? AppIcons.caretUp : AppIcons.caretDown),
+                ),
+              ),
             ),
         ],
       ),

@@ -16,6 +16,7 @@ abstract final class AppIcons {
     fontFamily: 'PhosphorRegular',
   );
   static const bank = IconData(0xe0b4, fontFamily: 'PhosphorRegular');
+  static const bell = IconData(0xe0ce, fontFamily: 'PhosphorRegular');
   static const briefcaseFill = IconData(0xe0ee, fontFamily: 'PhosphorFill');
   static const briefcase = IconData(0xe0ee, fontFamily: 'PhosphorRegular');
   static const calendarBlankFill = IconData(0xe10a, fontFamily: 'PhosphorFill');
@@ -29,7 +30,10 @@ abstract final class AppIcons {
     fontFamily: 'PhosphorFill',
   );
   static const chatCircleText = IconData(0xe16e, fontFamily: 'PhosphorRegular');
+  static const checkCircleFill = IconData(0xe184, fontFamily: 'PhosphorFill');
   static const checkSquare = IconData(0xe186, fontFamily: 'PhosphorRegular');
+  static const circle = IconData(0xe18a, fontFamily: 'PhosphorRegular');
+  static const circleNotch = IconData(0xeb44, fontFamily: 'PhosphorRegular');
   static const clockCounterClockwise = IconData(
     0xe1a0,
     fontFamily: 'PhosphorRegular',
@@ -45,6 +49,10 @@ abstract final class AppIcons {
     0xe200,
     fontFamily: 'PhosphorRegular',
   );
+  static const dotsThreeVertical = IconData(
+    0xe208,
+    fontFamily: 'PhosphorRegular',
+  );
   static const downloadSimpleFill = IconData(
     0xe20c,
     fontFamily: 'PhosphorFill',
@@ -56,6 +64,7 @@ abstract final class AppIcons {
   static const files = IconData(0xe710, fontFamily: 'PhosphorRegular');
   static const fingerprint = IconData(0xe23e, fontFamily: 'PhosphorRegular');
   static const folderSimple = IconData(0xe25a, fontFamily: 'PhosphorRegular');
+  static const funnel = IconData(0xe266, fontFamily: 'PhosphorRegular');
   static const gavel = IconData(0xea32, fontFamily: 'PhosphorRegular');
   static const gearFill = IconData(0xe270, fontFamily: 'PhosphorFill');
   static const gear = IconData(0xe270, fontFamily: 'PhosphorRegular');

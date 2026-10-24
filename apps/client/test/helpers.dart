@@ -3,15 +3,14 @@ import 'dart:convert';
 
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_theme.dart';
-import 'package:advocate_app/data/api_client.dart';
 import 'package:advocate_app/data/auth.dart';
-import 'package:advocate_app/data/device.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+export 'fakes.dart';
 
 /// Loads every font in FontManifest.json (Mukta, Phosphor, Material Icons) so tests render real glyphs.
 Future<void> loadAppFonts() async {
@@ -79,15 +78,20 @@ Widget host(
 }
 
 class FakeAuth implements AuthRepository {
+  FakeAuth({this.signedIn = false});
+
   final _changes = StreamController<bool>.broadcast();
-  bool _signedIn = false;
+  bool signedIn;
   final sent = <String>[];
 
   @override
-  bool get isSignedIn => _signedIn;
+  bool get isSignedIn => signedIn;
 
   @override
-  String? get accessToken => _signedIn ? 'token' : null;
+  String? get accessToken => signedIn ? 'token' : null;
+
+  @override
+  String? get userId => signedIn ? 'user-1' : null;
 
   @override
   Stream<bool> get changes => _changes.stream;
@@ -104,36 +108,15 @@ class FakeAuth implements AuthRepository {
         statusCode: '403',
       );
     }
-    _signedIn = true;
+    signedIn = true;
     _changes.add(true);
   }
 
   @override
   Future<void> signOut() async {
-    _signedIn = false;
+    signedIn = false;
     _changes.add(false);
   }
-}
-
-class FakeApi extends ApiClient {
-  FakeApi() : super(Dio());
-  final consents = <Map<String, bool>>[];
-
-  @override
-  Future<Map<String, dynamic>> patchMe(Map<String, Object?> fields) async => {};
-
-  @override
-  Future<void> postConsents({
-    required String version,
-    required Map<String, bool> decisions,
-  }) async => consents.add(decisions);
-}
-
-class FakeRegistrar extends DeviceRegistrar {
-  FakeRegistrar() : super(FakeApi());
-
-  @override
-  Future<void> register() async {}
 }
 
 class MemoryLockStore extends LockStore {

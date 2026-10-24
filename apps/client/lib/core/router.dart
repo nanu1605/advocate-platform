@@ -1,12 +1,24 @@
+import 'dart:async';
+
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/settings/settings.dart';
+import 'package:advocate_app/core/theme/tokens.g.dart';
+import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/auth.dart';
 import 'package:advocate_app/features/dev_kitchen_sink/kitchen_sink.dart';
+import 'package:advocate_app/features/found_cases/found_cases_screen.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
+import 'package:advocate_app/features/onboarding/account_loading_screen.dart';
 import 'package:advocate_app/features/onboarding/consent_screen.dart';
+import 'package:advocate_app/features/onboarding/details_screen.dart';
+import 'package:advocate_app/features/onboarding/finding_screen.dart';
+import 'package:advocate_app/features/onboarding/join_screen.dart';
 import 'package:advocate_app/features/onboarding/language_screen.dart';
 import 'package:advocate_app/features/onboarding/lock_setup_screen.dart';
+import 'package:advocate_app/features/onboarding/notifications_screen.dart';
+import 'package:advocate_app/features/onboarding/role_screen.dart';
 import 'package:advocate_app/features/onboarding/sign_in_screens.dart';
+import 'package:advocate_app/features/session.dart';
 import 'package:advocate_app/features/settings/settings_screen.dart';
 import 'package:advocate_app/features/shell/home_shell.dart';
 import 'package:advocate_app/features/shell/screens.dart';
@@ -17,16 +29,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-const _onboarding = ['/welcome', '/sign-in', '/consent', '/app-lock'];
+/// Routes before the app proper; once onboarding is done they lead to Today. (/found and /join/:code stay open.)
+const _onboarding = [
+  '/welcome',
+  '/sign-in',
+  '/consent',
+  '/app-lock',
+  '/loading',
+  '/onboarding',
+];
 
-/// Where onboarding sends the user next (spec §4.1): language → sign-in → consent → app lock → Today.
-/// Returns null to stay on [location].
+/// Where onboarding sends the user next (spec §4.1): language → sign-in → consent → app lock → role →
+/// (advocate details → Finding your cases → Found cases) → notifications → Today. Returns null to stay on
+/// [location]. Within a step's routes the user moves freely; anything else goes to the step's first route.
+///
+/// [onboardingDone] is the account's device flag (`AppSettings.onboardingDone`; null = not decided here yet,
+/// then a set-up account counts as done). [stage] is null while the account loads, or failed to load with
+/// nothing cached: /loading shows that rather than guessing a step.
 String? onboardingRedirect({
   required String location,
   required bool hasLanguage,
   required bool signedIn,
   required bool consented,
   required bool lockConfigured,
+  required bool? onboardingDone,
+  required AccountStage? stage,
 }) {
   final String? target;
   if (!hasLanguage) {
@@ -37,26 +64,80 @@ String? onboardingRedirect({
     target = '/consent';
   } else if (!lockConfigured) {
     target = '/app-lock';
-  } else {
+  } else if (onboardingDone ?? stage?.setUp ?? false) {
     target = _onboarding.any(location.startsWith) ? '/today' : location;
+  } else if (stage == null) {
+    target = '/loading';
+  } else {
+    final step = switch (stage) {
+      AccountStage.noOrg => const [
+        '/onboarding/role',
+        '/onboarding/join',
+        '/join/',
+        '/onboarding/details',
+      ],
+      AccountStage.needsDetails => const ['/onboarding/details'],
+      AccountStage.owner => const [
+        '/onboarding/finding',
+        '/found',
+        '/onboarding/notifications',
+      ],
+      AccountStage.member => const ['/onboarding/notifications'],
+    };
+    target = step.any(location.startsWith) ? location : step.first;
   }
   return target == location ? null : target;
 }
 
-/// Tab switches fade through (250 ms); reduce motion makes it a 100 ms cross-fade (spec §5.5).
-Page<void> _tab(GoRouterState state, Widget child) =>
-    CustomTransitionPage<void>(
-      key: state.pageKey,
-      child: child,
-      transitionDuration: const Duration(milliseconds: 250),
-      transitionsBuilder: (context, animation, secondary, child) =>
-          MediaQuery.disableAnimationsOf(context)
-          ? FadeTransition(opacity: animation, child: child)
-          : FadeThroughTransition(
-              animation: animation,
-              secondaryAnimation: secondary,
-              child: child,
-            ),
+/// A page that enters with [transition] over 250 ms; under reduce motion, a 100 ms cross-fade both ways
+/// (spec §5.5). The duration is fixed when the page is built, so it is read from [context] then.
+Page<void> _page(
+  BuildContext context,
+  GoRouterState state,
+  Widget child,
+  Widget Function(Animation<double>, Animation<double>, Widget) transition,
+) {
+  final reduced = MediaQuery.disableAnimationsOf(context);
+  final duration = reduced
+      ? MotionTokens.instant
+      : const Duration(milliseconds: 250);
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: duration,
+    reverseTransitionDuration: duration,
+    transitionsBuilder: (context, animation, secondary, child) =>
+        MediaQuery.disableAnimationsOf(context)
+        ? FadeTransition(opacity: animation, child: child)
+        : transition(animation, secondary, child),
+  );
+}
+
+/// Tab switches fade through.
+Page<void> _tab(BuildContext context, GoRouterState state, Widget child) =>
+    _page(
+      context,
+      state,
+      child,
+      (animation, secondary, child) => FadeThroughTransition(
+        animation: animation,
+        secondaryAnimation: secondary,
+        child: child,
+      ),
+    );
+
+/// Onboarding steps 5–9 move on a shared X axis.
+Page<void> _step(BuildContext context, GoRouterState state, Widget child) =>
+    _page(
+      context,
+      state,
+      child,
+      (animation, secondary, child) => SharedAxisTransition(
+        animation: animation,
+        secondaryAnimation: secondary,
+        transitionType: SharedAxisTransitionType.horizontal,
+        child: child,
+      ),
     );
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -64,8 +145,26 @@ final routerProvider = Provider<GoRouter>((ref) {
   void bump(Object? _, Object? _) => refresh.value++;
   ref
     ..listen(settingsProvider, bump)
-    ..listen(signedInProvider, bump)
+    ..listen(signedInProvider, (was, now) {
+      // However the session ended (sign-out, or a revoked or expired refresh token), forget per-account state,
+      // so whoever signs in next starts at consent with no onboarding flag or synced rows of the last account.
+      if (was?.value == true && now.value == false) {
+        unawaited(ref.read(sessionProvider).forget());
+      }
+      bump(was, now);
+    })
     ..listen(appLockProvider.select((s) => s.configured), bump)
+    // The first time an account loads on this device, decide whether it still needs onboarding here.
+    ..listen(accountProvider.select((a) => a.value?.stage), (_, stage) {
+      if (stage != null && ref.read(settingsProvider).onboardingDone == null) {
+        unawaited(
+          ref
+              .read(settingsProvider.notifier)
+              .setOnboardingDone(value: stage.setUp),
+        );
+      }
+      refresh.value++;
+    })
     ..onDispose(refresh.dispose);
 
   return GoRouter(
@@ -81,6 +180,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             ref.read(authRepositoryProvider).isSignedIn,
         consented: s.consentVersion != null,
         lockConfigured: ref.read(appLockProvider).configured,
+        onboardingDone: s.onboardingDone,
+        stage: ref.read(accountProvider).value?.stage,
       );
     },
     routes: [
@@ -98,6 +199,44 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/consent', builder: (_, _) => const ConsentScreen()),
       GoRoute(path: '/app-lock', builder: (_, _) => const LockSetupScreen()),
+      GoRoute(
+        path: '/loading',
+        builder: (_, _) => const AccountLoadingScreen(),
+      ),
+      GoRoute(
+        path: '/onboarding/role',
+        pageBuilder: (c, s) => _step(c, s, const RoleScreen()),
+      ),
+      GoRoute(
+        path: '/onboarding/join',
+        pageBuilder: (c, s) => _step(
+          c,
+          s,
+          JoinScreen(junior: s.uri.queryParameters['role'] == 'junior'),
+        ),
+      ),
+      GoRoute(
+        path: '/join/:code',
+        pageBuilder: (c, s) =>
+            _step(c, s, JoinScreen(code: s.pathParameters['code'])),
+      ),
+      GoRoute(
+        path: '/onboarding/details',
+        pageBuilder: (c, s) => _step(
+          c,
+          s,
+          DetailsScreen(chamber: s.uri.queryParameters['kind'] == 'chamber'),
+        ),
+      ),
+      GoRoute(
+        path: '/onboarding/finding',
+        pageBuilder: (c, s) => _step(c, s, const FindingScreen()),
+      ),
+      GoRoute(path: '/found', builder: (_, _) => const FoundCasesScreen()),
+      GoRoute(
+        path: '/onboarding/notifications',
+        pageBuilder: (c, s) => _step(c, s, const NotificationsScreen()),
+      ),
       if (kDebugMode)
         GoRoute(
           path: '/dev/kitchen-sink',
@@ -109,23 +248,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: '/today',
-            pageBuilder: (_, s) => _tab(s, const TodayScreen()),
+            pageBuilder: (c, s) => _tab(c, s, const TodayScreen()),
           ),
           GoRoute(
             path: '/cases',
-            pageBuilder: (_, s) => _tab(s, const CasesScreen()),
+            pageBuilder: (c, s) => _tab(c, s, const CasesScreen()),
           ),
           GoRoute(
             path: '/more',
-            pageBuilder: (_, s) => _tab(s, const MoreScreen()),
+            pageBuilder: (c, s) => _tab(c, s, const MoreScreen()),
           ),
           GoRoute(
             path: '/settings',
-            pageBuilder: (_, s) => _tab(s, const SettingsScreen()),
+            pageBuilder: (c, s) => _tab(c, s, const SettingsScreen()),
           ),
           GoRoute(
             path: '/calendar',
             pageBuilder: (c, s) => _tab(
+              c,
               s,
               PlaceholderScreen(
                 title: c.l10n.navCalendar,
@@ -136,6 +276,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/clients',
             pageBuilder: (c, s) => _tab(
+              c,
               s,
               PlaceholderScreen(title: c.l10n.navClients, icon: AppIcons.users),
             ),
@@ -143,6 +284,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/documents',
             pageBuilder: (c, s) => _tab(
+              c,
               s,
               PlaceholderScreen(
                 title: c.l10n.navDocuments,
