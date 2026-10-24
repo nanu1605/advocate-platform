@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     ecourtsindia_api_key: str = ""
     courtdata_global_daily_cap_inr: Decimal | None = None
     courtdata_org_monthly_default_inr: Decimal | None = None
+    clamav_url: str = ""  # clamd for upload scans, e.g. tcp://127.0.0.1:3310; empty: uploads stay pending (fail closed)
 
     @property
     def jwks_url(self) -> str:

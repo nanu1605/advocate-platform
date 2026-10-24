@@ -1,0 +1,96 @@
+# Fixture cases for Tomorrow's Board (spec §4.2 AC: "clash detection is unit-tested with fixtures"), run by
+# services/workers/tests/test_board.py against advocate_workers.board. The sitting times behind the slots are
+# DRAFT – VERIFY (docs/legal-verification.md); change them there, in board.SITTINGS and here together.
+# Times are quoted: YAML 1.1 reads an unquoted 10:30 as a base-60 number.
+
+# expected_slot(level, item): session start + minutes per item, skipping lunch; null when unknown.
+slots:
+  - {level: HC, item: "1", slot: "10:30"}
+  - {level: HC, item: "23", slot: "11:58"}
+  - {level: HC, item: " 7 ", slot: "10:54"}
+  - {level: HC, item: "45", slot: "13:26"}
+  - {level: HC, item: "46", slot: "14:30"}   # would fall at 13:30: after lunch instead
+  - {level: HC, item: "75", slot: "16:26"}
+  - {level: HC, item: "76", slot: null}      # past the sitting
+  - {level: HC, item: "S-12", slot: null}    # supplementary list
+  - {level: HC, item: "12A", slot: null}
+  - {level: HC, item: "0", slot: null}
+  - {level: HC, item: null, slot: null}
+  - {level: SC, item: "10", slot: "10:57"}
+  - {level: SC, item: "51", slot: "14:00"}
+  - {level: DC, item: "1", slot: "11:00"}
+  - {level: DC, item: "36", slot: "13:55"}
+  - {level: DC, item: "37", slot: "14:30"}
+  - {level: null, item: "5", slot: null}     # court level unknown
+
+# clash_groups(entries, advocate): key -> group for entries that clash; entries left out have no clash. Fields per
+# entry: key, court (court complex), slot, assignee (null = unassigned: the case's `advocate`, the organisation's
+# owner), proxy.
+clashes:
+  - name: different complexes with overlapping windows clash
+    entries:
+      - {key: a, court: hc_indore, slot: "10:30"}
+      - {key: b, court: dc_indore, slot: "11:00"}
+    groups: {a: 1, b: 1}
+
+  - name: the same complex is not a clash (courtrooms are a walk apart)
+    entries:
+      - {key: a, court: hc_indore, slot: "10:30"}
+      - {key: b, court: hc_indore, slot: "10:40"}
+    groups: {}
+
+  - name: windows exactly one window apart do not overlap
+    entries:
+      - {key: a, court: hc_indore, slot: "10:30"}
+      - {key: b, court: dc_indore, slot: "11:30"}
+      - {key: c, court: hc_indore, slot: "12:29"}
+    groups: {b: 1, c: 1}
+
+  - name: different assignees are not a clash
+    entries:
+      - {key: a, court: hc_indore, slot: "10:30", assignee: neha}
+      - {key: b, court: dc_indore, slot: "11:00", assignee: rakesh}
+    groups: {}
+
+  - name: an assigned junior and the unassigned advocate are two people
+    advocate: neha
+    entries:
+      - {key: a, court: hc_indore, slot: "10:30", assignee: rakesh}
+      - {key: b, court: dc_indore, slot: "11:00"}
+    groups: {}
+
+  - name: the owner assigned to one entry is the advocate of an unassigned one
+    advocate: neha
+    entries:
+      - {key: a, court: hc_indore, slot: "10:30", assignee: neha}
+      - {key: b, court: dc_indore, slot: "11:00"}
+    groups: {a: 1, b: 1}
+
+  - name: the same assignee in two complexes clashes
+    entries:
+      - {key: a, court: hc_indore, slot: "10:30", assignee: rakesh}
+      - {key: b, court: dc_indore, slot: "11:00", assignee: rakesh}
+    groups: {a: 1, b: 1}
+
+  - name: a proxy arranged clears the clash
+    entries:
+      - {key: a, court: hc_indore, slot: "10:30"}
+      - {key: b, court: dc_indore, slot: "11:00", proxy: true}
+    groups: {}
+
+  - name: no slot or no court is never flagged
+    entries:
+      - {key: a, court: hc_indore, slot: null}
+      - {key: b, court: dc_indore, slot: "10:30"}
+      - {key: c, court: null, slot: "10:45"}
+    groups: {}
+
+  - name: connected clashes share a group, numbered by earliest slot
+    entries:
+      - {key: d, court: dc_indore, slot: "15:00"}
+      - {key: c, court: hc_indore, slot: "14:40"}
+      - {key: b, court: dc_indore, slot: "11:00"}
+      - {key: a, court: hc_indore, slot: "10:30"}
+      - {key: e, court: sc, slot: "11:45"}         # clashes with b only, so joins a and b
+      - {key: f, court: hc_indore, slot: "12:50"}  # clear of everyone
+    groups: {a: 1, b: 1, e: 1, c: 2, d: 2}

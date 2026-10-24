@@ -37,7 +37,7 @@ def main() -> None:
         "DATABASE_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:55322/postgres\n"
         "REDIS_URL=redis://localhost:6379/0\nSUPABASE_URL=http://127.0.0.1:55321\n"
         f"SUPABASE_ANON_KEY={LOCAL_ANON_KEY}\nSUPABASE_SERVICE_ROLE_KEY={LOCAL_SERVICE_ROLE_KEY}\n"
-        f"AUTH_HOOK_SECRET={secret}\n",
+        f"AUTH_HOOK_SECRET={secret}\nCLAMAV_URL=tcp://127.0.0.1:3310\n",
     )
     app_env = {
         "SUPABASE_URL": "http://127.0.0.1:55321",

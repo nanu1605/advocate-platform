@@ -21,6 +21,14 @@ stop:
     docker compose -f infra/docker/compose.yml down
     npx supabase stop
 
+# Worker or beat on the host against .env, instead of their containers (stop those first). One terminal each:
+# Windows can't embed beat in the worker (-B), and solo is the pool that runs there.
+worker:
+    uv run celery -A advocate_workers.celery_app worker --pool=solo -Q celery,scheduled --loglevel=INFO
+
+beat:
+    uv run celery -A advocate_workers.celery_app beat --loglevel=INFO
+
 # Recreate the local database from migrations + seed
 db-reset:
     npx supabase db reset

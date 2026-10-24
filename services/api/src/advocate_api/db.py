@@ -16,7 +16,8 @@ from advocate_shared.settings import get_settings
 
 @lru_cache
 def engine() -> AsyncEngine:
-    return create_async_engine(get_settings().database_url, pool_pre_ping=True)
+    """hide_parameters: a failed statement's error never carries its values (party names, notes; spec §7.2)."""
+    return create_async_engine(get_settings().database_url, pool_pre_ping=True, hide_parameters=True)
 
 
 async def user_db(request: Request, claims: CurrentClaims) -> AsyncIterator[AsyncConnection]:

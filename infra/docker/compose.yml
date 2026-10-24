@@ -15,6 +15,8 @@ x-python: &python
     DATABASE_URL: postgresql+asyncpg://postgres:postgres@host.docker.internal:55322/postgres
     SUPABASE_URL: http://127.0.0.1:55321   # token issuer as the app sees it
     SUPABASE_JWKS_URL: http://host.docker.internal:55321/auth/v1/.well-known/jwks.json
+    SUPABASE_INTERNAL_URL: http://host.docker.internal:55321   # Storage, as the containers reach it
+    CLAMAV_URL: tcp://clamav:3310
   extra_hosts:
     - host.docker.internal:host-gateway
   depends_on: [redis]
@@ -33,9 +35,28 @@ services:
     <<: *python
     command: celery -A advocate_workers.celery_app worker --loglevel=INFO
 
+  # The beat's schedule (cause lists, post-hearing refresh, ...) runs on its own worker, so uploads and other user
+  # jobs on the default queue never hold up the evening board (spec §4.2, §11.8).
+  worker-scheduled:
+    <<: *python
+    command: celery -A advocate_workers.celery_app worker -Q scheduled --loglevel=INFO
+
   beat:
     <<: *python
     command: celery -A advocate_workers.celery_app beat --loglevel=INFO
+
+  # Upload malware scan (spec §4.3): clamd, a separate process the worker streams files to (INSTREAM on 3310).
+  # First start downloads the signatures (a few minutes, ~1 GB RAM once loaded); until then uploads stay pending.
+  clamav:
+    image: clamav/clamav:1.5.4
+    environment:
+      CLAMD_CONF_StreamMaxLength: 60M   # uploads are at most 50 MB; clamd closes the stream past this
+      # A file past a scan limit (archive entries, nesting, size, MaxScanTime) is a FOUND verdict
+      # (Heuristics.Limits.Exceeded.*), not "OK" for the part scanned. Production clamd needs the same setting.
+      CLAMD_CONF_AlertExceedsMax: "yes"
+    volumes:
+      - clamav-db:/var/lib/clamav
+    ports: ["3310:3310"]
 
   # Offline sync (ADR 0010): the open edition of the PowerSync service, for local development and CI only.
   powersync:
@@ -72,3 +93,6 @@ services:
       interval: 2s
       timeout: 2s
       retries: 30
+
+volumes:
+  clamav-db:
