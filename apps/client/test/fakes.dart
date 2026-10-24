@@ -9,6 +9,7 @@ import 'package:advocate_app/core/theme/app_theme.dart';
 import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/api_client.dart';
 import 'package:advocate_app/data/auth.dart';
+import 'package:advocate_app/data/cases.dart';
 import 'package:advocate_app/data/courts.dart';
 import 'package:advocate_app/data/device.dart';
 import 'package:advocate_app/data/diary.dart';
@@ -158,8 +159,13 @@ class FakeApi extends ApiClient {
 
   Iterable<String> get callNames => calls.map((c) => c.name);
 
+  /// The next call to a method named here waits for its completer, e.g. to act while that request is in flight.
+  final gates = <String, Completer<void>>{};
+
   Future<T> _call<T>(String name, Object? args, T Function() result) async {
     calls.add((name: name, args: args));
+    final gate = gates.remove(name);
+    if (gate != null) await gate.future;
     if (offline) throw const ApiException('NETWORK', retryable: true);
     final error = fail[name];
     if (error != null) throw error;
@@ -306,6 +312,117 @@ class FakeApi extends ApiClient {
     }
     return 'job-$matterId';
   });
+
+  /// What searchCases returns for page n (`searchPages[n - 1]`); later pages are empty.
+  List<CaseSearchPage> searchPages = const [];
+
+  @override
+  Future<CaseSearchPage> searchCases({
+    required String orgId,
+    String? party,
+    String? advocate,
+    String? judge,
+    String? text,
+    List<String> courtIds = const [],
+    String? caseType,
+    int? year,
+    int page = 1,
+    int pageSize = 20,
+  }) => _call(
+    'searchCases',
+    {
+      'party': party,
+      'advocate': advocate,
+      'judge': judge,
+      'text': text,
+      'courtIds': courtIds,
+      'caseType': caseType,
+      'year': year,
+      'page': page,
+    },
+    () => page <= searchPages.length
+        ? searchPages[page - 1]
+        : CaseSearchPage(items: const [], total: 0, page: page, hasNext: false),
+  );
+
+  /// The matter id addManual answers with.
+  String manualMatterId = 'matter-manual';
+
+  @override
+  Future<String> addManual({
+    required String orgId,
+    required String title,
+    String? courtId,
+    String? courtName,
+    String? caseType,
+    String? caseNumber,
+    int? caseYear,
+    String? ourSide,
+    String? fileNo,
+    DateTime? nextDate,
+  }) => _call('addManual', {
+    'title': title,
+    'courtId': courtId,
+    'courtName': courtName,
+    'caseType': caseType,
+    'caseNumber': caseNumber,
+    'caseYear': caseYear,
+    'ourSide': ourSide,
+    'fileNo': fileNo,
+    'nextDate': nextDate,
+  }, () => manualMatterId);
+
+  @override
+  Future<({String url, String cnr, bool verified})> officialLink({
+    required String orgId,
+    required String matterId,
+  }) => _call(
+    'officialLink',
+    matterId,
+    () => (
+      url: 'https://hcservices.ecourts.gov.in/',
+      cnr: 'MPHC010000000001',
+      verified: false,
+    ),
+  );
+
+  @override
+  Future<void> deleteMatter({
+    required String orgId,
+    required String matterId,
+  }) => _call('deleteMatter', matterId, () {});
+
+  /// The job id setTracking answers with when tracking turns on.
+  String? trackingJobId = 'job-track';
+
+  @override
+  Future<({String tracking, String? jobId})> setTracking({
+    required String orgId,
+    required String matterId,
+    required String tracking,
+  }) => _call(
+    'setTracking',
+    {'id': matterId, 'tracking': tracking},
+    () =>
+        (tracking: tracking, jobId: tracking == 'auto' ? trackingJobId : null),
+  );
+
+  @override
+  Future<String> documentUrl({
+    required String orgId,
+    required String documentId,
+  }) => _call(
+    'documentUrl',
+    documentId,
+    () => 'https://files.test/documents/$documentId',
+  );
+
+  @override
+  Future<String> orderPdfUrl({
+    required String orgId,
+    required String orderId,
+  }) =>
+      _call('orderPdfUrl', orderId, () => 'https://files.test/orders/$orderId');
 }
 
 class FakeRegistrar extends DeviceRegistrar {
@@ -500,12 +617,7 @@ class FakeDiary extends DiaryWriter {
   final readNotifications = <String>{};
   final _changes = StreamController<void>.broadcast();
 
-  Stream<T> _watch<T>(T Function() read) => Stream.multi((out) {
-    void emit([_]) => out.add(read());
-    emit();
-    final sub = _changes.stream.listen(emit);
-    out.onCancel = sub.cancel;
-  });
+  Stream<T> _watch<T>(T Function() read) => _live(_changes.stream, read);
 
   late final _attention = StreamProvider<List<AttentionItem>>(
     (ref) => _watch(
@@ -542,14 +654,6 @@ class FakeDiary extends DiaryWriter {
     orgMembersProvider.overrideWithValue(AsyncData(members)),
     hasMattersProvider.overrideWithValue(
       hasMatters == null ? const AsyncLoading() : AsyncData(hasMatters!),
-    ),
-    caseHeaderProvider.overrideWith(
-      (ref, id) => _watch(() {
-        final e = days.values.expand((d) => d).where((e) => e.matterId == id);
-        return e.isEmpty
-            ? null
-            : (caseLabel: e.first.caseLabel, title: e.first.title);
-      }),
     ),
     diaryWriterProvider.overrideWithValue(this),
   ];
@@ -602,5 +706,594 @@ class FakeDiary extends DiaryWriter {
   Future<void> markNotificationRead(String notificationId) async {
     readNotifications.add(notificationId);
     _record('markNotificationRead', notificationId);
+  }
+}
+
+/// A stream of [read] that emits again on each [changes] event, as `db.watch` does after a write.
+Stream<T> _live<T>(Stream<void> changes, T Function() read) =>
+    Stream.multi((out) {
+      void emit([_]) => out.add(read());
+      emit();
+      final sub = changes.listen(emit);
+      out.onCancel = sub.cancel;
+    });
+
+/// Case [n] (matter `m-n`, the same case as [diaryEntry] n): WP 100n/2024 at MPHC Indore, Court 12, pending,
+/// auto-tracked with a CNR, last fetched at 7:42 pm IST on Wed 4 Nov, with client Suresh Patel. A manual case has
+/// no CNR, court status or fetch time unless given; [courtName] alone is an "Other court".
+CaseInfo caseInfo(
+  int n, {
+  Court? court,
+  String? courtName,
+  String? courtNo = '12',
+  String? caseType = 'WP',
+  String? caseNumber,
+  int? caseYear = 2024,
+  String? cnr,
+  String? title = 'Sharma v. State of MP',
+  String? judge,
+  String? stage,
+  String status = 'active',
+  String tracking = 'auto',
+  String? courtStatus = 'pending',
+  DateTime? nextDate,
+  DateTime? courtFetchedAt,
+  DateTime? updatedAt,
+  String? assigneeId,
+  String? assigneeName,
+  List<({String id, String name})> clients = const [
+    (id: 'cl-1', name: 'Suresh Patel'),
+  ],
+}) {
+  final manual = tracking == 'manual';
+  final c = courtName == null ? court ?? testCourts.first : court;
+  return CaseInfo(
+    id: 'm-$n',
+    cnr: cnr ?? (manual ? null : 'MPHC01${n.toString().padLeft(10, '0')}'),
+    caseType: caseType,
+    caseNumber: caseNumber ?? '${1000 + n}',
+    caseYear: caseYear,
+    title: title,
+    courtId: c?.id,
+    court: c,
+    courtName: courtName,
+    courtNo: courtNo,
+    judge: judge,
+    stage: stage,
+    status: status,
+    tracking: tracking,
+    source: manual ? 'manual' : 'cnr',
+    courtStatus: manual ? null : courtStatus,
+    nextDate: nextDate,
+    courtFetchedAt:
+        courtFetchedAt ?? (manual ? null : DateTime.utc(2026, 11, 4, 14, 12)),
+    updatedAt: updatedAt,
+    assigneeId: assigneeId,
+    assigneeName: assigneeName,
+    clients: clients,
+  );
+}
+
+/// The cases data in memory for widget tests (no PowerSync): what the Cases list, the case page and the add
+/// sheets read, and the [CaseWriter] they write through. Writes change what the providers show, as the synced
+/// database would (a manual case's next date follows its hearings; linking a client adds it to the case);
+/// [writes] records each one by method name with its arguments. Child rows are keyed by matter id (tasks without a
+/// case under ''). Pass [overrides] to pumpApp (they include the clock, [now], and the org's [members]), or
+/// [caseOverrides] next to a [FakeDiary]'s overrides, which set those already.
+class FakeCases extends CaseWriter {
+  FakeCases({
+    List<CaseInfo> cases = const [],
+    Map<String, List<CaseHearing>> hearings = const {},
+    Map<String, List<CaseOrder>> orders = const {},
+    Map<String, List<CaseDocument>> documents = const {},
+    Map<String, List<CaseNote>> notes = const {},
+    Map<String, List<CaseTask>> tasks = const {},
+    Map<String, List<CaseDeadline>> deadlines = const {},
+    Map<String, List<LinkedClient>> links = const {},
+    List<ClientInfo> clients = const [],
+    this.members = testMembers,
+    this.pendingFound = 0,
+    this.me = 'user-1',
+    DateTime? now,
+  }) : now = now ?? testNow,
+       cases = [...cases],
+       hearings = _copy(hearings),
+       orders = _copy(orders),
+       documents = _copy(documents),
+       notes = _copy(notes),
+       tasks = _copy(tasks),
+       deadlines = _copy(deadlines),
+       links = _copy(links),
+       clients = [...clients],
+       super(null, DateTime.now, orgId: 'org-1', userId: me);
+
+  static Map<String, List<T>> _copy<T>(Map<String, List<T>> m) => {
+    for (final MapEntry(:key, :value) in m.entries) key: [...value],
+  };
+
+  final List<CaseInfo> cases;
+  final Map<String, List<CaseHearing>> hearings;
+  final Map<String, List<CaseOrder>> orders;
+  final Map<String, List<CaseDocument>> documents;
+  final Map<String, List<CaseNote>> notes;
+  final Map<String, List<CaseTask>> tasks;
+  final Map<String, List<CaseDeadline>> deadlines;
+  final Map<String, List<LinkedClient>> links;
+  final List<ClientInfo> clients;
+  final List<OrgMember> members;
+
+  /// "Found for you (n)".
+  final int pendingFound;
+
+  /// The signed-in user (ownerAccount): the author of new notes.
+  final String me;
+
+  /// The instant the clock reads (default [testNow]); set it before pumping.
+  DateTime now;
+
+  final writes = <FakeCall>[];
+  final _changes = StreamController<void>.broadcast();
+  var _ids = 0;
+
+  /// Case page tables whose reads fail, as a broken query would: `documents`, `notes` or `clients`.
+  final failing = <String>{};
+
+  Stream<T> _watch<T>(T Function() read) => _live(_changes.stream, read);
+
+  Stream<T> _table<T>(String table, T Function() read) =>
+      failing.contains(table)
+      ? Stream.error(StateError('$table failed'))
+      : _watch(read);
+
+  /// The case providers and the writer, for use with a [FakeDiary]'s overrides.
+  List<Override> get caseOverrides => [
+    casesProvider.overrideWith((ref) => _watch(() => [...cases])),
+    caseProvider.overrideWith(
+      (ref, id) => _watch(() => cases.where((c) => c.id == id).firstOrNull),
+    ),
+    caseHearingsProvider.overrideWith(
+      (ref, id) => _watch(
+        () => [...?hearings[id]]..sort((a, b) => b.date.compareTo(a.date)),
+      ),
+    ),
+    caseOrdersProvider.overrideWith(
+      (ref, id) => _watch(() => [...?orders[id]]),
+    ),
+    caseDocumentsProvider.overrideWith(
+      (ref, id) => _table('documents', () => [...?documents[id]]),
+    ),
+    caseNotesProvider.overrideWith(
+      (ref, id) => _table('notes', () => [...?notes[id]]),
+    ),
+    caseTasksProvider.overrideWith((ref, id) => _watch(() => [...?tasks[id]])),
+    caseDeadlinesProvider.overrideWith(
+      (ref, id) => _watch(() => [...?deadlines[id]]),
+    ),
+    caseClientsProvider.overrideWith(
+      (ref, id) => _table('clients', () => [...?links[id]]),
+    ),
+    clientsProvider.overrideWith((ref) => _watch(() => [...clients])),
+    pendingFoundCountProvider.overrideWithValue(AsyncData(pendingFound)),
+    caseWriterProvider.overrideWithValue(this),
+  ];
+
+  List<Override> get overrides => [
+    clockProvider.overrideWithValue(() => now),
+    orgMembersProvider.overrideWithValue(AsyncData(members)),
+    ...caseOverrides,
+  ];
+
+  String _id(String prefix) => '$prefix-new-${++_ids}';
+
+  String? _name(String? userId) =>
+      members.where((m) => m.userId == userId).firstOrNull?.name;
+
+  void _record(String name, Object? args) {
+    writes.add((name: name, args: args));
+    _changes.add(null);
+  }
+
+  /// Changes a case as sync would (e.g. after the API turned tracking on).
+  void updateCase(String id, CaseInfo Function(CaseInfo) f) {
+    final i = cases.indexWhere((c) => c.id == id);
+    if (i >= 0) cases[i] = f(cases[i]);
+    _changes.add(null);
+  }
+
+  /// A manual case's next date: its earliest hearing today or later (IST), as [nextDateOf] reads it.
+  void _refreshNext(String? matterId) {
+    final today = istDay(istOf(now));
+    final dates = [
+      for (final h in hearings[matterId] ?? const <CaseHearing>[])
+        if (!h.date.isBefore(today)) h.date,
+    ]..sort();
+    final i = cases.indexWhere((c) => c.id == matterId);
+    if (i >= 0 && cases[i].manual) {
+      cases[i] = cases[i].copyWith(nextDate: dates.firstOrNull);
+    }
+  }
+
+  /// Replaces the row matching [match] with what [f] returns, or removes it when that is null.
+  void _replace<T>(
+    Map<String, List<T>> rows,
+    bool Function(T) match,
+    T? Function(T) f,
+  ) {
+    for (final list in rows.values) {
+      final i = list.indexWhere(match);
+      if (i < 0) continue;
+      final next = f(list[i]);
+      if (next == null) {
+        list.removeAt(i);
+      } else {
+        list[i] = next;
+      }
+      return;
+    }
+  }
+
+  String? _matterOfHearing(String id) => hearings.entries
+      .where((e) => e.value.any((h) => h.id == id))
+      .firstOrNull
+      ?.key;
+
+  static DateTime _day(DateTime d) => DateTime.utc(d.year, d.month, d.day);
+
+  @override
+  Future<void> assignCase(String matterId, String? assigneeId) async {
+    updateCase(
+      matterId,
+      (c) =>
+          c.copyWith(assigneeId: assigneeId, assigneeName: _name(assigneeId)),
+    );
+    _record('assignCase', {'matterId': matterId, 'assigneeId': assigneeId});
+  }
+
+  @override
+  Future<void> setArchived(String matterId, {required bool archived}) async {
+    updateCase(
+      matterId,
+      (c) => c.copyWith(status: archived ? 'archived' : 'active'),
+    );
+    _record('setArchived', {'matterId': matterId, 'archived': archived});
+  }
+
+  @override
+  Future<String> addHearing(
+    String matterId, {
+    required DateTime date,
+    String? courtNo,
+    String? itemNo,
+    String? purpose,
+    String? outcome,
+  }) async {
+    final id = _id('h');
+    (hearings[matterId] ??= []).add(
+      CaseHearing(
+        id: id,
+        date: _day(date),
+        source: 'manual',
+        courtNo: courtNo,
+        itemNo: itemNo,
+        purpose: purpose,
+        outcome: outcome,
+      ),
+    );
+    _refreshNext(matterId);
+    _record('addHearing', {
+      'matterId': matterId,
+      'date': date,
+      'courtNo': courtNo,
+      'itemNo': itemNo,
+      'purpose': purpose,
+      'outcome': outcome,
+    });
+    return id;
+  }
+
+  @override
+  Future<void> editHearing(
+    String hearingId, {
+    required DateTime date,
+    String? courtNo,
+    String? itemNo,
+    String? purpose,
+    String? outcome,
+  }) async {
+    final matter = _matterOfHearing(hearingId);
+    _replace<CaseHearing>(
+      hearings,
+      (h) => h.id == hearingId,
+      (h) => CaseHearing(
+        id: h.id,
+        date: _day(date),
+        source: h.source,
+        courtNo: courtNo,
+        itemNo: itemNo,
+        purpose: purpose,
+        outcome: outcome,
+        userNote: h.userNote,
+        createdAt: h.createdAt,
+      ),
+    );
+    _refreshNext(matter);
+    _record('editHearing', {
+      'id': hearingId,
+      'date': date,
+      'courtNo': courtNo,
+      'itemNo': itemNo,
+      'purpose': purpose,
+      'outcome': outcome,
+    });
+  }
+
+  @override
+  Future<void> setHearingNote(String hearingId, String? note) async {
+    _replace<CaseHearing>(
+      hearings,
+      (h) => h.id == hearingId,
+      (h) => CaseHearing(
+        id: h.id,
+        date: h.date,
+        source: h.source,
+        courtNo: h.courtNo,
+        itemNo: h.itemNo,
+        purpose: h.purpose,
+        outcome: h.outcome,
+        nextDate: h.nextDate,
+        userPurpose: h.userPurpose,
+        userOutcome: h.userOutcome,
+        userNextDate: h.userNextDate,
+        userNote: (note ?? '').trim().isEmpty ? null : note!.trim(),
+        createdAt: h.createdAt,
+      ),
+    );
+    _record('setHearingNote', {'id': hearingId, 'note': note});
+  }
+
+  @override
+  Future<void> deleteHearing(String hearingId) async {
+    final matter = _matterOfHearing(hearingId);
+    _replace<CaseHearing>(hearings, (h) => h.id == hearingId, (_) => null);
+    _refreshNext(matter);
+    _record('deleteHearing', hearingId);
+  }
+
+  @override
+  Future<String> addNote(
+    String matterId,
+    String body, {
+    required bool private,
+  }) async {
+    final id = _id('n');
+    (notes[matterId] ??= []).insert(
+      0,
+      CaseNote(
+        id: id,
+        body: body.trim(),
+        authorId: me,
+        authorName: _name(me),
+        visibility: private ? 'private' : 'team',
+        createdAt: now,
+      ),
+    );
+    _record('addNote', {
+      'matterId': matterId,
+      'body': body,
+      'private': private,
+    });
+    return id;
+  }
+
+  @override
+  Future<void> editNote(
+    String noteId,
+    String body, {
+    required bool private,
+  }) async {
+    _replace<CaseNote>(
+      notes,
+      (n) => n.id == noteId,
+      (n) => CaseNote(
+        id: n.id,
+        body: body.trim(),
+        authorId: n.authorId,
+        authorName: n.authorName,
+        visibility: private ? 'private' : 'team',
+        createdAt: n.createdAt,
+      ),
+    );
+    _record('editNote', {'id': noteId, 'body': body, 'private': private});
+  }
+
+  @override
+  Future<void> deleteNote(String noteId) async {
+    _replace<CaseNote>(notes, (n) => n.id == noteId, (_) => null);
+    _record('deleteNote', noteId);
+  }
+
+  @override
+  Future<String> addTask({
+    required String title,
+    String? matterId,
+    DateTime? dueAt,
+    String? assigneeId,
+  }) async {
+    final id = _id('t');
+    (tasks[matterId ?? ''] ??= []).add(
+      CaseTask(
+        id: id,
+        title: title.trim(),
+        dueAt: dueAt,
+        assigneeId: assigneeId,
+        assigneeName: _name(assigneeId),
+      ),
+    );
+    _record('addTask', {
+      'title': title,
+      'matterId': matterId,
+      'dueAt': dueAt,
+      'assigneeId': assigneeId,
+    });
+    return id;
+  }
+
+  @override
+  Future<void> editTask(
+    String taskId, {
+    required String title,
+    DateTime? dueAt,
+    String? assigneeId,
+  }) async {
+    _replace<CaseTask>(
+      tasks,
+      (t) => t.id == taskId,
+      (t) => CaseTask(
+        id: t.id,
+        title: title.trim(),
+        dueAt: dueAt,
+        assigneeId: assigneeId,
+        assigneeName: _name(assigneeId),
+        status: t.status,
+      ),
+    );
+    _record('editTask', {
+      'id': taskId,
+      'title': title,
+      'dueAt': dueAt,
+      'assigneeId': assigneeId,
+    });
+  }
+
+  @override
+  Future<void> setTaskDone(String taskId, {required bool done}) async {
+    _replace<CaseTask>(
+      tasks,
+      (t) => t.id == taskId,
+      (t) => CaseTask(
+        id: t.id,
+        title: t.title,
+        dueAt: t.dueAt,
+        assigneeId: t.assigneeId,
+        assigneeName: t.assigneeName,
+        status: done ? 'done' : 'open',
+      ),
+    );
+    _record('setTaskDone', {'id': taskId, 'done': done});
+  }
+
+  @override
+  Future<void> deleteTask(String taskId) async {
+    _replace<CaseTask>(tasks, (t) => t.id == taskId, (_) => null);
+    _record('deleteTask', taskId);
+  }
+
+  @override
+  Future<String> addDeadline(
+    String matterId, {
+    required String kind,
+    required DateTime dueDate,
+  }) async {
+    final id = _id('d');
+    (deadlines[matterId] ??= []).add(
+      CaseDeadline(id: id, kind: kind, dueDate: _day(dueDate)),
+    );
+    _record('addDeadline', {
+      'matterId': matterId,
+      'kind': kind,
+      'dueDate': dueDate,
+    });
+    return id;
+  }
+
+  @override
+  Future<void> setDeadlineDone(String deadlineId, {required bool done}) async {
+    _replace<CaseDeadline>(
+      deadlines,
+      (d) => d.id == deadlineId,
+      (d) => CaseDeadline(
+        id: d.id,
+        kind: d.kind,
+        dueDate: d.dueDate,
+        status: done ? 'done' : 'active',
+      ),
+    );
+    _record('setDeadlineDone', {'id': deadlineId, 'done': done});
+  }
+
+  @override
+  Future<void> deleteDeadline(String deadlineId) async {
+    _replace<CaseDeadline>(deadlines, (d) => d.id == deadlineId, (_) => null);
+    _record('deleteDeadline', deadlineId);
+  }
+
+  @override
+  Future<String> createClient({
+    required String name,
+    String? phone,
+    String? language,
+  }) async {
+    final id = _id('cl');
+    clients.add(
+      ClientInfo(id: id, name: name.trim(), phone: phone, language: language),
+    );
+    _record('createClient', {
+      'name': name,
+      'phone': phone,
+      'language': language,
+    });
+    return id;
+  }
+
+  @override
+  Future<String> linkClient(String matterId, String clientId) async {
+    final id = _id('mc');
+    final client = clients.firstWhere((c) => c.id == clientId);
+    (links[matterId] ??= []).add((linkId: id, client: client));
+    updateCase(
+      matterId,
+      (c) => c.copyWith(
+        clients: [...c.clients, (id: client.id, name: client.name)],
+      ),
+    );
+    _record('linkClient', {'matterId': matterId, 'clientId': clientId});
+    return id;
+  }
+
+  @override
+  Future<void> unlinkClient(String linkId) async {
+    for (final MapEntry(key: matterId, value: list) in links.entries) {
+      final link = list.where((l) => l.linkId == linkId).firstOrNull;
+      if (link == null) continue;
+      list.remove(link);
+      updateCase(
+        matterId,
+        (c) => c.copyWith(
+          clients: [
+            for (final x in c.clients)
+              if (x.id != link.client.id) x,
+          ],
+        ),
+      );
+    }
+    _record('unlinkClient', linkId);
+  }
+
+  @override
+  Future<void> markOrderRead(String orderId) async {
+    _replace<CaseOrder>(
+      orders,
+      (o) => o.id == orderId,
+      (o) => CaseOrder(
+        id: o.id,
+        date: o.date,
+        title: o.title,
+        documentId: o.documentId,
+        hasCourtCopy: o.hasCourtCopy,
+        read: true,
+        createdAt: o.createdAt,
+      ),
+    );
+    _record('markOrderRead', orderId);
   }
 }

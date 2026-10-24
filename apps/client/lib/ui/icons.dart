@@ -79,6 +79,7 @@ abstract final class AppIcons {
   static const mapPin = IconData(0xe316, fontFamily: 'PhosphorRegular');
   static const password = IconData(0xe752, fontFamily: 'PhosphorRegular');
   static const pencilSimple = IconData(0xe3b4, fontFamily: 'PhosphorRegular');
+  static const phone = IconData(0xe3b8, fontFamily: 'PhosphorRegular');
   static const plusBold = IconData(0xe3d4, fontFamily: 'PhosphorBold');
   static const plus = IconData(0xe3d4, fontFamily: 'PhosphorRegular');
   static const question = IconData(0xe3e8, fontFamily: 'PhosphorRegular');

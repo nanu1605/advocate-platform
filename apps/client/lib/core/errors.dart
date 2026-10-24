@@ -33,6 +33,25 @@ String errorText(AppLocalizations l, Object? error) {
     'NO_SEARCHABLE_COURTS' => l.errorNoSearchableCourts,
     'COURT_DATA_PAUSED' => l.errorCourtDataPaused,
     'COURT_DATA_BUDGET_REACHED' => l.errorCourtDataBudget,
+    'SEARCH_TERMS_REQUIRED' => l.errorSearchTerms,
+    'SEARCH_DAILY_CAP' => l.errorSearchDailyCap,
+    'COURT_REQUIRED' => l.errorCourtRequired,
+    'UNKNOWN_COURT' => l.errorUnknownCourt,
+    'MANUAL_CASE' => l.errorManualCase,
+    'TRACKING_OFF' => l.errorTrackingOff,
+    'NO_CNR' => l.errorNoCnr,
+    'DOCUMENT_NOT_READY' => l.errorDocumentNotReady,
+    'DOCUMENT_QUARANTINED' => l.errorDocumentQuarantined,
+    'ORDER_PDF_UNAVAILABLE' => l.errorOrderPdfUnavailable,
+    'ORDER_PDF_FETCHING' => l.errorOrderPdfFetching,
     _ => l.errorGeneric,
   };
 }
+
+/// [errorText] for tracking one case (Add by CNR, search's "Track this case", the case page's tracking on):
+/// TRACKED_CASE_LIMIT names the allowance (these endpoints send `{limit}` only) instead of the wording about a
+/// selection.
+String trackErrorText(AppLocalizations l, ApiException e) =>
+    e.code == 'TRACKED_CASE_LIMIT'
+    ? l.casesTrackingLimit(e.details['limit'] as int? ?? 0)
+    : errorText(l, e);

@@ -1,8 +1,11 @@
+import 'package:advocate_app/core/clock.dart';
 import 'package:advocate_app/core/config.dart';
 import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/auth.dart';
+import 'package:advocate_app/data/case_label.dart';
 import 'package:advocate_app/data/jobs.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Error from the API's `{"error": {...}}` shape (spec §10.1), or a network failure (`NETWORK`).
@@ -28,6 +31,113 @@ class ApiException implements Exception {
 
 /// Result of POST /v1/found-cases/add, summed over chunks.
 typedef AddResult = ({int added, int alreadyTracked, List<String> matterIds});
+
+/// One hit of POST /v1/search/cases (spec §11.7). Party and advocate names: never log them.
+@immutable
+class CaseHit {
+  const CaseHit({
+    required this.cnr,
+    required this.title,
+    required this.status,
+    this.courtCode,
+    this.caseType,
+    this.caseNumber,
+    this.caseYear,
+    this.nextHearingDate,
+    this.petitioners = const [],
+    this.respondents = const [],
+    this.advocates = const [],
+    this.tracked = false,
+  });
+
+  factory CaseHit.fromJson(Map<String, dynamic> j) => CaseHit(
+    cnr: j['cnr'] as String,
+    title: j['title'] as String,
+    status: j['status'] as String,
+    courtCode: j['court_code'] as String?,
+    caseType: j['case_type'] as String?,
+    caseNumber: j['case_number'] as String?,
+    caseYear: j['case_year'] as int?,
+    nextHearingDate: parseDay(j['next_hearing_date']),
+    petitioners: (j['petitioners'] as List? ?? const []).cast(),
+    respondents: (j['respondents'] as List? ?? const []).cast(),
+    advocates: [
+      for (final a in j['advocates'] as List? ?? const [])
+        (name: (a as Map)['name'] as String, side: a['side'] as String),
+    ],
+    tracked: j['tracked'] as bool? ?? false,
+  );
+
+  final String cnr;
+
+  /// The provider's court code (not a courts row id).
+  final String? courtCode;
+  final String? caseType;
+  final String? caseNumber;
+  final int? caseYear;
+  final String title;
+
+  /// The provider's status text, e.g. `pending` or `disposed`.
+  final String status;
+
+  /// IST day.
+  final DateTime? nextHearingDate;
+  final List<String> petitioners;
+  final List<String> respondents;
+
+  /// `side` is `petitioner` or `respondent`.
+  final List<({String name, String side})> advocates;
+
+  /// The org already tracks this CNR (a live matter): "Tracking", opens that case.
+  final bool tracked;
+
+  String get caseLabel => caseLabelOf(
+    caseType: caseType,
+    caseNumber: caseNumber,
+    caseYear: caseYear,
+    cnr: cnr,
+  );
+}
+
+/// One page of POST /v1/search/cases.
+@immutable
+class CaseSearchPage {
+  const CaseSearchPage({
+    required this.items,
+    required this.total,
+    required this.page,
+    required this.hasNext,
+    this.cached = false,
+    this.postFiltered = false,
+    this.ignoredCourtIds = const [],
+  });
+
+  factory CaseSearchPage.fromJson(Map<String, dynamic> j) => CaseSearchPage(
+    items: [
+      for (final h in j['items'] as List) CaseHit.fromJson((h as Map).cast()),
+    ],
+    total: j['total'] as int,
+    page: j['page'] as int,
+    hasNext: j['has_next'] as bool,
+    cached: j['cached'] as bool? ?? false,
+    postFiltered: j['post_filtered'] as bool? ?? false,
+    ignoredCourtIds: (j['ignored_court_ids'] as List? ?? const []).cast(),
+  );
+
+  final List<CaseHit> items;
+
+  /// The provider's count; overstates when [postFiltered].
+  final int total;
+  final int page;
+  final bool hasNext;
+  final bool cached;
+
+  /// Case type or year removed hits from this page (say the results are narrowed).
+  final bool postFiltered;
+
+  /// Chosen courts the provider can't search yet (say they were left out).
+  final List<String> ignoredCourtIds;
+}
 
 /// Typed client for the FastAPI endpoints (spec §7.1 allows "generated or typed").
 ///
@@ -209,6 +319,137 @@ class ApiClient {
       ),
     );
     return r['job_id'] as String;
+  }
+
+  /// Court case search (spec §11.7): at least one of [party], [advocate], [judge], [text] (else
+  /// SEARCH_TERMS_REQUIRED). Names go in the JSON body, never the URL. RATE_LIMITED, SEARCH_DAILY_CAP (details
+  /// `{limit}`), COURT_PROVIDER_UNAVAILABLE.
+  Future<CaseSearchPage> searchCases({
+    required String orgId,
+    String? party,
+    String? advocate,
+    String? judge,
+    String? text,
+    List<String> courtIds = const [],
+    String? caseType,
+    int? year,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    String? term(String? v) => (v ?? '').trim().isEmpty ? null : v!.trim();
+    final r = await _send<Map<String, dynamic>>(
+      () => _dio.post(
+        '/v1/search/cases',
+        data: {
+          'party': ?term(party),
+          'advocate': ?term(advocate),
+          'judge': ?term(judge),
+          'text': ?term(text),
+          if (courtIds.isNotEmpty) 'court_ids': courtIds,
+          'case_type': ?term(caseType),
+          'year': ?year,
+          'page': page,
+          'page_size': pageSize,
+        },
+        options: _org(orgId),
+      ),
+    );
+    return CaseSearchPage.fromJson(r);
+  }
+
+  /// A case the provider doesn't cover (spec §4.1 "Manual case"); returns its matter id. [nextDate] is an IST day.
+  /// COURT_REQUIRED (neither [courtId] nor [courtName]), UNKNOWN_COURT, VALIDATION_ERROR.
+  Future<String> addManual({
+    required String orgId,
+    required String title,
+    String? courtId,
+    String? courtName,
+    String? caseType,
+    String? caseNumber,
+    int? caseYear,
+    String? ourSide,
+    String? fileNo,
+    DateTime? nextDate,
+  }) async {
+    String? field(String? v) => (v ?? '').trim().isEmpty ? null : v!.trim();
+    final r = await _send<Map<String, dynamic>>(
+      () => _dio.post(
+        '/v1/matters/manual',
+        data: {
+          'title': title.trim(),
+          'court_id': ?courtId,
+          'court_name': ?field(courtName),
+          'case_type': ?field(caseType),
+          'case_number': ?field(caseNumber),
+          'case_year': ?caseYear,
+          'our_side': ?field(ourSide),
+          'file_no': ?field(fileNo),
+          if (nextDate != null) 'next_date': isoDate(nextDate),
+        },
+        options: _org(orgId),
+      ),
+    );
+    return r['id'] as String;
+  }
+
+  /// The official portal for the case (spec §4.3), for the user to open; it may ask for a CAPTCHA. NO_CNR.
+  Future<({String url, String cnr, bool verified})> officialLink({
+    required String orgId,
+    required String matterId,
+  }) async {
+    final r = await _send<Map<String, dynamic>>(
+      () =>
+          _dio.get('/v1/matters/$matterId/official-link', options: _org(orgId)),
+    );
+    return (
+      url: r['url'] as String,
+      cnr: r['cnr'] as String,
+      verified: r['verified'] as bool,
+    );
+  }
+
+  /// Soft-deletes the case and everything under it (owners and advocates; ROLE_NOT_ALLOWED otherwise).
+  Future<void> deleteMatter({
+    required String orgId,
+    required String matterId,
+  }) => _send(() => _dio.delete('/v1/matters/$matterId', options: _org(orgId)));
+
+  /// Tracking on (`auto`) or off (`off`) for a CNR case (ADR 0015). Turning it on may start a fetch (its job id).
+  /// MANUAL_CASE, NO_CNR (409); TRACKED_CASE_LIMIT (409, details `{limit}`).
+  Future<({String tracking, String? jobId})> setTracking({
+    required String orgId,
+    required String matterId,
+    required String tracking,
+  }) async {
+    final r = await _send<Map<String, dynamic>>(
+      () => _dio.patch(
+        '/v1/matters/$matterId',
+        data: {'tracking': tracking},
+        options: _org(orgId),
+      ),
+    );
+    return (tracking: r['tracking'] as String, jobId: r['job_id'] as String?);
+  }
+
+  /// A short-lived link to a document's file (no title in it). DOCUMENT_NOT_READY (still being checked),
+  /// DOCUMENT_QUARANTINED (failed the safety check).
+  Future<String> documentUrl({
+    required String orgId,
+    required String documentId,
+  }) => _url('/v1/documents/$documentId/download-url', orgId);
+
+  /// A short-lived link to the court's copy of an order. ORDER_PDF_UNAVAILABLE, ORDER_PDF_FETCHING (retryable),
+  /// COURT_PROVIDER_UNAVAILABLE.
+  Future<String> orderPdfUrl({
+    required String orgId,
+    required String orderId,
+  }) => _url('/v1/orders/$orderId/pdf-url', orgId);
+
+  Future<String> _url(String path, String orgId) async {
+    final r = await _send<Map<String, dynamic>>(
+      () => _dio.get(path, options: _org(orgId)),
+    );
+    return r['url'] as String;
   }
 
   Options _org(String orgId, [String? idempotencyKey]) =>

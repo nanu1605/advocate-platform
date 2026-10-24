@@ -1,50 +1,12 @@
-import 'dart:async';
-import 'dart:io';
-
-import 'package:advocate_app/core/clock.dart';
-import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/diary.dart';
-import 'package:advocate_app/data/sync/schema.dart';
-import 'package:advocate_app/data/sync/sync.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:powersync/powersync.dart' hide SyncStatus;
 
 import '../helpers.dart';
+import 'sync_db.dart';
 
 const _hc = 'c-hc';
 const _dc = 'c-dc';
-
-/// A fresh on-device database with the app's schema, deleted after the test.
-Future<PowerSyncDatabase> _open() async {
-  final dir = Directory.systemTemp.createTempSync('diary');
-  final db = PowerSyncDatabase(schema: schema, path: '${dir.path}/test.db');
-  await db.initialize();
-  addTearDown(() async {
-    await db.close();
-    try {
-      dir.deleteSync(recursive: true);
-    } on FileSystemException {
-      // Windows may hold the file a moment longer; it's in the temp folder.
-    }
-  });
-  return db;
-}
-
-Future<void> _insert(
-  PowerSyncDatabase db,
-  String table,
-  List<Map<String, Object?>> rows,
-) async {
-  for (final r in rows) {
-    await db.execute(
-      'insert into $table (${r.keys.join(', ')}) '
-      'values (${List.filled(r.length, '?').join(', ')})',
-      r.values.toList(),
-    );
-  }
-}
 
 /// A live auto-tracked case of org-1 at MPHC Indore ("m3" is WP 3/2024), plus [fields].
 Map<String, Object?> _matter(
@@ -63,44 +25,6 @@ Map<String, Object?> _matter(
   ...fields,
 };
 
-ProviderContainer _container(PowerSyncDatabase db, {String org = 'org-1'}) {
-  final c = ProviderContainer(
-    overrides: [
-      syncDatabaseProvider.overrideWithValue(db),
-      currentOrgIdProvider.overrideWithValue(org),
-      currentUserIdProvider.overrideWithValue('user-1'),
-      clockProvider.overrideWithValue(() => testNow),
-    ],
-  );
-  addTearDown(c.dispose);
-  return c;
-}
-
-/// The first value of [p] that passes [until], listening as a screen does (Riverpod pauses unlistened providers).
-Future<T> _value<T>(
-  ProviderContainer c,
-  ProviderListenable<AsyncValue<T>> p, [
-  bool Function(T)? until,
-]) {
-  final done = Completer<T>();
-  final sub = c.listen<AsyncValue<T>>(p, (_, next) {
-    if (done.isCompleted) return;
-    if (next.hasError) return done.completeError(next.error!);
-    if (!next.hasValue) return;
-    final v = next.value as T;
-    if (until?.call(v) ?? true) done.complete(v);
-  }, fireImmediately: true);
-  return done.future
-      .timeout(const Duration(seconds: 10))
-      .whenComplete(sub.close);
-}
-
-/// The latest local change waiting to upload: `[op, table, id, data]`.
-Future<List<Object?>> _lastWrite(PowerSyncDatabase db) async {
-  final op = (await db.getCrudBatch(limit: 1000))!.crud.last;
-  return [op.op, op.table, op.id, op.opData];
-}
-
 /// The SQL behind Today and the board, against a real on-device database (spec §4.2, §11.6).
 void main() {
   // IST now listens for the app resuming.
@@ -110,12 +34,12 @@ void main() {
     late PowerSyncDatabase db;
 
     setUp(() async {
-      db = await _open();
-      await _insert(db, 'organizations', [
+      db = await openTestDb();
+      await insertRows(db, 'organizations', [
         {'id': 'org-1', 'owner_id': 'user-1', 'name': 'Sharma'},
         {'id': 'org-2', 'owner_id': 'user-9', 'name': 'Other'},
       ]);
-      await _insert(db, 'courts', [
+      await insertRows(db, 'courts', [
         {
           'id': _hc,
           'level': 'HC',
@@ -131,7 +55,7 @@ void main() {
           'short_name_hi': 'जिला कोर्ट इंदौर',
         },
       ]);
-      await _insert(db, 'memberships', [
+      await insertRows(db, 'memberships', [
         for (final (id, user, role, name, status) in [
           ('ms-1', 'user-1', 'owner', 'Ramesh Sharma', 'active'),
           ('ms-2', 'user-2', 'junior', 'Rakesh Jain', 'active'),
@@ -147,7 +71,7 @@ void main() {
             'status': status,
           },
       ]);
-      await _insert(db, 'matters', [
+      await insertRows(db, 'matters', [
         _matter('m1', {'next_hearing_date': testToday, 'judge': 'Justice X'}),
         _matter('m2', {'next_hearing_date': testToday, 'court_id': _dc}),
         _matter('m3', {'next_hearing_date': testToday, 'stage': 'Arguments'}),
@@ -187,13 +111,13 @@ void main() {
         'proxy_arranged': 0,
         'is_current': 1,
       };
-      await _insert(db, 'board_entries', [
+      await insertRows(db, 'board_entries', [
         board('b1', 'm1', _hc, '12', '23', '11:58:00'),
         board('b2', 'm2', _dc, '5', '1', '11:00:00'),
         // Listed earlier than its next date (tomorrow).
         board('b10', 'm10', _hc, '12', '30', '12:26:00', 'user-3'),
       ]);
-      await _insert(db, 'org_cause_list_entries', [
+      await insertRows(db, 'org_cause_list_entries', [
         {
           'id': 'o1',
           'org_id': 'org-1',
@@ -217,7 +141,7 @@ void main() {
           'is_current': 1,
         },
       ]);
-      await _insert(db, 'hearings', [
+      await insertRows(db, 'hearings', [
         {
           'id': 'h1',
           'org_id': 'org-1',
@@ -248,17 +172,17 @@ void main() {
           'date': '2026-11-04',
         },
       ]);
-      await _insert(db, 'clients', [
+      await insertRows(db, 'clients', [
         {'id': 'cl1', 'org_id': 'org-1', 'name': 'Suresh Patel'},
       ]);
-      await _insert(db, 'matter_clients', [
+      await insertRows(db, 'matter_clients', [
         {'id': 'mc1', 'org_id': 'org-1', 'matter_id': 'm1', 'client_id': 'cl1'},
       ]);
     });
 
     test('which matters, in diary order, with clashes', () async {
-      final c = _container(db);
-      final day = await _value(c, diaryProvider(testToday));
+      final c = dbContainer(db);
+      final day = await firstValue(c, diaryProvider(testToday));
       expect(day.map((e) => e.matterId), ['m2', 'm4', 'm3', 'm1', 'm10']);
       final byId = {for (final e in day) e.matterId: e};
 
@@ -293,23 +217,27 @@ void main() {
       expect([for (final e in day) e.clash], [true, false, false, true, false]);
       expect(m1.clashWith, ['m2']);
 
-      final tomorrow = await _value(c, diaryProvider(testTomorrow));
+      final tomorrow = await firstValue(c, diaryProvider(testTomorrow));
       expect(tomorrow.map((e) => e.matterId), ['m10', 'm5']);
       expect(tomorrow.boardBuilt, isFalse);
     });
 
     test('Assign to and proxy write locally and re-apply the clash', () async {
-      final c = _container(db);
+      final c = dbContainer(db);
       final writer = c.read(diaryWriterProvider);
-      await _value(c, diaryProvider(testToday), (d) => d.any((e) => e.clash));
+      await firstValue(
+        c,
+        diaryProvider(testToday),
+        (d) => d.any((e) => e.clash),
+      );
 
       await writer.setProxy('b2', arranged: true);
-      await _value(
+      await firstValue(
         c,
         diaryProvider(testToday),
         (d) => d.every((e) => !e.clash),
       );
-      expect(await _lastWrite(db), [
+      expect(await lastWrite(db), [
         UpdateType.patch,
         'board_entries',
         'b2',
@@ -317,13 +245,13 @@ void main() {
       ]);
 
       await writer.assign('b10', 'user-1');
-      final day = await _value(
+      final day = await firstValue(
         c,
         diaryProvider(testToday),
         (d) => d.any((e) => e.assigneeId == 'user-1'),
       );
       expect(day.last.assigneeName, 'Ramesh Sharma');
-      expect(await _lastWrite(db), [
+      expect(await lastWrite(db), [
         UpdateType.patch,
         'board_entries',
         'b10',
@@ -331,36 +259,31 @@ void main() {
       ]);
 
       await writer.setProxy('b2', arranged: false);
-      await _value(c, diaryProvider(testToday), (d) => d.first.clash);
+      await firstValue(c, diaryProvider(testToday), (d) => d.first.clash);
     });
 
-    test('members, any cases, case header', () async {
-      final c = _container(db);
+    test('members, any cases', () async {
+      final c = dbContainer(db);
       expect(
-        (await _value(c, orgMembersProvider)).map((m) => (m.name, m.role)),
+        (await firstValue(c, orgMembersProvider)).map((m) => (m.name, m.role)),
         [
           ('Neha Verma', 'advocate'),
           ('Rakesh Jain', 'junior'),
           ('Ramesh Sharma', 'owner'),
         ],
       );
-      expect(await _value(c, hasMattersProvider), isTrue);
+      expect(await firstValue(c, hasMattersProvider), isTrue);
       expect(
-        await _value(_container(db, org: 'org-3'), hasMattersProvider),
+        await firstValue(dbContainer(db, org: 'org-3'), hasMattersProvider),
         isFalse,
       );
-      expect(await _value(c, caseHeaderProvider('m1')), (
-        caseLabel: 'WP 1/2024',
-        title: 'Sharma v. State of MP',
-      ));
-      expect(await _value(c, caseHeaderProvider('m6')), isNull);
     });
   });
 
   test('tasks due: mine or unassigned, open, by end of today', () async {
-    final db = await _open();
-    await _insert(db, 'matters', [_matter('m1')]);
-    await _insert(db, 'tasks', [
+    final db = await openTestDb();
+    await insertRows(db, 'matters', [_matter('m1')]);
+    await insertRows(db, 'tasks', [
       for (final (id, due, assignee, status) in [
         ('t1', '2026-11-04T06:00:00Z', 'user-1', 'open'), // overdue
         ('t2', '2026-11-05 17:00:00+00', null, 'open'), // 22:30 IST today
@@ -379,26 +302,26 @@ void main() {
           'status': status,
         },
     ]);
-    final c = _container(db);
-    final due = await _value(c, tasksDueProvider);
+    final c = dbContainer(db);
+    final due = await firstValue(c, tasksDueProvider);
     expect(due.map((t) => (t.id, t.overdue)), [('t1', true), ('t2', false)]);
     expect(due.first.caseLabel, 'WP 1/2024');
 
     await c.read(diaryWriterProvider).completeTask('t2');
-    await _value(c, tasksDueProvider, (d) => d.length == 1);
-    expect(await _lastWrite(db), [
+    await firstValue(c, tasksDueProvider, (d) => d.length == 1);
+    expect(await lastWrite(db), [
       UpdateType.patch,
       'tasks',
       't2',
       {'status': 'done'},
     ]);
     await c.read(diaryWriterProvider).reopenTask('t2');
-    await _value(c, tasksDueProvider, (d) => d.length == 2);
+    await firstValue(c, tasksDueProvider, (d) => d.length == 2);
   });
 
   test('new orders: my unread new_order notifications in this org', () async {
-    final db = await _open();
-    await _insert(db, 'matters', [_matter('m1')]);
+    final db = await openTestDb();
+    await insertRows(db, 'matters', [_matter('m1')]);
     Map<String, Object?> notice(
       String id, {
       String kind = 'new_order',
@@ -414,29 +337,29 @@ void main() {
       'read_at': readAt,
       'created_at': '2026-11-05T02:00:00Z',
     };
-    await _insert(db, 'notifications', [
+    await insertRows(db, 'notifications', [
       notice('n1'),
       notice('n2', readAt: '2026-11-05T03:00:00Z'),
       notice('n3', user: 'user-2'),
       notice('n4', kind: 'sync_issue'),
       notice('n5', org: 'org-2'),
     ]);
-    final c = _container(db);
-    final orders = await _value(c, newOrdersProvider);
+    final c = dbContainer(db);
+    final orders = await firstValue(c, newOrdersProvider);
     expect(orders.map((n) => (n.id, n.matterId, n.link, n.caseLabel)), [
       ('n1', 'm1', '/cases/m1', 'WP 1/2024'),
     ]);
 
     await c.read(diaryWriterProvider).markNotificationRead('n1');
-    await _value(c, newOrdersProvider, (o) => o.isEmpty);
-    final write = await _lastWrite(db);
+    await firstValue(c, newOrdersProvider, (o) => o.isEmpty);
+    final write = await lastWrite(db);
     expect(write.take(3), [UpdateType.patch, 'notifications', 'n1']);
     expect((write.last! as Map).keys, ['read_at']);
   });
 
   test('needs attention from the synced rows', () async {
-    final db = await _open();
-    await _insert(db, 'matters', [
+    final db = await openTestDb();
+    await insertRows(db, 'matters', [
       _matter('a1', {
         'court_fetched_at': '2026-11-01T10:00:00Z',
         'court_status': 'pending',
@@ -451,7 +374,7 @@ void main() {
       _matter('a5', {'tracking': 'manual'}),
       _matter('a6', {'tracking': 'off'}),
     ]);
-    await _insert(db, 'hearings', [
+    await insertRows(db, 'hearings', [
       for (final (id, matter, date, noted, deleted) in [
         ('h1', 'a3', '2026-11-01', null, null),
         ('h2', 'a3', '2026-11-10', null, '2026-11-02T00:00:00Z'),
@@ -468,7 +391,7 @@ void main() {
           'deleted_at': deleted,
         },
     ]);
-    await _insert(db, 'notifications', [
+    await insertRows(db, 'notifications', [
       {
         'id': 'n1',
         'org_id': 'org-1',
@@ -478,8 +401,8 @@ void main() {
         'created_at': '2026-11-05T01:00:00Z',
       },
     ]);
-    final c = _container(db);
-    final items = await _value(c, needsAttentionProvider);
+    final c = dbContainer(db);
+    final items = await firstValue(c, needsAttentionProvider);
     expect(items.map((i) => (i.kind, i.matterId ?? i.notificationId)), [
       (AttentionKind.noNextDate, 'a1'),
       (AttentionKind.courtDataPending, 'a2'),
@@ -491,14 +414,18 @@ void main() {
   });
 
   test('evening switch from app_config', () async {
-    final db = await _open();
-    final c = _container(db);
-    expect(await _value(c, eveningSwitchProvider), defaultEveningSwitch);
-    await _insert(db, 'app_config', [
+    final db = await openTestDb();
+    final c = dbContainer(db);
+    expect(await firstValue(c, eveningSwitchProvider), defaultEveningSwitch);
+    await insertRows(db, 'app_config', [
       {'id': 'cfg', 'key': 'today_evening_switch', 'value': '"19:00"'},
     ]);
     expect(
-      await _value(c, eveningSwitchProvider, (d) => d != defaultEveningSwitch),
+      await firstValue(
+        c,
+        eveningSwitchProvider,
+        (d) => d != defaultEveningSwitch,
+      ),
       const Duration(hours: 19),
     );
   });

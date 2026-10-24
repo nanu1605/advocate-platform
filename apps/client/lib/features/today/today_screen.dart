@@ -12,8 +12,8 @@ import 'package:advocate_app/data/api_client.dart';
 import 'package:advocate_app/data/diary.dart';
 import 'package:advocate_app/data/diary_text.dart';
 import 'package:advocate_app/data/sync/sync.dart';
+import 'package:advocate_app/features/cases/add_case.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
-import 'package:advocate_app/features/shell/home_shell.dart';
 import 'package:advocate_app/features/today/today_refresh.dart';
 import 'package:advocate_app/ui/board_table.dart';
 import 'package:advocate_app/ui/case_card.dart';
@@ -175,7 +175,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
             : noCases
             ? l.addFirstCase
             : null,
-        onAction: toTomorrow ? toBoard : () => showAddSheet(context),
+        onAction: toTomorrow ? toBoard : () => showAddCaseChooser(context),
       );
     } else {
       // The kit's board rows, by court: case number, court and item number, clash and why, proxy arranged.

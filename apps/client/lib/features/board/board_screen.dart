@@ -7,6 +7,7 @@ import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/diary.dart';
 import 'package:advocate_app/data/diary_text.dart';
+import 'package:advocate_app/features/board/assign_sheet.dart';
 import 'package:advocate_app/features/board/board_share.dart';
 import 'package:advocate_app/ui/board_table.dart';
 import 'package:advocate_app/ui/icons.dart';
@@ -175,8 +176,8 @@ class BoardScreen extends ConsumerWidget {
     );
   }
 
-  /// Assign to (spec §4.2): active members but clerks, "Me" first; the write is local and re-applies the clash
-  /// rule at once. Undo puts back who it was (or no one).
+  /// Assign to (spec §4.2): the write is local and re-applies the clash rule at once. Undo puts back who it was
+  /// (or no one).
   Future<void> _assign(
     BuildContext context,
     WidgetRef ref,
@@ -185,10 +186,11 @@ class BoardScreen extends ConsumerWidget {
     final l = context.l10n;
     final writer = ref.read(diaryWriterProvider);
     final me = ref.read(currentUserIdProvider);
-    final picked = await showAppBottomSheet<OrgMember>(
+    final picked = (await showAssignSheet(
       context,
-      builder: (_) => _AssignSheet(e),
-    );
+      caseLabel: e.caseLabel,
+      currentId: e.assigneeId,
+    ))?.member;
     if (picked == null || picked.userId == e.assigneeId) return;
     final id = e.boardEntryId!;
     await writer.assign(id, picked.userId);
@@ -197,7 +199,7 @@ class BoardScreen extends ConsumerWidget {
       context,
       message: l.boardAssignedSnack(
         e.caseLabel,
-        picked.userId == me ? l.boardYou : _name(l, picked),
+        picked.userId == me ? l.boardYou : memberName(l, picked),
       ),
       onUndo: () => unawaited(writer.assign(id, e.assigneeId)),
     );
@@ -217,52 +219,6 @@ class BoardScreen extends ConsumerWidget {
           ? l.boardProxyMarkedSnack(e.caseLabel)
           : l.boardProxyClearedSnack(e.caseLabel),
       onUndo: () => unawaited(writer.setProxy(id, arranged: !arranged)),
-    );
-  }
-}
-
-/// A member's display name, else their role.
-String _name(AppLocalizations l, OrgMember m) =>
-    m.name ??
-    (m.role == 'junior' ? l.onboardingRoleJunior : l.onboardingRoleAdvocate);
-
-class _AssignSheet extends ConsumerWidget {
-  const _AssignSheet(this.entry);
-
-  final DiaryEntry entry;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l = context.l10n;
-    final me = ref.watch(currentUserIdProvider);
-    final members = ref.watch(orgMembersProvider).value ?? const [];
-    final people = [
-      ...members.where((m) => m.userId == me),
-      ...members.where((m) => m.userId != me && m.role != 'clerk'),
-    ];
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Semantics(
-          header: true,
-          child: Text(
-            l.boardAssignTitle(entry.caseLabel),
-            style: context.text.titleLarge,
-          ),
-        ),
-        const SizedBox(height: 8),
-        for (final m in people)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(m.userId == me ? l.boardMe : _name(l, m)),
-            selected: m.userId == entry.assigneeId,
-            trailing: m.userId == entry.assigneeId
-                ? const Icon(AppIcons.checkCircleFill)
-                : null,
-            onTap: () => Navigator.pop(context, m),
-          ),
-      ],
     );
   }
 }

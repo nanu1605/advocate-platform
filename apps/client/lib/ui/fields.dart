@@ -142,6 +142,7 @@ class DateField extends StatefulWidget {
     this.label,
     this.firstDate,
     this.lastDate,
+    this.controller,
     super.key,
   });
 
@@ -151,19 +152,24 @@ class DateField extends StatefulWidget {
   final DateTime? firstDate;
   final DateTime? lastDate;
 
+  /// Holds what was typed (set its text instead of [initial]), e.g. so a form can refuse a date that doesn't
+  /// parse: [onChanged] gets null for both an empty and an invalid entry.
+  final TextEditingController? controller;
+
   @override
   State<DateField> createState() => _DateFieldState();
 }
 
 class _DateFieldState extends State<DateField> {
-  late final _controller = TextEditingController(
+  late final _own = TextEditingController(
     text: widget.initial == null ? '' : Formats.entry(widget.initial!),
   );
+  TextEditingController get _controller => widget.controller ?? _own;
   String? _error;
 
   @override
   void dispose() {
-    _controller.dispose();
+    _own.dispose();
     super.dispose();
   }
 
@@ -213,6 +219,7 @@ class SearchField extends StatelessWidget {
   const SearchField({
     required this.hint,
     this.controller,
+    this.focusNode,
     this.onChanged,
     this.onSubmitted,
     this.autofocus = false,
@@ -221,6 +228,9 @@ class SearchField extends StatelessWidget {
 
   final String hint;
   final TextEditingController? controller;
+
+  /// e.g. for Ctrl+F (spec §5.12).
+  final FocusNode? focusNode;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
   final bool autofocus;
@@ -228,6 +238,7 @@ class SearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) => TextField(
     controller: controller,
+    focusNode: focusNode,
     autofocus: autofocus,
     onChanged: onChanged,
     onSubmitted: onSubmitted,
@@ -235,6 +246,8 @@ class SearchField extends StatelessWidget {
     style: context.text.bodyLarge,
     decoration: InputDecoration(
       hintText: hint,
+      // Often the box's only label: it wraps rather than cut off at 200% text (spec §5.9).
+      hintMaxLines: 2,
       prefixIcon: Icon(AppIcons.magnifyingGlass, color: context.colors.ink2),
       isDense: true,
     ),

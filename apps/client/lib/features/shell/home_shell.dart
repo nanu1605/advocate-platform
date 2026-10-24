@@ -5,6 +5,8 @@ import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/core/theme/app_theme.dart';
 import 'package:advocate_app/data/sync/sync.dart';
+import 'package:advocate_app/features/case_page/task_sheet.dart';
+import 'package:advocate_app/features/cases/add_case.dart';
 import 'package:advocate_app/ui/app_scaffold.dart';
 import 'package:advocate_app/ui/command_palette.dart';
 import 'package:advocate_app/ui/icons.dart';
@@ -78,6 +80,7 @@ class HomeShell extends ConsumerWidget {
       railDestinations: rail,
       onNavigate: context.go,
       onCenterAction: () => showAddSheet(context),
+      onNewCase: () => unawaited(showAddCaseChooser(context)),
       banner: offline ? const OfflineBanner() : null,
       onCommandPalette: () => showCommandPalette(context, [
         for (final (i, d) in rail.indexed)
@@ -98,7 +101,7 @@ class HomeShell extends ConsumerWidget {
           label: l.addCase,
           icon: AppIcons.plus,
           shortcut: 'Ctrl+N',
-          run: () => showAddSheet(context),
+          run: () => unawaited(showAddCaseChooser(context)),
         ),
       ]),
       child: child,
@@ -106,13 +109,13 @@ class HomeShell extends ConsumerWidget {
   }
 }
 
-/// Centre "+" (P1): Add case · Add task · Add document. Becomes the mic in P2 (flag `voice`).
+/// Centre "+" (P1): Add case (the chooser) · Add task · Add document (task 10: "coming soon" until then). Becomes
+/// the mic in P2 (flag `voice`).
 void showAddSheet(BuildContext context) {
   final l = context.l10n;
-  void soon() {
+  void then(void Function() open) {
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(l.comingSoon)));
+    open();
   }
 
   unawaited(
@@ -124,17 +127,21 @@ void showAddSheet(BuildContext context) {
           ListTile(
             leading: const Icon(AppIcons.briefcase),
             title: Text(l.addCase),
-            onTap: soon,
+            onTap: () => then(() => unawaited(showAddCaseChooser(context))),
           ),
           ListTile(
             leading: const Icon(AppIcons.checkSquare),
             title: Text(l.addTask),
-            onTap: soon,
+            onTap: () => then(() => unawaited(showTaskSheet(context))),
           ),
           ListTile(
             leading: const Icon(AppIcons.filePlus),
             title: Text(l.addDocument),
-            onTap: soon,
+            onTap: () => then(
+              () =>
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text(l.comingSoon))),
+            ),
           ),
         ],
       ),
