@@ -9,14 +9,19 @@ import 'package:advocate_app/core/theme/app_theme.dart';
 import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/api_client.dart';
 import 'package:advocate_app/data/auth.dart';
+import 'package:advocate_app/data/calendar.dart';
 import 'package:advocate_app/data/cases.dart';
 import 'package:advocate_app/data/courts.dart';
 import 'package:advocate_app/data/device.dart';
 import 'package:advocate_app/data/diary.dart';
+import 'package:advocate_app/data/document_files.dart';
+import 'package:advocate_app/data/documents.dart';
 import 'package:advocate_app/data/found_cases.dart';
 import 'package:advocate_app/data/jobs.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/board/board_share.dart';
+import 'package:advocate_app/features/dev_kitchen_sink/kitchen_sink.dart';
+import 'package:advocate_app/features/documents/viewer_screen.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:advocate_app/features/onboarding/consent_screen.dart';
 import 'package:advocate_app/ui/states.dart';
@@ -423,6 +428,86 @@ class FakeApi extends ApiClient {
     required String orderId,
   }) =>
       _call('orderPdfUrl', orderId, () => 'https://files.test/orders/$orderId');
+
+  var _uploads = 0;
+
+  /// How long uploadUrl's URLs live (the server's 2 h).
+  int uploadUrlExpiresInS = 7200;
+
+  /// uploadUrl answers `doc-up-n` with `https://files.test/upload/n` for its nth call. Records the body's fields.
+  @override
+  Future<({String documentId, String uploadUrl, int expiresInS})> uploadUrl({
+    required String orgId,
+    required String title,
+    required String kind,
+    required String mime,
+    required int sizeBytes,
+    String? matterId,
+  }) => _call(
+    'uploadUrl',
+    {
+      'title': title,
+      'kind': kind,
+      'mime': mime,
+      'size': sizeBytes,
+      'matterId': matterId,
+    },
+    () {
+      final n = ++_uploads;
+      return (
+        documentId: 'doc-up-$n',
+        uploadUrl: 'https://files.test/upload/$n',
+        expiresInS: uploadUrlExpiresInS,
+      );
+    },
+  );
+
+  /// The bytes each upload URL received.
+  final uploaded = <String, List<int>>{};
+
+  @override
+  Future<void> putUpload(
+    String url,
+    File file, {
+    required String mime,
+    void Function(int sent, int total)? onProgress,
+    CancelToken? cancel,
+  }) async {
+    final bytes = await file.readAsBytes();
+    await _call('putUpload', {'url': url, 'mime': mime}, () {
+      // Cancelled while gated: what the real client says.
+      if (cancel?.isCancelled ?? false) throw const ApiException('CANCELLED');
+      onProgress?.call(bytes.length ~/ 2, bytes.length);
+      onProgress?.call(bytes.length, bytes.length);
+      uploaded[url] = bytes;
+    });
+  }
+
+  @override
+  Future<void> completeUpload({
+    required String orgId,
+    required String documentId,
+    required String idempotencyKey,
+  }) => _call('completeUpload', {
+    'documentId': documentId,
+    'key': idempotencyKey,
+  }, () {});
+
+  /// What download writes for a URL; a missing URL gets a small PDF's first bytes.
+  final files = <String, List<int>>{};
+
+  @override
+  Future<void> download(
+    String url,
+    String path, {
+    void Function(int received, int total)? onProgress,
+    CancelToken? cancel,
+  }) => _call('download', url, () {
+    if (cancel?.isCancelled ?? false) throw const ApiException('CANCELLED');
+    final bytes = files[url] ?? '%PDF-1.4 test'.codeUnits;
+    File(path).writeAsBytesSync(bytes);
+    onProgress?.call(bytes.length, bytes.length);
+  });
 }
 
 class FakeRegistrar extends DeviceRegistrar {
@@ -493,6 +578,8 @@ Future<FakeApi> pumpApp(
           const AppLockState(method: LockMethod.none),
         ),
         testShareDir(),
+        // PDFium doesn't run under flutter test: the viewer shows sample pages.
+        pdfPagesProvider.overrideWithValue((_) => SamplePdfPages()),
         ...overrides,
       ],
       child: const App(),
@@ -774,12 +861,14 @@ CaseInfo caseInfo(
   );
 }
 
-/// The cases data in memory for widget tests (no PowerSync): what the Cases list, the case page and the add
-/// sheets read, and the [CaseWriter] they write through. Writes change what the providers show, as the synced
-/// database would (a manual case's next date follows its hearings; linking a client adds it to the case);
-/// [writes] records each one by method name with its arguments. Child rows are keyed by matter id (tasks without a
-/// case under ''). Pass [overrides] to pumpApp (they include the clock, [now], and the org's [members]), or
-/// [caseOverrides] next to a [FakeDiary]'s overrides, which set those already.
+/// The cases data in memory for widget tests (no PowerSync): what the Cases list, the case page, the add sheets,
+/// the calendar, the Clients screens and the Documents screen read (synced rows), and the [CaseWriter] they write
+/// through. Writes change what the providers show, as the synced database would (a manual case's next date follows
+/// its hearings; linking a client adds it to the case; Keep offline marks the document); [writes] records each one
+/// by method name with its arguments. Child rows are keyed by matter id (tasks and documents without a case under
+/// ''). The calendar is built from [cases], [hearings], [deadlines] and [tasks] by the same rules as its SQL. Pass
+/// [overrides] to pumpApp (they include the clock, [now], and the org's [members]), or [caseOverrides] next to a
+/// [FakeDiary]'s overrides, which set those already; add a [FakeDocuments]' for the upload queue and the cache.
 class FakeCases extends CaseWriter {
   FakeCases({
     List<CaseInfo> cases = const [],
@@ -860,7 +949,21 @@ class FakeCases extends CaseWriter {
       (ref, id) => _watch(() => [...?orders[id]]),
     ),
     caseDocumentsProvider.overrideWith(
-      (ref, id) => _table('documents', () => [...?documents[id]]),
+      (ref, id) => _table('documents', () => _docs(id)),
+    ),
+    orgDocumentsProvider.overrideWith(
+      (ref) => _table(
+        'documents',
+        () => _docs()
+          ..sort(
+            (a, b) => (b.createdAt ?? DateTime(0)).compareTo(
+              a.createdAt ?? DateTime(0),
+            ),
+          ),
+      ),
+    ),
+    documentProvider.overrideWith(
+      (ref, id) => _watch(() => _docs().where((d) => d.id == id).firstOrNull),
     ),
     caseNotesProvider.overrideWith(
       (ref, id) => _table('notes', () => [...?notes[id]]),
@@ -872,7 +975,58 @@ class FakeCases extends CaseWriter {
     caseClientsProvider.overrideWith(
       (ref, id) => _table('clients', () => [...?links[id]]),
     ),
-    clientsProvider.overrideWith((ref) => _watch(() => [...clients])),
+    clientsProvider.overrideWith((ref) => _watch(_clients)),
+    clientProvider.overrideWith(
+      (ref, id) =>
+          _watch(() => _clients().where((c) => c.id == id).firstOrNull),
+    ),
+    clientLinksProvider.overrideWith(
+      (ref, id) => _watch(
+        () => [
+          for (final MapEntry(key: matterId, value: list) in links.entries)
+            for (final l in list)
+              if (l.client.id == id) (linkId: l.linkId, matterId: matterId),
+        ],
+      ),
+    ),
+    calendarHearingsProvider.overrideWith(
+      (ref, range) => _watch(() => _calendarHearings(range)),
+    ),
+    calendarDeadlinesProvider.overrideWith(
+      (ref, range) => _watch(
+        () => [
+          for (final MapEntry(key: matterId, value: list) in deadlines.entries)
+            for (final d in list)
+              if (_inRange(d.dueDate, range))
+                CalendarDeadline(
+                  id: d.id,
+                  day: d.dueDate,
+                  kind: d.kind,
+                  done: d.done,
+                  matterId: matterId.isEmpty ? null : matterId,
+                  caseLabel: _label(matterId),
+                ),
+        ],
+      ),
+    ),
+    calendarTasksProvider.overrideWith(
+      (ref, range) => _watch(
+        () => [
+          for (final MapEntry(key: matterId, value: list) in tasks.entries)
+            for (final t in list)
+              if (t.dueAt case final due?
+                  when _inRange(istDay(istOf(due)), range))
+                CalendarTask(
+                  id: t.id,
+                  title: t.title,
+                  dueAt: due,
+                  done: t.done,
+                  matterId: matterId.isEmpty ? null : matterId,
+                  caseLabel: _label(matterId),
+                ),
+        ],
+      ),
+    ),
     pendingFoundCountProvider.overrideWithValue(AsyncData(pendingFound)),
     caseWriterProvider.overrideWithValue(this),
   ];
@@ -884,6 +1038,76 @@ class FakeCases extends CaseWriter {
   ];
 
   String _id(String prefix) => '$prefix-new-${++_ids}';
+
+  String? _label(String matterId) =>
+      cases.where((c) => c.id == matterId).firstOrNull?.caseLabel;
+
+  /// Documents with their case (the map's key) set, as [documentSql] reads them; [matterId] narrows to one case.
+  List<CaseDocument> _docs([String? matterId]) => [
+    for (final MapEntry(:key, :value) in documents.entries)
+      if (matterId == null || key == matterId)
+        for (final d in value)
+          d.copyWith(
+            matterId: key.isEmpty ? null : key,
+            caseLabel: _label(key),
+          ),
+  ];
+
+  /// Clients with their live case count, as [clientsProvider] reads them.
+  List<ClientInfo> _clients() => [
+    for (final c in clients)
+      c.copyWith(
+        caseCount: links.entries
+            .where(
+              (e) =>
+                  cases.any((x) => x.id == e.key) &&
+                  e.value.any((l) => l.client.id == c.id),
+            )
+            .length,
+      ),
+  ];
+
+  static bool _inRange(DateTime day, CalendarRange r) =>
+      !day.isBefore(r.from) && !day.isAfter(r.to);
+
+  /// The calendar's hearings rule over the fake rows: a hearing per case per day (the court's before a manual
+  /// one), plus the next date of an auto- or off-tracked unarchived case with no hearing that day.
+  List<CalendarHearing> _calendarHearings(CalendarRange range) {
+    DiaryEntry entry(CaseInfo c, CaseHearing? h) => DiaryEntry(
+      matterId: c.id,
+      caseLabel: c.caseLabel,
+      title: c.title,
+      courtId: c.courtId,
+      court: c.court,
+      courtNo: h?.courtNo ?? c.courtNo,
+      itemNo: h?.itemNo,
+      purpose: h?.purpose ?? h?.userPurpose ?? c.stage,
+      tracking: c.tracking,
+    );
+    final items = <CalendarHearing>[];
+    for (final c in cases) {
+      final days = <DateTime, CaseHearing>{};
+      final rows = [...?hearings[c.id]]
+        ..sort((a, b) => (a.manual ? 1 : 0) - (b.manual ? 1 : 0));
+      for (final h in rows) {
+        if (_inRange(h.date, range)) days.putIfAbsent(h.date, () => h);
+      }
+      for (final MapEntry(key: day, value: h) in days.entries) {
+        items.add(
+          CalendarHearing(day: day, entry: entry(c, h), hearingId: h.id),
+        );
+      }
+      final next = c.nextDate;
+      if (!c.manual &&
+          !c.archived &&
+          next != null &&
+          _inRange(next, range) &&
+          !days.containsKey(next)) {
+        items.add(CalendarHearing(day: next, entry: entry(c, null)));
+      }
+    }
+    return items;
+  }
 
   String? _name(String? userId) =>
       members.where((m) => m.userId == userId).firstOrNull?.name;
@@ -1232,17 +1456,158 @@ class FakeCases extends CaseWriter {
     required String name,
     String? phone,
     String? language,
+    String? email,
+    String? address,
+    String? notes,
   }) async {
     final id = _id('cl');
     clients.add(
-      ClientInfo(id: id, name: name.trim(), phone: phone, language: language),
+      ClientInfo(
+        id: id,
+        name: name.trim(),
+        phone: phone,
+        language: language,
+        email: email,
+        address: address,
+        notes: notes,
+      ),
     );
     _record('createClient', {
       'name': name,
       'phone': phone,
       'language': language,
+      'email': ?email,
+      'address': ?address,
+      'notes': ?notes,
     });
     return id;
+  }
+
+  /// Replaces client [id] with what [f] returns (null: deleted) wherever the reads show it.
+  void _updateClient(String id, ClientInfo? Function(ClientInfo) f) {
+    final i = clients.indexWhere((c) => c.id == id);
+    if (i < 0) return;
+    final next = f(clients[i]);
+    if (next == null) {
+      clients.removeAt(i);
+    } else {
+      clients[i] = next;
+    }
+    for (final list in links.values) {
+      for (var j = list.length - 1; j >= 0; j--) {
+        if (list[j].client.id != id) continue;
+        if (next == null) {
+          list.removeAt(j);
+        } else {
+          list[j] = (linkId: list[j].linkId, client: next);
+        }
+      }
+    }
+    for (final c in [...cases]) {
+      if (!c.clients.any((x) => x.id == id)) continue;
+      updateCase(
+        c.id,
+        (c) => c.copyWith(
+          clients: [
+            for (final x in c.clients)
+              if (x.id != id)
+                x
+              else if (next != null)
+                (id: id, name: next.name),
+          ],
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<void> updateClient(
+    String clientId, {
+    required String name,
+    String? phone,
+    String? language,
+    String? email,
+    String? address,
+    String? notes,
+  }) async {
+    String? text(String? s) => (s ?? '').trim().isEmpty ? null : s!.trim();
+    _updateClient(
+      clientId,
+      (c) => c.copyWith(
+        name: name.trim(),
+        phone: text(phone),
+        language: language,
+        email: text(email),
+        address: text(address),
+        notes: text(notes),
+      ),
+    );
+    _record('updateClient', {
+      'id': clientId,
+      'name': name,
+      'phone': phone,
+      'language': language,
+      'email': email,
+      'address': address,
+      'notes': notes,
+    });
+  }
+
+  @override
+  Future<void> setClientWhatsapp(String clientId, {required bool optIn}) async {
+    _updateClient(
+      clientId,
+      (c) =>
+          c.copyWith(whatsappOptIn: optIn, whatsappOptInAt: optIn ? now : null),
+    );
+    _record('setClientWhatsapp', {'id': clientId, 'optIn': optIn});
+  }
+
+  @override
+  Future<void> deleteClient(String clientId) async {
+    _updateClient(clientId, (_) => null);
+    _record('deleteClient', clientId);
+  }
+
+  @override
+  Future<void> setKeepOffline(String documentId, {required bool keep}) async {
+    _replace<CaseDocument>(
+      documents,
+      (d) => d.id == documentId,
+      (d) => d.copyWith(keepOffline: keep),
+    );
+    _record('setKeepOffline', {'id': documentId, 'keep': keep});
+  }
+
+  @override
+  Future<void> editDocument(
+    String documentId, {
+    required String title,
+    required String kind,
+    String? matterId,
+  }) async {
+    final doc = documents.values
+        .expand((list) => list)
+        .where((d) => d.id == documentId)
+        .firstOrNull;
+    if (doc != null) {
+      _replace<CaseDocument>(documents, (d) => d.id == documentId, (_) => null);
+      (documents[matterId ?? ''] ??= []).add(
+        doc.copyWith(title: title.trim(), kind: kind),
+      );
+    }
+    _record('editDocument', {
+      'id': documentId,
+      'title': title,
+      'kind': kind,
+      'matterId': matterId,
+    });
+  }
+
+  @override
+  Future<void> deleteDocument(String documentId) async {
+    _replace<CaseDocument>(documents, (d) => d.id == documentId, (_) => null);
+    _record('deleteDocument', documentId);
   }
 
   @override
@@ -1296,4 +1661,130 @@ class FakeCases extends CaseWriter {
     );
     _record('markOrderRead', orderId);
   }
+}
+
+/// The upload queue and the offline cache in memory for widget tests (no files, network or PowerSync): the queued
+/// upload rows the lists show ([queue]), the files on the device ([cached], by document or order id), and the two
+/// services the screens call. `uploads.enqueue` adds a waiting row and `remove` drops one; `files.open` serves a
+/// cached file, else throws [failOpen] if set (e.g. NETWORK: offline without a copy), else "downloads" (progress
+/// 0.5 then 1) a file named after the id, which is then cached. [calls] records each call by name with its
+/// arguments. The synced documents (and Keep offline) are [FakeCases]'; pass [overrides] next to its overrides.
+/// Set progress with `container(tester).read(uploadProgressProvider.notifier).set(id, 0.4)`.
+class FakeDocuments {
+  FakeDocuments({
+    List<QueuedUpload> queue = const [],
+    Map<String, File> cached = const {},
+  }) : queue = [...queue],
+       cached = {...cached};
+
+  final List<QueuedUpload> queue;
+  final Map<String, File> cached;
+  Exception? failOpen;
+
+  /// Paths whose copy can't be made: enqueue throws SAVE_FAILED (a full device).
+  final failEnqueue = <String>{};
+  final calls = <FakeCall>[];
+  final _changes = StreamController<void>.broadcast();
+  var _ids = 0;
+
+  late final uploads = _FakeUploads(this);
+  late final files = _FakeOfflineFiles(this);
+
+  List<Override> get overrides => [
+    queuedUploadsProvider.overrideWith(
+      (ref) => _live(_changes.stream, () => [...queue]),
+    ),
+    offlineIdsProvider.overrideWith(
+      (ref) => _live(_changes.stream, () => {...cached.keys}),
+    ),
+    uploadsProvider.overrideWithValue(uploads),
+    offlineFilesProvider.overrideWithValue(files),
+  ];
+
+  void _record(String name, Object? args) {
+    calls.add((name: name, args: args));
+    _changes.add(null);
+  }
+}
+
+class _FakeUploads extends Uploads {
+  _FakeUploads(this._store) : super(null, FakeApi(), null, DateTime.now);
+
+  final FakeDocuments _store;
+
+  @override
+  Future<String?> enqueue({
+    required String orgId,
+    required String path,
+    required String title,
+    required String kind,
+    required String mime,
+    String? matterId,
+  }) async {
+    if (_store.failEnqueue.contains(path)) {
+      throw const ApiException('SAVE_FAILED');
+    }
+    final id = 'up-new-${++_store._ids}';
+    _store.queue.insert(
+      0,
+      QueuedUpload(
+        id: id,
+        title: title.trim(),
+        kind: kind,
+        mime: mime,
+        matterId: matterId,
+      ),
+    );
+    _store._record('enqueue', {
+      'path': path,
+      'title': title,
+      'kind': kind,
+      'mime': mime,
+      'matterId': matterId,
+    });
+    return id;
+  }
+
+  @override
+  Future<void> drain() async => _store._record('drain', null);
+
+  @override
+  Future<void> remove(String id) async {
+    _store.queue.removeWhere((q) => q.id == id);
+    _store._record('remove', id);
+  }
+}
+
+class _FakeOfflineFiles extends OfflineFiles {
+  _FakeOfflineFiles(this._store) : super(null, FakeApi(), null, DateTime.now);
+
+  final FakeDocuments _store;
+
+  @override
+  Future<File> open(
+    FileRef ref, {
+    required String orgId,
+    void Function(double fraction)? onProgress,
+    CancelToken? cancel,
+  }) async {
+    _store._record('open', ref);
+    if (_store.cached[ref.id] case final file?) return file;
+    if (_store.failOpen case final error?) throw error;
+    onProgress
+      ?..call(0.5)
+      ..call(1);
+    final file = File('${ref.id}.${extensionOf(ref.mime)}');
+    _store.cached[ref.id] = file;
+    _store._changes.add(null);
+    return file;
+  }
+
+  @override
+  void close(String id) => _store._record('close', id);
+
+  @override
+  Future<void> keep({
+    required String orgId,
+    required List<FileRef> kept,
+  }) async => _store._record('keep', kept);
 }

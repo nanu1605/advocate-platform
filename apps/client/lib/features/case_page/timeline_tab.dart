@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:advocate_app/core/l10n/l10n.dart';
-import 'package:advocate_app/data/api_client.dart';
+import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/data/cases.dart';
+import 'package:advocate_app/data/documents.dart';
 import 'package:advocate_app/features/case_page/case_page_text.dart';
-import 'package:advocate_app/features/case_page/links.dart';
 import 'package:advocate_app/features/case_page/sheet_form.dart';
 import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
 import 'package:advocate_app/ui/fields.dart';
@@ -14,11 +14,13 @@ import 'package:advocate_app/ui/states.dart';
 import 'package:advocate_app/ui/tiles.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 /// Timeline (spec §4.3): hearings and orders, newest first. A hearing shows the court's values, the user's where
 /// they differ ("You noted"), and its note, which can be added on every hearing. Manual cases add, edit and delete
-/// their hearings ("Add next date" adds one). An order says "New" until the user opens it; it opens from the court's
-/// copy outside the app (the in-app viewer is task 10). Order summaries are P2. A sliver for the case page.
+/// their hearings ("Add next date" adds one). An order says "New" until the user opens it in the viewer (the court's
+/// copy, else its uploaded document), and "Available offline" when its file is on the device. Order summaries are
+/// P2. A sliver for the case page.
 class TimelineTab extends ConsumerWidget {
   const TimelineTab(this.c, {super.key});
 
@@ -75,7 +77,11 @@ class TimelineTab extends ConsumerWidget {
               matterId: c.id,
               last: i == entries.length - 1,
             ),
-            CaseOrder() => _Order(e, last: i == entries.length - 1),
+            CaseOrder() => _Order(
+              e,
+              matterId: c.id,
+              last: i == entries.length - 1,
+            ),
           },
       ],
     );
@@ -146,30 +152,23 @@ class _Hearing extends ConsumerWidget {
 }
 
 class _Order extends ConsumerWidget {
-  const _Order(this.o, {required this.last});
+  const _Order(this.o, {required this.matterId, required this.last});
 
   final CaseOrder o;
+  final String matterId;
   final bool last;
-
-  /// The court's copy (else the uploaded document); marked read once the link comes back, so a failed open
-  /// leaves it "New".
-  Future<void> _open(BuildContext context, WidgetRef ref) {
-    final writer = ref.read(caseWriterProvider);
-    return openFromApi(context, ref, (api, org) async {
-      final url = o.hasCourtCopy
-          ? await api.orderPdfUrl(orgId: org, orderId: o.id)
-          : o.documentId != null
-          ? await api.documentUrl(orgId: org, documentId: o.documentId!)
-          : throw const ApiException('ORDER_PDF_UNAVAILABLE');
-      await writer.markOrderRead(o.id);
-      return url;
-    });
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
     final date = o.date;
+    final saved = ref.watch(
+      offlineIdsProvider.select(
+        (ids) =>
+            ids.value?.contains(o.hasCourtCopy ? o.id : o.documentId) ?? false,
+      ),
+    );
+    final success = context.colors.of(StatusKind.success).fg;
     return TimelineItem(
       date: date == null
           ? ''
@@ -178,12 +177,36 @@ class _Order extends ConsumerWidget {
       title: o.title ?? l.casePageOrder,
       isNew: !o.read,
       isLast: last,
-      action: Align(
-        alignment: AlignmentDirectional.centerStart,
-        child: TextButton(
-          onPressed: () => unawaited(_open(context, ref)),
-          child: Text(l.casePageOpenOrder),
-        ),
+      action: Wrap(
+        spacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          // The viewer marks it read once the file is here, so a failed open leaves it "New".
+          TextButton(
+            // Over the case, so Back returns to it and to wherever the case was opened from.
+            onPressed: () =>
+                unawaited(context.push('/cases/$matterId/orders/${o.id}')),
+            child: Text(l.casePageOpenOrder),
+          ),
+          if (saved)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  AppIcons.downloadSimpleFill,
+                  size: inlineIconSize(context, 16),
+                  color: success,
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    l.availableOffline,
+                    style: context.text.bodySmall?.copyWith(color: success),
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }

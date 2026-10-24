@@ -325,6 +325,35 @@ const schema = Schema([
     Column.text('org_id'),
     Column.integer('selected'),
   ]),
+  // Local only: uploads waiting to be sent (§4.3 Documents, ADR 0016). `id` is the queue item and the complete
+  // call's Idempotency-Key; `local_path` is the app's own copy of the file; `document_id`, `upload_url` and
+  // `uploaded` record how far it got, so a restart resumes there. `state` is queued, uploading or failed.
+  Table.localOnly('upload_queue', [
+    Column.text('org_id'),
+    Column.text('matter_id'),
+    Column.text('title'),
+    Column.text('kind'),
+    Column.text('mime'),
+    Column.integer('size_bytes'),
+    Column.text('local_path'),
+    Column.text('document_id'),
+    Column.text('upload_url'),
+    Column.text('url_expires_at'),
+    Column.integer('uploaded'),
+    Column.text('state'),
+    Column.text('error'),
+    Column.integer('attempts'),
+    Column.text('created_at'),
+  ]),
+  // Local only: files kept on the device for opening offline (§4.3 "Offline", ADR 0016). `id` is the document's
+  // or the order's; `kind` is document or order; `opened_at` is null for a file the keeper fetched unopened.
+  Table.localOnly('offline_files', [
+    Column.text('kind'),
+    Column.text('org_id'),
+    Column.text('path'),
+    Column.integer('size'),
+    Column.text('opened_at'),
+  ]),
 ]);
 
 /// Columns that are jsonb or arrays in Postgres. They are JSON text on the device and are decoded before upload,

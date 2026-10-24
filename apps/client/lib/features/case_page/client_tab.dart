@@ -24,7 +24,7 @@ String? clientLanguageLabel(AppLocalizations l, String? language) =>
     };
 
 /// Client (spec §4.3): the case's clients with phone (tap to call) and language; link an existing client or a new
-/// one, unlink with Undo. The client profile is task 10, so a row says it's coming. A sliver for the case page.
+/// one, unlink with Undo. A row opens the client's profile (`/clients/:id`). A sliver for the case page.
 class ClientTab extends ConsumerWidget {
   const ClientTab(this.c, {super.key});
 
@@ -95,7 +95,7 @@ class _Client extends ConsumerWidget {
       leading: Avatar(client.name),
       title: Text(client.name, style: context.text.titleSmall),
       subtitle: sub.isEmpty ? null : Text(sub, style: context.text.bodySmall),
-      onTap: () => showMessage(context, l.comingSoon),
+      onTap: () => openInSection(context, '/clients/${client.id}'),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

@@ -1,13 +1,16 @@
 import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/data/auth.dart';
+import 'package:advocate_app/data/document_files.dart';
+import 'package:advocate_app/data/documents.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/board/board_share.dart';
+import 'package:advocate_app/features/documents/upload_flow.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Sign-out in one place: ends the Supabase session and forgets per-account device state
-/// (synced rows and unsent changes, consent marker, onboarding flag, app lock, shared board images). Language and
-/// theme stay.
+/// (synced rows and unsent changes, consent marker, onboarding flag, app lock, shared board images, queued uploads,
+/// offline copies of files, and the scanner's and file picker's own copies). Language and theme stay.
 class Session {
   Session(this._ref);
 
@@ -27,6 +30,14 @@ class Session {
     await _ref.read(appLockProvider.notifier).reset();
     await _ref.read(syncDatabaseProvider)?.disconnectAndClear();
     clearBoardShares(await _ref.read(boardShareDirProvider)());
+    final support = _ref.read(appSupportDirProvider);
+    if (support != null) {
+      // A file being sent or downloaded is held open, which Windows won't delete: stop the transfers first.
+      await _ref.read(uploadsProvider).stop();
+      await _ref.read(offlineFilesProvider).stop();
+      clearDeviceFiles(support);
+      await _ref.read(uploadSourcesProvider).cleanUp();
+    }
   }().whenComplete(() => _forgetting = null);
 }
 

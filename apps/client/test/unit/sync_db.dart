@@ -6,7 +6,7 @@ import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/sync/schema.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
+import 'package:flutter_riverpod/misc.dart' show Override, ProviderListenable;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:powersync/powersync.dart' hide SyncStatus;
 
@@ -45,14 +45,19 @@ Future<void> insertRows(
   }
 }
 
-/// A container on [db] for org [org] and user-1, at [testNow].
-ProviderContainer dbContainer(PowerSyncDatabase db, {String org = 'org-1'}) {
+/// A container on [db] for org [org] and user-1, at [testNow], with any further [overrides] (e.g. a FakeApi).
+ProviderContainer dbContainer(
+  PowerSyncDatabase db, {
+  String org = 'org-1',
+  List<Override> overrides = const [],
+}) {
   final c = ProviderContainer(
     overrides: [
       syncDatabaseProvider.overrideWithValue(db),
       currentOrgIdProvider.overrideWithValue(org),
       currentUserIdProvider.overrideWithValue('user-1'),
       clockProvider.overrideWithValue(() => testNow),
+      ...overrides,
     ],
   );
   addTearDown(c.dispose);

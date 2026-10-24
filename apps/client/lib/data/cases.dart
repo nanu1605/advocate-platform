@@ -753,7 +753,8 @@ caseTimelineProvider = Provider.autoDispose
           : const AsyncLoading();
     });
 
-/// A document filed under a case (spec §4.3 Documents).
+/// A document of the org (spec §4.3 Documents), filed under a case or not: the case's Documents tab and the
+/// Documents screen.
 @immutable
 class CaseDocument {
   const CaseDocument({
@@ -765,20 +766,39 @@ class CaseDocument {
     this.pages,
     this.uploadStatus = 'ready',
     this.createdAt,
+    this.matterId,
+    this.caseLabel,
+    this.keepOffline = false,
+    this.offline = false,
   });
 
-  factory CaseDocument.fromRow(Map<String, dynamic> r) => CaseDocument(
-    id: r['id'] as String,
-    title: r['title'] as String? ?? '',
-    kind: r['kind'] as String? ?? 'other',
-    mime: r['mime'] as String?,
-    sizeBytes: r['size_bytes'] as int?,
-    pages: r['pages'] as int?,
-    uploadStatus: r['upload_status'] as String? ?? 'pending',
-    createdAt: parseInstant(r['created_at']),
-  );
+  /// A [documentSql] row.
+  factory CaseDocument.fromRow(Map<String, dynamic> r) {
+    final label = caseLabelOf(
+      caseType: r['case_type'] as String?,
+      caseNumber: r['case_number'] as String?,
+      caseYear: r['case_year'] as int?,
+      cnr: r['cnr'] as String?,
+    );
+    return CaseDocument(
+      id: r['id'] as String,
+      title: r['title'] as String? ?? '',
+      kind: r['kind'] as String? ?? 'other',
+      mime: r['mime'] as String?,
+      sizeBytes: r['size_bytes'] as int?,
+      pages: r['pages'] as int?,
+      uploadStatus: r['upload_status'] as String? ?? 'pending',
+      createdAt: parseInstant(r['created_at']),
+      matterId: r['matter_id'] as String?,
+      caseLabel: label.isEmpty ? r['matter_title'] as String? : label,
+      keepOffline: r['keep_offline'] == 1,
+      offline: r['offline'] == 1,
+    );
+  }
 
   final String id;
+
+  /// Never log it or put it in a URL.
   final String title;
 
   /// `pleading`, `order`, `evidence`, `annexure`, `correspondence` or `other` ([documentKinds]).
@@ -790,7 +810,59 @@ class CaseDocument {
   /// `pending` (being checked; DOCUMENT_NOT_READY), `ready` or `quarantined` (failed the safety check).
   final String uploadStatus;
   final DateTime? createdAt;
+
+  /// The case it is filed under (null = none) and that case's label.
+  final String? matterId;
+  final String? caseLabel;
+
+  /// The user's "Keep offline" (`document_offline_prefs`).
+  final bool keepOffline;
+
+  /// A copy is on this device (the offline cache): it opens without the network.
+  final bool offline;
+
+  bool get ready => uploadStatus == 'ready';
+
+  static const _keep = Object();
+
+  /// For fakes: what local writes and the cache change. Pass null to clear [matterId]; leave it out to keep it.
+  CaseDocument copyWith({
+    String? title,
+    String? kind,
+    Object? matterId = _keep,
+    String? caseLabel,
+    String? uploadStatus,
+    bool? keepOffline,
+    bool? offline,
+  }) => CaseDocument(
+    id: id,
+    title: title ?? this.title,
+    kind: kind ?? this.kind,
+    mime: mime,
+    sizeBytes: sizeBytes,
+    pages: pages,
+    uploadStatus: uploadStatus ?? this.uploadStatus,
+    createdAt: createdAt,
+    matterId: matterId == _keep ? this.matterId : matterId as String?,
+    caseLabel: matterId == _keep ? caseLabel ?? this.caseLabel : caseLabel,
+    keepOffline: keepOffline ?? this.keepOffline,
+    offline: offline ?? this.offline,
+  );
 }
+
+/// Live documents with what lists show: the case label, the user's (`?1`) Keep offline and whether a copy is on
+/// the device. A document still in the upload queue is left out: the queue item stands for it until complete.
+/// Callers add their own `and …` and order.
+const documentSql = '''
+select d.id, d.title, d.kind, d.mime, d.size_bytes, d.pages, d.upload_status, d.created_at, d.matter_id,
+  m.case_type, m.case_number, m.case_year, m.cnr, m.title as matter_title,
+  exists(select 1 from document_offline_prefs p where p.document_id = d.id and p.user_id = ?1
+    and p.keep_offline = 1) as keep_offline,
+  exists(select 1 from offline_files f where f.id = d.id) as offline
+from documents d
+left join matters m on m.id = d.matter_id and m.deleted_at is null
+where d.deleted_at is null and not exists (select 1 from upload_queue q where q.document_id = d.id)
+''';
 
 /// Document kinds (spec §4.3 "Types"), in the order pickers list them.
 const documentKinds = [
@@ -802,13 +874,13 @@ const documentKinds = [
   'other',
 ];
 
+/// A case's documents, newest first.
 final StreamProviderFamily<List<CaseDocument>, String> caseDocumentsProvider =
     StreamProvider.autoDispose.family<List<CaseDocument>, String>(
       (ref, id) => _rows(
         ref,
-        'select id, title, kind, mime, size_bytes, pages, upload_status, created_at from documents '
-        'where matter_id = ?1 and deleted_at is null order by created_at desc',
-        [id],
+        '$documentSql and d.matter_id = ?2 order by d.created_at desc',
+        [ref.watch(currentUserIdProvider), id],
         CaseDocument.fromRow,
       ),
     );
@@ -958,7 +1030,7 @@ final StreamProviderFamily<List<CaseDeadline>, String> caseDeadlinesProvider =
       ),
     );
 
-/// A client of the org (spec §4.3 Clients). Never log the name or phone.
+/// A client of the org (spec §4.3 Clients): the Clients list, the profile and Link client. Never log any of it.
 @immutable
 class ClientInfo {
   const ClientInfo({
@@ -967,14 +1039,27 @@ class ClientInfo {
     this.phone,
     this.language,
     String? searchKey,
+    this.email,
+    this.address,
+    this.notes,
+    this.whatsappOptIn = false,
+    this.whatsappOptInAt,
+    this.caseCount = 0,
   }) : _key = searchKey;
 
+  /// A client row; [_clientSql]'s also carry the profile fields and `case_count`.
   factory ClientInfo.fromRow(Map<String, dynamic> r) => ClientInfo(
     id: r['id'] as String,
     name: r['name'] as String? ?? '',
     phone: r['phone'] as String?,
     language: r['language'] as String?,
     searchKey: r['search_key'] as String?,
+    email: r['email'] as String?,
+    address: r['address'] as String?,
+    notes: r['notes'] as String?,
+    whatsappOptIn: r['whatsapp_opt_in'] == 1,
+    whatsappOptInAt: parseInstant(r['whatsapp_opt_in_at']),
+    caseCount: r['case_count'] as int? ?? 0,
   );
 
   final String id;
@@ -984,10 +1069,59 @@ class ClientInfo {
   /// `hi`, `en` or null.
   final String? language;
   final String? _key;
+  final String? email;
+  final String? address;
+  final String? notes;
+
+  /// Agreed to case updates on WhatsApp (sent from P2), and when.
+  final bool whatsappOptIn;
+  final DateTime? whatsappOptInAt;
+
+  /// Live cases linked to the client (archived ones included).
+  final int caseCount;
 
   /// The stored `clients.search_key`, else computed from the name.
   String get searchKeys => _key ?? searchKey(name);
+
+  static const _keep = Object();
+
+  /// For fakes: what local writes change. Pass null to clear a field; leave it out to keep it.
+  ClientInfo copyWith({
+    String? name,
+    Object? phone = _keep,
+    Object? email = _keep,
+    Object? address = _keep,
+    Object? language = _keep,
+    Object? notes = _keep,
+    bool? whatsappOptIn,
+    Object? whatsappOptInAt = _keep,
+    int? caseCount,
+  }) => ClientInfo(
+    id: id,
+    name: name ?? this.name,
+    phone: phone == _keep ? this.phone : phone as String?,
+    language: language == _keep ? this.language : language as String?,
+    searchKey: name == null ? _key : null,
+    email: email == _keep ? this.email : email as String?,
+    address: address == _keep ? this.address : address as String?,
+    notes: notes == _keep ? this.notes : notes as String?,
+    whatsappOptIn: whatsappOptIn ?? this.whatsappOptIn,
+    whatsappOptInAt: whatsappOptInAt == _keep
+        ? this.whatsappOptInAt
+        : whatsappOptInAt as DateTime?,
+    caseCount: caseCount ?? this.caseCount,
+  );
 }
+
+/// Live clients of the org (`?1`) with their profile fields and how many live cases each is linked to.
+const _clientSql = '''
+select cl.id, cl.name, cl.phone, cl.language, cl.search_key, cl.email, cl.address, cl.notes, cl.whatsapp_opt_in,
+  cl.whatsapp_opt_in_at,
+  (select count(*) from matter_clients mc join matters m on m.id = mc.matter_id and m.deleted_at is null
+   where mc.client_id = cl.id) as case_count
+from clients cl
+where cl.org_id = ?1 and cl.deleted_at is null
+''';
 
 /// A client linked to a case: `linkId` is the `matter_clients` row (unlinking deletes it).
 typedef LinkedClient = ({String linkId, ClientInfo client});
@@ -1004,19 +1138,69 @@ final StreamProviderFamily<List<LinkedClient>, String> caseClientsProvider =
       ),
     );
 
-/// Every live client of the current org, by name (Link client, the client filter).
+/// Every live client of the current org, by name (the Clients list, Link client, the client filter).
 final clientsProvider = StreamProvider<List<ClientInfo>>((ref) {
   final db = ref.watch(syncDatabaseProvider);
   final org = ref.watch(currentOrgIdProvider);
   if (db == null || org == null) return Stream.value(const []);
   return db
-      .watch(
-        'select id, name, phone, language, search_key from clients '
-        'where org_id = ? and deleted_at is null order by name',
-        parameters: [org],
-      )
+      .watch('$_clientSql order by lower(cl.name), cl.id', parameters: [org])
       .map((rows) => rows.map(ClientInfo.fromRow).toList());
 });
+
+/// One client of the current org (the profile); null when it isn't on the device (deleted, or not this org's).
+final StreamProviderFamily<ClientInfo?, String> clientProvider = StreamProvider
+    .autoDispose
+    .family<ClientInfo?, String>((ref, id) {
+      final db = ref.watch(syncDatabaseProvider);
+      final org = ref.watch(currentOrgIdProvider);
+      if (db == null || org == null) return Stream.value(null);
+      return db
+          .watch('$_clientSql and cl.id = ?2', parameters: [org, id])
+          .map((rows) => rows.isEmpty ? null : ClientInfo.fromRow(rows.first));
+    });
+
+/// A client's links to cases (`matter_clients` rows; unlinking deletes one), oldest first.
+final StreamProviderFamily<List<({String linkId, String matterId})>, String>
+clientLinksProvider = StreamProvider.autoDispose
+    .family<List<({String linkId, String matterId})>, String>(
+      (ref, id) => _rows(
+        ref,
+        'select id, matter_id from matter_clients where client_id = ?1 order by created_at',
+        [id],
+        (r) => (linkId: r['id'] as String, matterId: r['matter_id'] as String),
+      ),
+    );
+
+/// A case linked to a client: `linkId` is the `matter_clients` row (unlinking deletes it).
+typedef ClientCase = ({String linkId, CaseInfo c});
+
+/// The profile's linked cases (spec §4.3): [clientLinksProvider] over [casesProvider] (live cases, archived ones
+/// included), by next date.
+final ProviderFamily<AsyncValue<List<ClientCase>>, String> clientCasesProvider =
+    Provider.autoDispose.family<AsyncValue<List<ClientCase>>, String>((
+      ref,
+      id,
+    ) {
+      final links = ref.watch(clientLinksProvider(id));
+      final cases = ref.watch(casesProvider);
+      final (l, c) = (links.value, cases.value);
+      if (l == null || c == null) {
+        final failed = links.hasError ? links : cases;
+        return failed.hasError
+            ? AsyncError(failed.error!, failed.stackTrace ?? StackTrace.current)
+            : const AsyncLoading();
+      }
+      final byId = {for (final x in c) x.id: x};
+      final order = caseComparator(CaseSort.nextDate);
+      return AsyncData(
+        [
+          for (final x in l)
+            if (byId[x.matterId] case final matter?)
+              (linkId: x.linkId, c: matter),
+        ]..sort((a, b) => order(a.c, b.c)),
+      );
+    });
 
 /// [clients] matching [query] by name (with transliteration) or phone; all of them for an empty query.
 List<ClientInfo> searchClients(Iterable<ClientInfo> clients, String query) {
@@ -1034,12 +1218,13 @@ List<ClientInfo> searchClients(Iterable<ClientInfo> clients, String query) {
   ];
 }
 
-/// The case page's and the add sheets' local writes (spec §9.3 device write paths), uploaded by sync. Each changes
-/// only the columns the server accepts from a device: matters `assigned_to` and `status`; hearings inserted as
-/// `manual` (on manual-tracked cases), edited whole when manual, and only `user_note` on court rows; notes, tasks,
-/// deadlines and clients inserted and updated, deleted by `deleted_at`; `matter_clients` rows deleted; the user's
-/// own `order_reads`. A refused write is dropped and the server's row comes back. Inserts return the new row's id.
-/// Without a sync database or an org they do nothing (fakes override them).
+/// The case page's, the add sheets', the client profile's and the documents' local writes (spec §9.3 device write
+/// paths), uploaded by sync. Each changes only the columns the server accepts from a device: matters `assigned_to`
+/// and `status`; hearings inserted as `manual` (on manual-tracked cases), edited whole when manual, and only
+/// `user_note` on court rows; notes, tasks, deadlines and clients inserted and updated, deleted by `deleted_at`;
+/// `matter_clients` rows deleted; documents' `title`, `kind`, `matter_id` and `deleted_at`; the user's own
+/// `order_reads` and `document_offline_prefs`. A refused write is dropped and the server's row comes back. Inserts
+/// return the new row's id. Without a sync database or an org they do nothing (fakes override them).
 class CaseWriter {
   CaseWriter(this._db, this._clock, {this.orgId, this.userId});
 
@@ -1188,18 +1373,59 @@ class CaseWriter {
       _softDelete('deadlines', deadlineId);
 
   /// A new client, with `search_key` from [searchKey] so the server's search matches the app's. [language] is
-  /// `hi`, `en` or null.
+  /// `hi`, `en` or null; [phone] as `normalizePhone` (clients.dart) gives it.
   Future<String> createClient({
     required String name,
     String? phone,
     String? language,
+    String? email,
+    String? address,
+    String? notes,
   }) => _insert('clients', {
     'name': name.trim(),
     'search_key': searchKey(name),
     'phone': _text(phone),
     'language': language,
+    'email': _text(email),
+    'address': _text(address),
+    'notes': _text(notes),
     'created_at': _now,
   });
+
+  /// The profile's Edit, whole: empty fields clear; `search_key` follows the name.
+  Future<void> updateClient(
+    String clientId, {
+    required String name,
+    String? phone,
+    String? language,
+    String? email,
+    String? address,
+    String? notes,
+  }) => _run(
+    'update clients set name = ?, search_key = ?, phone = ?, language = ?, email = ?, address = ?, notes = ? '
+    'where id = ?',
+    [
+      name.trim(),
+      searchKey(name),
+      _text(phone),
+      language,
+      _text(email),
+      _text(address),
+      _text(notes),
+      clientId,
+    ],
+  );
+
+  /// WhatsApp opt-in (spec §4.3): on records when; off clears both.
+  Future<void> setClientWhatsapp(String clientId, {required bool optIn}) =>
+      _run(
+        'update clients set whatsapp_opt_in = ?, whatsapp_opt_in_at = ? where id = ?',
+        [if (optIn) 1 else 0, if (optIn) _now else null, clientId],
+      );
+
+  /// Soft delete; its case links stay (the cases stop showing a deleted client).
+  Future<void> deleteClient(String clientId) =>
+      _softDelete('clients', clientId);
 
   /// Links a client to a case; returns the link's id (for [unlinkClient]).
   Future<String> linkClient(String matterId, String clientId) => _insert(
@@ -1226,6 +1452,49 @@ class CaseWriter {
       );
     });
   }
+
+  /// The user's own "Keep offline" (spec §4.3, `document_offline_prefs`): on inserts or updates their row, off
+  /// deletes it. The offline keeper then fetches or drops the file.
+  Future<void> setKeepOffline(String documentId, {required bool keep}) async {
+    final (db, org, me) = (_db, orgId, userId);
+    if (db == null || org == null || me == null) return;
+    await db.writeTransaction((tx) async {
+      final row = await tx.getOptional(
+        'select id, keep_offline from document_offline_prefs where document_id = ? and user_id = ?',
+        [documentId, me],
+      );
+      if (row == null && keep) {
+        await tx.execute(
+          'insert into document_offline_prefs (id, org_id, user_id, document_id, keep_offline) '
+          'values (?, ?, ?, ?, 1)',
+          [uuidV4(), org, me, documentId],
+        );
+      } else if (row != null && keep && row['keep_offline'] != 1) {
+        await tx.execute(
+          'update document_offline_prefs set keep_offline = 1 where id = ?',
+          [row['id']],
+        );
+      } else if (row != null && !keep) {
+        await tx.execute('delete from document_offline_prefs where id = ?', [
+          row['id'],
+        ]);
+      }
+    });
+  }
+
+  /// Rename, change type or re-file a document (the columns §9.3 lets a device change); [matterId] null = no case.
+  Future<void> editDocument(
+    String documentId, {
+    required String title,
+    required String kind,
+    String? matterId,
+  }) => _run(
+    'update documents set title = ?, kind = ?, matter_id = ? where id = ?',
+    [title.trim(), kind, matterId, documentId],
+  );
+
+  Future<void> deleteDocument(String documentId) =>
+      _softDelete('documents', documentId);
 
   static String? _text(String? s) =>
       (s ?? '').trim().isEmpty ? null : s!.trim();

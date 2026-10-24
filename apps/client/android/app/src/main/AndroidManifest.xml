@@ -1,6 +1,16 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Asked on the notification explainer (Android 13+), through MainActivity.kt. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- No CAMERA permission: ML Kit's document scanner runs in Play services, and cunning_document_scanner's
+         fallback takes photos through the camera app (ACTION_IMAGE_CAPTURE), which Android refuses to an app that
+         declares CAMERA without being granted it. -->
+    <!-- open_filex asks for storage and media access for files outside the app; ours (a Word file handed to
+         another app) are the app's own, shared through its FileProvider, so none is needed. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" tools:node="remove"/>
     <!-- No backup: a restore would bring back onboarding and consent flags (and synced case data) without the
          signed-in session, for whoever signs in next. -->
     <application

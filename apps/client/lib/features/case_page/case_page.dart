@@ -16,6 +16,7 @@ import 'package:advocate_app/features/case_page/documents_tab.dart';
 import 'package:advocate_app/features/case_page/links.dart';
 import 'package:advocate_app/features/case_page/notes_tab.dart';
 import 'package:advocate_app/features/case_page/timeline_tab.dart';
+import 'package:advocate_app/features/documents/upload_flow.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:advocate_app/features/today/today_refresh.dart';
 import 'package:advocate_app/ui/court_badge.dart';
@@ -404,39 +405,43 @@ class _CasePageState extends ConsumerState<CasePage>
           ),
         ],
       ),
-      body: CustomScrollView(
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            sliver: SliverToBoxAdapter(
-              child: _Header(
-                c,
-                purpose: purpose,
-                refreshing: _refreshing,
-                onRefresh: () => unawaited(_refresh(c)),
-                onAddDate: () =>
-                    unawaited(showHearingSheet(context, matterId: c.id)),
-                onAssign: () => unawaited(_assign(c)),
+      // Windows: files dropped on the case upload into it (spec §5.12).
+      body: UploadDropTarget(
+        matterId: c.id,
+        child: CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              sliver: SliverToBoxAdapter(
+                child: _Header(
+                  c,
+                  purpose: purpose,
+                  refreshing: _refreshing,
+                  onRefresh: () => unawaited(_refresh(c)),
+                  onAddDate: () =>
+                      unawaited(showHearingSheet(context, matterId: c.id)),
+                  onAssign: () => unawaited(_assign(c)),
+                ),
               ),
             ),
-          ),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _TabBarHeader(tabBar, context.colors.bg),
-          ),
-          ListenableBuilder(
-            listenable: _tabs,
-            builder: (_, _) => SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-              sliver: switch (CaseTab.values[_tabs.index]) {
-                CaseTab.timeline => TimelineTab(c),
-                CaseTab.documents => DocumentsTab(c),
-                CaseTab.notes => NotesTab(c),
-                CaseTab.client => ClientTab(c),
-              },
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _TabBarHeader(tabBar, context.colors.bg),
             ),
-          ),
-        ],
+            ListenableBuilder(
+              listenable: _tabs,
+              builder: (_, _) => SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                sliver: switch (CaseTab.values[_tabs.index]) {
+                  CaseTab.timeline => TimelineTab(c),
+                  CaseTab.documents => DocumentsTab(c),
+                  CaseTab.notes => NotesTab(c),
+                  CaseTab.client => ClientTab(c),
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

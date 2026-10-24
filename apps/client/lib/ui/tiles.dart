@@ -1,5 +1,6 @@
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
+import 'package:advocate_app/core/theme/tokens.g.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/status_pill.dart';
 import 'package:flutter/material.dart';
@@ -58,6 +59,9 @@ class ClientTile extends StatelessWidget {
     required this.caseCount,
     this.phone,
     this.onTap,
+    this.selected = false,
+    this.autofocus = false,
+    this.semanticsLabel,
     super.key,
   });
 
@@ -66,17 +70,54 @@ class ClientTile extends StatelessWidget {
   final String? phone;
   final VoidCallback? onTap;
 
+  /// The client open beside the list (Windows two panes): a primary border, as on a selected case card.
+  final bool selected;
+
+  /// Takes keyboard focus when first built (the selected row of a list that was just rebuilt).
+  final bool autofocus;
+
+  /// The row as a screen reader says it, in place of its visible text; the row is then one item.
+  final String? semanticsLabel;
+
   @override
-  Widget build(BuildContext context) => ListTile(
-    onTap: onTap,
-    minVerticalPadding: 12,
-    leading: Avatar(name),
-    title: Text(name, style: context.text.titleSmall),
-    subtitle: Text(
-      [?phone, context.l10n.linkedCases(caseCount)].join(' · '),
-      style: context.text.bodySmall,
-    ),
-  );
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final tile = ListTile(
+      onTap: onTap,
+      autofocus: autofocus,
+      selected: selected,
+      selectedTileColor: c.isSunlight ? null : c.primarySoft,
+      shape: selected
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(Radii.card),
+              side: BorderSide(color: c.primary, width: 2),
+            )
+          : null,
+      minVerticalPadding: 12,
+      // Grows with the text so large initials stay inside the circle (spec §5.9): 40 dp at 100%.
+      leading: Avatar(
+        name,
+        size: 24 + MediaQuery.textScalerOf(context).scale(16),
+      ),
+      title: Text(name, style: context.text.titleSmall),
+      subtitle: Text(
+        [?phone, context.l10n.linkedCases(caseCount)].join(' · '),
+        style: context.text.bodySmall,
+      ),
+    );
+    final spoken = semanticsLabel;
+    return spoken == null
+        ? tile
+        : Semantics(
+            container: true,
+            button: onTap != null,
+            selected: selected ? true : null,
+            label: spoken,
+            excludeSemantics: true,
+            onTap: onTap,
+            child: tile,
+          );
+  }
 }
 
 class TaskItem extends StatelessWidget {
@@ -134,48 +175,142 @@ class TaskItem extends StatelessWidget {
   }
 }
 
+/// What a document row says besides its line (spec §4.3): the server's safety check, or where its upload is.
+enum DocState { checking, blocked, waiting, uploading, failed }
+
 class DocumentTile extends StatelessWidget {
   const DocumentTile({
     required this.title,
     required this.kind,
+    this.mime,
     this.pages,
     this.offline = false,
+    this.state,
+    this.progress,
+    this.error,
+    this.trailing,
     this.onTap,
     super.key,
   });
 
   final String title;
 
-  /// Pleadings, Orders, Evidence … (translated by the caller).
+  /// The line under the title: Pleadings, Orders, Evidence …, with size and case (translated by the caller).
   final String kind;
+
+  /// Picks the icon: PDF (default), image or Word.
+  final String? mime;
   final int? pages;
+
+  /// A copy is on this device: "Available offline" (when there is no [state]).
   final bool offline;
+  final DocState? state;
+
+  /// [DocState.uploading]'s share sent, 0–1.
+  final double? progress;
+
+  /// [DocState.failed]'s reason (translated by the caller).
+  final String? error;
+
+  /// e.g. the Keep offline toggle, or Remove.
+  final Widget? trailing;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final l = context.l10n;
+    final percent = ((progress ?? 0) * 100).floor();
+    // Always an icon with the words, never colour alone (spec §5.6).
+    final status = switch (state) {
+      DocState.checking => (AppIcons.clock, null, l.docsStateChecking),
+      DocState.blocked => (
+        AppIcons.shieldWarning,
+        StatusKind.urgent,
+        l.docsStateBlocked,
+      ),
+      DocState.waiting => (
+        AppIcons.cloudArrowUp,
+        StatusKind.adjourned,
+        l.docsStateWaiting,
+      ),
+      DocState.uploading => (
+        AppIcons.cloudArrowUp,
+        StatusKind.listed,
+        l.docsStateUploading(percent),
+      ),
+      DocState.failed => (
+        AppIcons.warningCircle,
+        StatusKind.urgent,
+        error ?? l.errorGeneric,
+      ),
+      null when offline => (
+        AppIcons.downloadSimpleFill,
+        StatusKind.success,
+        l.availableOffline,
+      ),
+      null => null,
+    };
+    final small = context.text.bodySmall;
     return ListTile(
       onTap: onTap,
       minVerticalPadding: 12,
-      leading: Icon(AppIcons.filePdf, size: 32, color: c.ink2),
+      leading: Icon(
+        switch (mime) {
+          'image/jpeg' || 'image/png' => AppIcons.fileImage,
+          final m? when m.contains('wordprocessingml') => AppIcons.fileDoc,
+          _ => AppIcons.filePdf,
+        },
+        size: 32,
+        color: c.ink2,
+      ),
       title: Text(
         title,
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: context.text.titleSmall,
       ),
-      subtitle: Text(
-        [kind, if (pages != null) context.l10n.pages(pages!)].join(' · '),
-        style: context.text.bodySmall,
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            [kind, if (pages != null) l.pages(pages!)].join(' · '),
+            style: small,
+          ),
+          if (status case (final icon, final kind, final text)) ...[
+            const SizedBox(height: 4),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  icon,
+                  size: inlineIconSize(context, 16),
+                  color: kind == null ? c.ink2 : c.of(kind).fg,
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    text,
+                    style: small?.copyWith(
+                      color: kind == null ? null : c.of(kind).fg,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (state == DocState.uploading) ...[
+            const SizedBox(height: 6),
+            // The theme's track is the bar's own colour: give it the status tint.
+            LinearProgressIndicator(
+              value: progress ?? 0,
+              color: c.of(StatusKind.listed).fg,
+              backgroundColor: c.of(StatusKind.listed).bg,
+            ),
+          ],
+        ],
       ),
-      trailing: offline
-          ? Icon(
-              AppIcons.downloadSimpleFill,
-              color: c.of(StatusKind.success).fg,
-              semanticLabel: context.l10n.availableOffline,
-            )
-          : null,
+      trailing: trailing,
     );
   }
 }

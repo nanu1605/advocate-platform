@@ -170,7 +170,7 @@ void main() {
   });
 
   testWidgets(
-    '+ → Add task opens the task sheet; Add document is coming soon',
+    '+ → Add task opens the task sheet; Add document asks scan or files',
     (tester) async {
       await pumpApp(tester, overrides: FakeCases().overrides);
       await openPlus(tester);
@@ -188,7 +188,8 @@ void main() {
       await openPlus(tester);
       await tester.tap(find.text(en.addDocument));
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(SnackBar, en.comingSoon), findsOneWidget);
+      expect(find.text(en.docsScan), findsOneWidget);
+      expect(find.text(en.docsChooseFiles), findsOneWidget);
     },
   );
 

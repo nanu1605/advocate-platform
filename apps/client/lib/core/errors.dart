@@ -44,6 +44,12 @@ String errorText(AppLocalizations l, Object? error) {
     'DOCUMENT_QUARANTINED' => l.errorDocumentQuarantined,
     'ORDER_PDF_UNAVAILABLE' => l.errorOrderPdfUnavailable,
     'ORDER_PDF_FETCHING' => l.errorOrderPdfFetching,
+    'FILE_TOO_LARGE' => l.docsDataTooLarge,
+    'UNSUPPORTED_FILE_TYPE' => l.docsDataWrongType,
+    'EMPTY_FILE' => l.docsDataEmptyFile,
+    'FILE_MISSING' => l.docsDataFileMissing,
+    'FILE_UNREADABLE' => l.docsDataUnreadable,
+    'SAVE_FAILED' => l.docsDataSaveFailed,
     _ => l.errorGeneric,
   };
 }

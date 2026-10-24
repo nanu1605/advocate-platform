@@ -1,5 +1,6 @@
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
+import 'package:advocate_app/data/documents.dart';
 import 'package:advocate_app/ui/app_scaffold.dart';
 import 'package:advocate_app/ui/board_table.dart';
 import 'package:advocate_app/ui/case_card.dart';
@@ -8,6 +9,7 @@ import 'package:advocate_app/ui/court_badge.dart';
 import 'package:advocate_app/ui/fields.dart';
 import 'package:advocate_app/ui/hearing_chip.dart';
 import 'package:advocate_app/ui/icons.dart';
+import 'package:advocate_app/ui/pdf_viewer.dart';
 import 'package:advocate_app/ui/section_header.dart';
 import 'package:advocate_app/ui/selectable_row.dart';
 import 'package:advocate_app/ui/sheets.dart';
@@ -311,6 +313,13 @@ final kitSections = <KitSection>[
         phone: '+91 98765 43210',
         onTap: _noop,
       ),
+      // The client open beside the list (Windows two panes).
+      const ClientTile(
+        name: 'राजेश शर्मा',
+        caseCount: 1,
+        onTap: _noop,
+        selected: true,
+      ),
       const Row(
         children: [
           Avatar('रमेश शर्मा'),
@@ -322,6 +331,61 @@ final kitSections = <KitSection>[
       ),
     ]),
   ),
+  // Document rows' states (Documents screen, case Documents tab) and the PDF viewer (kit #17).
+  KitSection('document_tiles', (context) {
+    final l = context.l10n;
+    return _col([
+      DocumentTile(
+        title: 'Writ petition',
+        kind: '${l.casesDocPleading} · 240 KB · WP 1234/2024',
+        pages: 12,
+        offline: true,
+        trailing: IconButton(
+          isSelected: true,
+          tooltip: l.docsKeepOffline,
+          icon: const Icon(AppIcons.downloadSimple),
+          selectedIcon: const Icon(AppIcons.downloadSimpleFill),
+          onPressed: _noop,
+        ),
+        onTap: _noop,
+      ),
+      DocumentTile(
+        title: 'Reply draft',
+        kind: '${l.casesDocCorrespondence} · 80 KB',
+        mime: docxMime,
+        state: DocState.checking,
+      ),
+      DocumentTile(
+        title: 'Photo from client',
+        kind: '${l.casesDocEvidence} · 1.2 MB',
+        mime: 'image/jpeg',
+        state: DocState.blocked,
+      ),
+      DocumentTile(
+        title: 'Vakalatnama',
+        kind: '${l.casesDocOther} · 300 KB',
+        state: DocState.uploading,
+        progress: 0.4,
+      ),
+      DocumentTile(
+        title: 'Annexure P-3',
+        kind: l.casesDocAnnexure,
+        state: DocState.waiting,
+        trailing: IconButton(
+          tooltip: l.docsRemoveUpload,
+          icon: const Icon(AppIcons.trash),
+          onPressed: _noop,
+        ),
+      ),
+      DocumentTile(
+        title: 'Evidence bundle',
+        kind: '${l.casesDocEvidence} · 64 MB',
+        state: DocState.failed,
+        error: l.docsDataTooLarge,
+      ),
+    ]);
+  }),
+  KitSection('pdf_viewer', (_) => const _SamplePdf(), height: 520),
   KitSection(
     'timeline',
     (context) => _col([
@@ -523,4 +587,119 @@ class KitchenSinkScreen extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// A stand-in for [PdfrxPages], as PDFium doesn't run under flutter test: [texts] as plain pages, searched like a
+/// PDF's text (ignoring case), stopping at the first and last match as pdfrx does. Widget tests use it too.
+class SamplePdfPages extends PdfPages {
+  SamplePdfPages([
+    this.texts = const [
+      'IN THE HIGH COURT OF MADHYA PRADESH AT INDORE\nWP 1234/2024\nRamesh Sharma v. State of MP',
+      'ORDER\nHeard counsel for the petitioner. Reply within four weeks.',
+      'List after four weeks. Interim order to continue.',
+    ],
+  ]);
+
+  final List<String> texts;
+  var _page = 1;
+  var _matches = const <int>[];
+  int? _match;
+
+  /// Zoom steps taken (in minus out).
+  int zoomed = 0;
+
+  @override
+  int get pageCount => texts.length;
+
+  @override
+  int get page => _page;
+
+  @override
+  int get matchCount => _matches.length;
+
+  @override
+  int? get match => _match;
+
+  @override
+  bool get searching => false;
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(16),
+    children: [
+      for (final text in texts)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 200),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: context.colors.line),
+            ),
+            // A page is paper whatever the theme.
+            child: Text(text, style: const TextStyle(color: Colors.black)),
+          ),
+        ),
+    ],
+  );
+
+  @override
+  void goTo(int page) {
+    _page = page;
+    notifyListeners();
+  }
+
+  @override
+  void find(String text) {
+    final q = text.trim().toLowerCase();
+    _matches = [
+      if (q.isNotEmpty)
+        for (final (i, t) in texts.indexed)
+          ...List.filled(q.allMatches(t.toLowerCase()).length, i + 1),
+    ];
+    _match = _matches.isEmpty ? null : 0;
+    if (_matches.isNotEmpty) _page = _matches.first;
+    notifyListeners();
+  }
+
+  void _show(int i) {
+    if (i < 0 || i >= _matches.length) return;
+    _match = i;
+    _page = _matches[i];
+    notifyListeners();
+  }
+
+  @override
+  void nextMatch() => _show((_match ?? -1) + 1);
+
+  @override
+  void previousMatch() => _show((_match ?? _matches.length) - 1);
+
+  @override
+  void zoom(int step) {
+    zoomed += step;
+    notifyListeners();
+  }
+}
+
+/// The PDF viewer section: one [SamplePdfPages] for the section's life.
+class _SamplePdf extends StatefulWidget {
+  const _SamplePdf();
+
+  @override
+  State<_SamplePdf> createState() => _SamplePdfState();
+}
+
+class _SamplePdfState extends State<_SamplePdf> {
+  final _pages = SamplePdfPages();
+
+  @override
+  void dispose() {
+    _pages.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AppPdfViewer(_pages);
 }

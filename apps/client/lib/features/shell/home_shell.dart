@@ -4,9 +4,11 @@ import 'package:advocate_app/core/flags.dart';
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/core/theme/app_theme.dart';
+import 'package:advocate_app/data/document_files.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/case_page/task_sheet.dart';
 import 'package:advocate_app/features/cases/add_case.dart';
+import 'package:advocate_app/features/documents/upload_flow.dart';
 import 'package:advocate_app/ui/app_scaffold.dart';
 import 'package:advocate_app/ui/command_palette.dart';
 import 'package:advocate_app/ui/icons.dart';
@@ -28,6 +30,10 @@ class HomeShell extends ConsumerWidget {
     final l = context.l10n;
     final flags = ref.watch(featureFlagsProvider);
     final offline = ref.watch(syncViewProvider).value?.offline ?? false;
+    // Queued uploads and offline copies are looked after while signed-in screens are up (ADR 0016).
+    ref
+      ..watch(uploadDrainerProvider)
+      ..watch(offlineKeeperProvider);
     final today = NavDest('/today', AppIcons.sun, AppIcons.sunFill, l.navToday);
     final cases = NavDest(
       '/cases',
@@ -109,8 +115,8 @@ class HomeShell extends ConsumerWidget {
   }
 }
 
-/// Centre "+" (P1): Add case (the chooser) · Add task · Add document (task 10: "coming soon" until then). Becomes
-/// the mic in P2 (flag `voice`).
+/// Centre "+" (P1): Add case (the chooser) · Add task · Add document (the upload flow). Becomes the mic in P2
+/// (flag `voice`).
 void showAddSheet(BuildContext context) {
   final l = context.l10n;
   void then(void Function() open) {
@@ -137,11 +143,7 @@ void showAddSheet(BuildContext context) {
           ListTile(
             leading: const Icon(AppIcons.filePlus),
             title: Text(l.addDocument),
-            onTap: () => then(
-              () =>
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text(l.comingSoon))),
-            ),
+            onTap: () => then(() => unawaited(startUpload(context))),
           ),
         ],
       ),
