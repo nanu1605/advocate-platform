@@ -26,6 +26,15 @@ def body(code: str, message: str, retryable: bool = False, details: dict[str, An
 
 log = structlog.get_logger()
 
+# Business-rule errors raised in SQL as P0001 with a stable code as the message (triggers, accept_invite).
+DB_RULES = {
+    "TRACKED_CASE_LIMIT": (409, "Your plan tracks no more cases"),
+    "INVITE_INVALID": (404, "This invite is not valid"),
+    "ALREADY_MEMBER": (409, "You are already in this team"),
+    "TEAM_LIMIT": (409, "This team is full"),
+    "MATTER_NOT_FOUND": (404, "Case not found"),
+}
+
 HTTP_CODES = {
     401: "UNAUTHENTICATED",
     403: "FORBIDDEN",
@@ -55,5 +64,11 @@ def install(app: FastAPI) -> None:
         sqlstate = getattr(e.orig, "sqlstate", None)
         if sqlstate == "42501":
             return JSONResponse(body("FORBIDDEN", "Not allowed"), status_code=403)
+        cause = e.orig.__cause__ if e.orig else None
+        rule = getattr(cause, "message", "") if sqlstate == "P0001" else ""
+        if rule in DB_RULES:
+            status, message = DB_RULES[rule]
+            limit = getattr(cause, "detail", None)
+            return JSONResponse(body(rule, message, details={"limit": int(limit)} if limit else {}), status_code=status)
         log.error("db_error", error=type(e.orig).__name__, sqlstate=sqlstate)
         return JSONResponse(body("INTERNAL", "Something went wrong", retryable=True), status_code=500)

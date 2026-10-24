@@ -5,4 +5,4 @@ Production builds hide DRAFT entries.
 
 | Item | File | Status | Notes |
 |---|---|---|---|
-| _none yet_ | | | Limitation rules, holidays, law mappings, court formats and templates arrive in P1–P4 |
+| Official case-status portal URLs by court level (eCourts services, HC services, Supreme Court) | `services/api/src/advocate_api/routes/matters.py` | DRAFT – VERIFY | Confirm each URL and whether a CNR can be passed in the link; the app only opens them (ADR 0011) |

@@ -19,6 +19,8 @@ source = { editable = "services/api" }
 dependencies = [
     { name = "advocate-shared" },
     { name = "asyncpg" },
+    { name = "celery", extra = ["redis"] },
+    { name = "court-data" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "pyjwt", extra = ["crypto"] },
@@ -32,6 +34,8 @@ dependencies = [
 requires-dist = [
     { name = "advocate-shared", editable = "packages/shared" },
     { name = "asyncpg" },
+    { name = "celery", extras = ["redis"] },
+    { name = "court-data", editable = "packages/court_data" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "pyjwt", extras = ["crypto"] },

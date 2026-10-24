@@ -16,6 +16,10 @@ Last updated: 2026-10-24
   §9.3, `powersync` publication; app database with all 25 synced tables plus local-only `found_selection`, Supabase
   upload connector, live offline banner and sync indicator, feature flags read from the synced table. 22 sync tests
   as six real users (leakage, publication/config/device-schema parity); Windows end-to-end test of offline writes.
+- P1 API ([ADR 0011](docs/adr/0011-p1-api.md)): team invites/accept/members, find-cases and found-cases add/decision,
+  jobs get/cancel, case search (cached, rate-limited, costed), add by CNR, manual cases, refresh, official link,
+  delete, document upload/complete/download URLs, order PDF URL (fetched once, shared), Tomorrow's Board, feedback.
+  Shared plumbing: Idempotency-Key, after-commit job enqueueing, court-data budgets and cost records, Storage signing.
 - Phase 0 Track A: see [phase-0-report.md](docs/phases/phase-0-report.md).
 
 ## In progress
@@ -23,9 +27,9 @@ Last updated: 2026-10-24
   Hindi review, privacy-policy page.
 
 ## Next up
-1. P1 task 5: P1 API endpoints.
-2. P1 task 6: workers (find-cases, schedules, diff and fan-out, Tomorrow's Board).
-3. P1 task 7: onboarding rest and Found cases.
+1. P1 task 6: workers (find-cases, fetch and refresh, schedules, diff and fan-out, Tomorrow's Board, document scan).
+2. P1 task 7: onboarding rest and Found cases.
+3. P1 task 8: Today and Tomorrow's Board screens.
 
 ## Deviations from spec (with ADR links)
 - Kit: 5 P2-only components deferred to P2 start — [ADR 0001](docs/adr/0001-defer-p2-kit-components.md).
@@ -50,6 +54,10 @@ Last updated: 2026-10-24
 - Sync runs on the PowerSync open edition (FSL) for development and CI only; production hosting (India Cloud region,
   or self-hosting as an approved FSL exception) waits for the founder. On-device encryption waits for spike 11b; until
   then OS storage encryption plus the app lock — [ADR 0010](docs/adr/0010-local-sync-powersync.md).
+- Signed upload URLs last Supabase's fixed 2 hours, not the 5 minutes §15.5 sets for signed URLs; each is bound to one
+  new path and can't read or overwrite. Download URLs are 5 minutes — [ADR 0011](docs/adr/0011-p1-api.md).
+- Case search takes no Idempotency-Key (read-only, cached 24 h, rate-limited); order PDF URLs are a GET per §10.2,
+  guarded by a lock and the shared file cache. Court-data webhooks wait for LegalKart keys (Track B).
 - Windows `APPLY_STANDARD_SETTINGS` defines `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`: `local_auth_windows` 2.0.2 builds with `/await`, which MSVC 14.51 rejects (STL1011). Remove when the plugin moves to C++20 `<coroutine>`.
 
 ## Questions for the founder
