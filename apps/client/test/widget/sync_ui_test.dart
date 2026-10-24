@@ -3,6 +3,7 @@ import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/shell/home_shell.dart';
 import 'package:advocate_app/features/shell/screens.dart';
 import 'package:advocate_app/ui/states.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,6 +12,9 @@ import '../helpers.dart';
 
 void main() {
   Future<void> pump(WidgetTester tester, SyncView view) async {
+    tester.view.physicalSize = const Size(400, 860); // phone layout
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(
