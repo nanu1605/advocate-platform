@@ -25,6 +25,11 @@ Last updated: 2026-10-24
   weekly sweep, auto-match, `advocate_watch` behind a flag, Today at 07:30), change detection with per-user event keys,
   fan-out to every tracking organisation, Tomorrow's Board with expected slots and clash groups, order PDF pipeline,
   ClamAV upload scan (fails closed), window flags, stale-job sweeper, §11.8 budgets. 104 worker tests.
+- P1 Today and Tomorrow's Board ([ADR 0014](docs/adr/0014-p1-today-board.md)): Today in India time with the hero
+  card (next open matter), Today by court with clashes, tasks due, new orders, needs attention, evening switch to the
+  Tomorrow banner (`app_config.today_evening_switch`, default 18:30), pull-to-refresh / F5; Tomorrow's Board (kit
+  table, clash explanation, Assign to and Mark proxy arranged with Undo for owners and advocates, the clash rule
+  re-applied on the device and offline, share as text or image with titles opt-in); `/cases/:id` placeholder.
 - P1 onboarding ([ADR 0013](docs/adr/0013-p1-onboarding.md)): role, join by code, advocate details, "Finding your
   cases" with live progress and cancel, Found cases (Add all / select, groups, filters, transliteration search,
   allowance, Windows keys, selection kept across restarts), Add by CNR sheet, notification explainer; account and
@@ -36,10 +41,10 @@ Last updated: 2026-10-24
   Hindi review, privacy-policy page.
 
 ## Next up
-1. P1 task 8: Today and Tomorrow's Board screens (the app re-applies the clash rule after Assign to / proxy arranged
-   until the next board build).
-2. P1 task 9: Cases and case page ("Found for you" opens `/found`; Add by CNR sheet is in `features/found_cases`).
-3. P1 task 10: Calendar, Clients, Documents.
+1. P1 task 9: Cases and case page ("Found for you" opens `/found`; Add by CNR sheet is in `features/found_cases`;
+   replace the `/cases/:id` placeholder, honouring `?tab=notes`).
+2. P1 task 10: Calendar, Clients, Documents.
+3. P1 task 11: Team, notifications, dashboard, feedback.
 
 ## Deviations from spec (with ADR links)
 - Kit: 5 P2-only components deferred to P2 start — [ADR 0001](docs/adr/0001-defer-p2-kit-components.md).
@@ -73,6 +78,9 @@ Last updated: 2026-10-24
   are a documented heuristic — [ADR 0012](docs/adr/0012-p1-workers.md).
 - Found cases rows show status as text, not a StatusPill; the allowance message has no "see plans" link until P3;
   notification permission through a method channel instead of a plugin — [ADR 0013](docs/adr/0013-p1-onboarding.md).
+- Today/Board: clashes computed on the device (worker's `clash_group` unread), the diary skips the court-holiday
+  check, "New orders" are unread `new_order` notifications, the §5.5 list stagger and check-mark draw are deferred,
+  `share_plus` added for the OS share sheet — [ADR 0014](docs/adr/0014-p1-today-board.md).
 - Windows `APPLY_STANDARD_SETTINGS` defines `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`: `local_auth_windows` 2.0.2 builds with `/await`, which MSVC 14.51 rejects (STL1011). Remove when the plugin moves to C++20 `<coroutine>`.
 
 ## Questions for the founder
@@ -84,4 +92,4 @@ Flutter 3.47.7 · Dart 3.13.5 · Python 3.14.6 · uv 0.11.26 · Node 24.17 · Su
 FastAPI 0.161.1 · Pydantic 2.14.1 · SQLAlchemy 2.1.6 · asyncpg 0.32.0 · Celery 5.6.3 · PyJWT 2.15.1 · structlog 26.1.0 ·
 ruff 0.17.2 · pyright 1.1.414 · pytest 9.1.1 · flutter_riverpod 3.4.3 · go_router 18.1.1 · supabase_flutter 2.18.3 ·
 dio 5.11.1 · local_auth 3.0.2 · flutter_secure_storage 11.2.0 · animations 3.0.0 · window_manager 0.5.2 · intl 0.20.3 ·
-very_good_analysis 11.0.0 · flutter_quill 11.6.0 (P4) · pdfrx 2.10.1 (P1) · powersync (Flutter SDK) 2.5.0 · PowerSync Service 1.27.1 (local/CI)
+very_good_analysis 11.0.0 · flutter_quill 11.6.0 (P4) · pdfrx 2.10.1 (P1) · share_plus 13.3.1 · powersync (Flutter SDK) 2.5.0 · PowerSync Service 1.27.1 (local/CI)

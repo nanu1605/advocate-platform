@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:advocate_app/data/account.dart';
+import 'package:advocate_app/data/case_label.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -72,12 +73,12 @@ class FoundCase {
   bool get pending => caseStatus == 'pending';
 
   /// "WP 1234/2024", or the CNR when the provider gave no case number.
-  String get caseLabel => caseNumber.isEmpty
-      ? cnr
-      : [
-          if (caseType.isNotEmpty) caseType,
-          if (caseYear == null) caseNumber else '$caseNumber/$caseYear',
-        ].join(' ');
+  String get caseLabel => caseLabelOf(
+    caseType: caseType,
+    caseNumber: caseNumber,
+    caseYear: caseYear,
+    cnr: cnr,
+  );
 
   bool get lowConfidence => confidence == 'low';
 

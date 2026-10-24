@@ -31,6 +31,9 @@ class Membership {
 
   /// `owner`, `advocate`, `junior` or `clerk` (spec §15.3).
   final String role;
+
+  /// Assign to and Mark proxy arranged on the board (RLS `board_entries_update`); others see it read-only.
+  bool get managesBoard => role == 'owner' || role == 'advocate';
 }
 
 /// Where the signed-in account stands in onboarding steps 5–8 (spec §4.1, §9.2).
@@ -178,4 +181,9 @@ final currentOrgProvider = Provider<Membership?>(
 /// [currentOrgProvider]'s id, for providers that only depend on which org it is.
 final currentOrgIdProvider = Provider<String?>(
   (ref) => ref.watch(currentOrgProvider.select((m) => m?.orgId)),
+);
+
+/// The signed-in user's id; null until the account loads.
+final currentUserIdProvider = Provider<String?>(
+  (ref) => ref.watch(accountProvider.select((a) => a.value?.id)),
 );

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/router.dart';
@@ -7,6 +8,7 @@ import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/api_client.dart';
 import 'package:advocate_app/data/auth.dart';
 import 'package:advocate_app/data/sync/sync.dart';
+import 'package:advocate_app/features/board/board_share.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:advocate_app/features/onboarding/consent_screen.dart';
 import 'package:advocate_app/features/onboarding/lock_setup_screen.dart';
@@ -180,11 +182,18 @@ void main() {
         prefsProvider.overrideWithValue(prefs),
         authRepositoryProvider.overrideWithValue(FakeAuth(signedIn: true)),
         lockStoreProvider.overrideWithValue(MemoryLockStore()),
+        testShareDir(),
       ],
     );
     addTearDown(c.dispose);
     expect(c.read(settingsProvider).onboardingDone, isTrue);
+    // A board image shared earlier, which may hold case titles.
+    final shares = await c.read(boardShareDirProvider)();
+    File('${shares.path}${Platform.pathSeparator}board-2026-11-06.png')
+      ..createSync(recursive: true)
+      ..writeAsBytesSync([0]);
     await c.read(sessionProvider).signOut();
+    expect(shares.existsSync(), isFalse);
     expect(c.read(settingsProvider).onboardingDone, isNull);
     expect(prefs.getBool('settings.onboarding_done'), isNull);
     expect(c.read(settingsProvider).locale, const Locale('hi'));

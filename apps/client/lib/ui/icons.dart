@@ -34,6 +34,7 @@ abstract final class AppIcons {
   static const checkSquare = IconData(0xe186, fontFamily: 'PhosphorRegular');
   static const circle = IconData(0xe18a, fontFamily: 'PhosphorRegular');
   static const circleNotch = IconData(0xeb44, fontFamily: 'PhosphorRegular');
+  static const clock = IconData(0xe19a, fontFamily: 'PhosphorRegular');
   static const clockCounterClockwise = IconData(
     0xe1a0,
     fontFamily: 'PhosphorRegular',
@@ -68,6 +69,8 @@ abstract final class AppIcons {
   static const gavel = IconData(0xea32, fontFamily: 'PhosphorRegular');
   static const gearFill = IconData(0xe270, fontFamily: 'PhosphorFill');
   static const gear = IconData(0xe270, fontFamily: 'PhosphorRegular');
+  static const handshake = IconData(0xe582, fontFamily: 'PhosphorRegular');
+  static const image = IconData(0xe2ca, fontFamily: 'PhosphorRegular');
   static const lockSimple = IconData(0xe308, fontFamily: 'PhosphorRegular');
   static const magnifyingGlass = IconData(
     0xe30c,
@@ -79,12 +82,14 @@ abstract final class AppIcons {
   static const plusBold = IconData(0xe3d4, fontFamily: 'PhosphorBold');
   static const plus = IconData(0xe3d4, fontFamily: 'PhosphorRegular');
   static const question = IconData(0xe3e8, fontFamily: 'PhosphorRegular');
+  static const shareNetwork = IconData(0xe408, fontFamily: 'PhosphorRegular');
   static const squaresFour = IconData(0xe464, fontFamily: 'PhosphorRegular');
   static const sunFill = IconData(0xe472, fontFamily: 'PhosphorFill');
   static const sun = IconData(0xe472, fontFamily: 'PhosphorRegular');
   static const sunDimFill = IconData(0xe474, fontFamily: 'PhosphorFill');
   static const sunDim = IconData(0xe474, fontFamily: 'PhosphorRegular');
   static const tray = IconData(0xe4aa, fontFamily: 'PhosphorRegular');
+  static const userSwitch = IconData(0xe756, fontFamily: 'PhosphorRegular');
   static const usersFill = IconData(0xe4d6, fontFamily: 'PhosphorFill');
   static const users = IconData(0xe4d6, fontFamily: 'PhosphorRegular');
   static const warning = IconData(0xe4e0, fontFamily: 'PhosphorRegular');

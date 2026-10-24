@@ -5,6 +5,8 @@ import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/core/theme/tokens.g.dart';
 import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/auth.dart';
+import 'package:advocate_app/features/board/board_screen.dart';
+import 'package:advocate_app/features/cases/case_placeholder_screen.dart';
 import 'package:advocate_app/features/dev_kitchen_sink/kitchen_sink.dart';
 import 'package:advocate_app/features/found_cases/found_cases_screen.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
@@ -22,6 +24,7 @@ import 'package:advocate_app/features/session.dart';
 import 'package:advocate_app/features/settings/settings_screen.dart';
 import 'package:advocate_app/features/shell/home_shell.dart';
 import 'package:advocate_app/features/shell/screens.dart';
+import 'package:advocate_app/features/today/today_screen.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:animations/animations.dart';
 import 'package:flutter/foundation.dart';
@@ -250,9 +253,28 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/today',
             pageBuilder: (c, s) => _tab(c, s, const TodayScreen()),
           ),
+          // Tomorrow's Board (spec §4.2); the `tomorrow_board` notification links here.
+          GoRoute(
+            path: '/board/tomorrow',
+            pageBuilder: (c, s) => _tab(c, s, const BoardScreen()),
+          ),
           GoRoute(
             path: '/cases',
             pageBuilder: (c, s) => _tab(c, s, const CasesScreen()),
+            routes: [
+              // Case notifications link to /cases/{id}; Today's Notes action adds ?tab=notes.
+              GoRoute(
+                path: ':id',
+                pageBuilder: (c, s) => _tab(
+                  c,
+                  s,
+                  CasePlaceholderScreen(
+                    matterId: s.pathParameters['id']!,
+                    tab: s.uri.queryParameters['tab'],
+                  ),
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: '/more',
