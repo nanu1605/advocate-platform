@@ -8,7 +8,7 @@ import 'package:advocate_app/data/courts.dart';
 import 'package:advocate_app/data/diary.dart';
 import 'package:advocate_app/features/board/board_screen.dart';
 import 'package:advocate_app/features/board/board_share.dart';
-import 'package:advocate_app/features/cases/case_placeholder_screen.dart';
+import 'package:advocate_app/features/case_page/case_page.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
@@ -491,11 +491,10 @@ void main() {
     await _open(tester);
     await tester.tap(find.text('WP 1003/2024'));
     await tester.pumpAndSettle();
-    expect(find.byType(CasePlaceholderScreen), findsOneWidget);
-    expect(find.widgetWithText(AppBar, 'WP 1003/2024'), findsOneWidget);
+    expect(tester.widget<CasePage>(find.byType(CasePage)).matterId, 'm-3');
     container(tester).read(routerProvider).pop();
     await tester.pumpAndSettle();
-    expect(find.byType(CasePlaceholderScreen), findsNothing);
+    expect(find.byType(CasePage), findsNothing);
     expect(find.text('WP 1003/2024'), findsOneWidget);
   });
 
@@ -530,6 +529,6 @@ void main() {
     expect(row.hasPrimaryFocus, isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(AppBar, 'WP 1003/2024'), findsOneWidget);
+    expect(tester.widget<CasePage>(find.byType(CasePage)).matterId, 'm-3');
   });
 }

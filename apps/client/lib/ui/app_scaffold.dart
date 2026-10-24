@@ -37,6 +37,7 @@ class AppScaffold extends StatelessWidget {
     this.centerIcon = AppIcons.plusBold,
     this.centerLabel,
     this.banner,
+    this.onNewCase,
     super.key,
   });
 
@@ -48,6 +49,9 @@ class AppScaffold extends StatelessWidget {
   final ValueChanged<String> onNavigate;
   final VoidCallback onCenterAction;
   final VoidCallback onCommandPalette;
+
+  /// Ctrl+N (spec §5.12 "New case"); [onCenterAction] when null.
+  final VoidCallback? onNewCase;
   final IconData centerIcon;
   final String? centerLabel;
   final Widget child;
@@ -132,7 +136,7 @@ class AppScaffold extends StatelessWidget {
       const SingleActivator(LogicalKeyboardKey.keyK, control: true):
           onCommandPalette,
       const SingleActivator(LogicalKeyboardKey.keyN, control: true):
-          onCenterAction,
+          onNewCase ?? onCenterAction,
       for (var i = 0; i < railDestinations.length && i < 9; i++)
         SingleActivator(
           LogicalKeyboardKey(LogicalKeyboardKey.digit1.keyId + i),

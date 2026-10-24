@@ -72,6 +72,13 @@ final kitSections = <KitSection>[
         actionLabel: 'By court',
         onAction: _noop,
       ),
+      const SectionHeader('Later', count: 40, onToggle: _noop),
+      const SectionHeader(
+        'Disposed',
+        count: 4,
+        expanded: false,
+        onToggle: _noop,
+      ),
       const CourtBadge(court: 'MPHC Indore', courtNo: '12', itemNo: '23'),
       HearingChip(date: _nov5, today: kitToday),
       HearingChip(date: null, today: kitToday),
@@ -135,6 +142,20 @@ final kitSections = <KitSection>[
           ),
           variant: CaseCardVariant.compact,
         ),
+      // Cases list rows: next date and assignee; the case open beside the list on Windows.
+      CaseCard(
+        CaseCardData(
+          caseNumber: 'WP 1234/2024',
+          title: 'Ramesh Sharma v. State of Madhya Pradesh and others',
+          court: 'MPHC Indore',
+          courtNo: '12',
+          nextDate: _nov5,
+          assignee: 'Neha Verma',
+        ),
+        variant: CaseCardVariant.compact,
+        today: kitToday,
+        selected: true,
+      ),
     ]),
   ),
   KitSection(

@@ -1,7 +1,9 @@
-import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/router.dart';
 import 'package:advocate_app/features/board/board_screen.dart';
-import 'package:advocate_app/features/cases/case_placeholder_screen.dart';
+import 'package:advocate_app/features/case_page/case_page.dart';
+import 'package:advocate_app/features/cases/cases_screen.dart';
+import 'package:advocate_app/features/cases/manual_case_screen.dart';
+import 'package:advocate_app/features/cases/search_cases_screen.dart';
 import 'package:advocate_app/features/today/today_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,20 +19,46 @@ void main() {
     },
   );
 
-  testWidgets('a case link opens the case placeholder on its tab', (
-    tester,
-  ) async {
-    final l = lookupAppLocalizations(const Locale('en'));
+  testWidgets(
+    'a case link opens the case page on its tab; wide windows keep the list',
+    (tester) async {
+      final cases = FakeCases(cases: [caseInfo(1), caseInfo(2)]);
+      await pumpApp(
+        tester,
+        location: '/cases/m-1?tab=notes',
+        overrides: [...diary().overrides, ...cases.caseOverrides],
+      );
+      final page = tester.widget<CasePage>(find.byType(CasePage));
+      expect((page.matterId, page.tab), ('m-1', 'notes'));
+      expect(find.byType(CasesScreen), findsNothing);
+      expect(find.widgetWithText(AppBar, 'WP 1001/2024'), findsOneWidget);
+      expect(find.text('Sharma v. State of MP'), findsOneWidget);
+
+      tester.view.physicalSize = const Size(1280, 800);
+      await tester.pumpAndSettle();
+      final list = tester.widget<CasesScreen>(find.byType(CasesScreen));
+      expect((list.selectedId, list.tab), ('m-1', 'notes'));
+      expect(find.byType(CasePage), findsOneWidget);
+      final state = tester.state(find.byType(CasesScreen));
+
+      // Another case on a wide window keeps the same page (and list): only the selection changes.
+      container(tester).read(routerProvider).go('/cases/m-2');
+      await tester.pumpAndSettle();
+      expect(tester.state(find.byType(CasesScreen)), same(state));
+      expect(tester.widget<CasePage>(find.byType(CasePage)).matterId, 'm-2');
+    },
+  );
+
+  testWidgets('add case routes: search and by hand', (tester) async {
     await pumpApp(
       tester,
-      location: '/cases/m-1?tab=notes',
+      location: '/cases/search',
       overrides: diary().overrides,
     );
-    expect(find.byType(CasePlaceholderScreen), findsOneWidget);
-    expect(find.text('WP 1001/2024'), findsOneWidget);
-    expect(find.text('Sharma v. State of MP'), findsOneWidget);
-    expect(find.text(l.caseNotes), findsOneWidget);
-    expect(find.text(l.casePageSoon), findsOneWidget);
+    expect(find.byType(SearchCasesScreen), findsOneWidget);
+    container(tester).read(routerProvider).go('/cases/manual');
+    await tester.pumpAndSettle();
+    expect(find.byType(ManualCaseScreen), findsOneWidget);
   });
 
   testWidgets('notification links resolve; the board sits under Today', (
@@ -40,7 +68,7 @@ void main() {
     final router = container(tester).read(routerProvider);
     for (final (link, screen) in [
       ('/board/tomorrow', BoardScreen),
-      ('/cases/m-1', CasePlaceholderScreen),
+      ('/cases/m-1', CasePage),
       ('/today', TodayScreen),
     ]) {
       router.go(link);

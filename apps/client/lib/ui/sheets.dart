@@ -66,19 +66,21 @@ class ConfirmDialog extends StatelessWidget {
   }
 }
 
-/// "Deleted · Undo" for 5 seconds (spec §5.5).
-void showUndoSnackbar(
+/// "Deleted · Undo" for 5 seconds (spec §5.5); with a screen reader on it stays until dismissed, so Undo can be
+/// reached (Flutter keeps a snackbar with an action by default). Its `closed` says whether Undo was tapped
+/// ([SnackBarClosedReason.action]).
+ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showUndoSnackbar(
   BuildContext context, {
   required String message,
   required VoidCallback onUndo,
 }) {
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 5),
-        action: SnackBarAction(label: context.l10n.undo, onPressed: onUndo),
-      ),
-    );
+  final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
+  return messenger.showSnackBar(
+    SnackBar(
+      content: Text(message),
+      duration: const Duration(seconds: 5),
+      persist: MediaQuery.accessibleNavigationOf(context),
+      action: SnackBarAction(label: context.l10n.undo, onPressed: onUndo),
+    ),
+  );
 }

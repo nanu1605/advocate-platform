@@ -75,7 +75,7 @@ class _AddByCnrState extends ConsumerState<_AddByCnr> {
       );
       Navigator.pop(context, added.matterId);
     } on ApiException catch (e) {
-      if (mounted) _fail(errorText(l, e));
+      if (mounted) _fail(trackErrorText(l, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

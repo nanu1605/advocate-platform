@@ -173,6 +173,17 @@ void main() {
       'NO_SEARCHABLE_COURTS',
       'COURT_DATA_PAUSED',
       'COURT_DATA_BUDGET_REACHED',
+      'SEARCH_TERMS_REQUIRED',
+      'SEARCH_DAILY_CAP',
+      'COURT_REQUIRED',
+      'UNKNOWN_COURT',
+      'MANUAL_CASE',
+      'TRACKING_OFF',
+      'NO_CNR',
+      'DOCUMENT_NOT_READY',
+      'DOCUMENT_QUARANTINED',
+      'ORDER_PDF_UNAVAILABLE',
+      'ORDER_PDF_FETCHING',
     ];
 
     for (final locale in ['en', 'hi']) {

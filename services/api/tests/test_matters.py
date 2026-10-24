@@ -1,4 +1,4 @@
-"""Case endpoints (spec §10.2): search, add by CNR or by hand, refresh, official link and delete."""
+"""Case endpoints (spec §10.2): search, add by CNR or by hand, refresh, tracking on/off, official link and delete."""
 
 import asyncio
 import uuid
@@ -284,12 +284,82 @@ async def test_other_organisations_cases(api, team, other_org, enqueued):
         h = idem(team, who)
         for r in (
             await api.post(f"/v1/matters/{theirs}/refresh", headers=h),
+            await api.patch(f"/v1/matters/{theirs}", json={"tracking": "off"}, headers=h),
             await api.get(f"/v1/matters/{theirs}/official-link", headers=h),
             await api.delete(f"/v1/matters/{theirs}", headers=h),
         ):
             assert (r.status_code, code(r)) == (status, err), (who, r.request.method, r.text)
     assert enqueued == []
-    assert await sql("select deleted_at from public.matters where id = :id", id=theirs) == [{"deleted_at": None}]
+    assert await sql("select deleted_at, tracking from public.matters where id = :id", id=theirs) == [
+        {"deleted_at": None, "tracking": "auto"}
+    ]
+
+
+async def tracking_of(matter: str) -> str:
+    [row] = await sql("select tracking from public.matters where id = :id", id=matter)
+    return row["tracking"]
+
+
+async def test_tracking_on_and_off(api, team, enqueued):
+    async def patch(matter: str, tracking: str, who: str = "clerk"):
+        return await api.patch(f"/v1/matters/{matter}", json={"tracking": tracking}, headers=team.h(who))
+
+    manual = await add_matter(team, None, tracking="manual")
+    assert (r := await patch(manual, "off")).status_code == 409 and code(r) == "MANUAL_CASE"
+    no_cnr = await add_matter(team, None, tracking="off")
+    assert (r := await patch(no_cnr, "auto")).status_code == 409 and code(r) == "NO_CNR"
+    assert code(await patch(manual, "manual")) == "VALIDATION_ERROR"
+    assert (await patch(str(uuid.uuid4()), "off")).status_code == 404
+
+    m = await add_matter(team, new_cnr())
+    r = await patch(m, "off")  # every role (§15.3 add/edit matters)
+    assert r.status_code == 200, r.text
+    assert r.json() == {"matter_id": m, "tracking": "off", "job_id": None}
+    assert await tracking_of(m) == "off"
+    assert (await patch(m, "off")).json()["job_id"] is None  # unchanged: a no-op
+
+    on = await patch(m, "auto")
+    assert on.json()["tracking"] == "auto" and on.json()["job_id"]
+    assert enqueued == [(tasks.FETCH_CASES, on.json()["job_id"])]
+    [job] = await sql("select kind, input from public.jobs where id = :id", id=on.json()["job_id"])
+    assert job == {"kind": "fetch_cases", "input": {"matter_ids": [m]}}
+    assert await tracking_of(m) == "auto"
+    assert (await patch(m, "auto")).json()["job_id"] is None
+
+    # Off and on again within 6 h: the fetch is claimed like a refresh, so no second one (and Refresh says so).
+    await patch(m, "off")
+    assert (await patch(m, "auto")).json() == {"matter_id": m, "tracking": "auto", "job_id": None}
+    assert code(await api.post(f"/v1/matters/{m}/refresh", headers=idem(team))) == "RATE_LIMITED"
+    # Fetched by the worker in the last 6 h: nothing to fetch either.
+    fresh = await add_matter(team, new_cnr(), tracking="off")
+    await sql("update public.matters set court_fetched_at = now() - interval '1 hour' where id = :id", id=fresh)
+    assert (await patch(fresh, "auto", "owner")).json()["job_id"] is None
+    assert len(enqueued) == 1
+
+
+async def test_tracking_on_respects_the_allowance(api, team, enqueued):
+    o = team.org_id
+    off = await add_matter(team, new_cnr(), tracking="off")
+    [cfg] = await sql(
+        "select (value #>> '{}')::int as n from public.app_config where key = 'beta_tracked_case_allowance'"
+    )
+    [used] = await sql(
+        "select count(*) as n from public.matters where org_id = :o and tracking = 'auto' and deleted_at is null", o=o
+    )
+    await sql(
+        "insert into public.matters (org_id, source, tracking, cnr) "
+        "select :o, 'cnr', 'auto', 'FULL' || lpad(g::text, 12, '0') from generate_series(1, :k) g",
+        o=o, k=cfg["n"] - used["n"],
+    )  # fmt: skip
+    try:
+        r = await api.patch(f"/v1/matters/{off}", json={"tracking": "auto"}, headers=team.h("advocate"))
+        assert r.status_code == 409, r.text
+        assert r.json()["error"]["code"] == "TRACKED_CASE_LIMIT"
+        assert r.json()["error"]["details"] == {"limit": cfg["n"]}
+        assert await tracking_of(off) == "off"
+        assert enqueued == []
+    finally:
+        await sql("delete from public.matters where org_id = :o and cnr like 'FULL%'", o=o)
 
 
 async def test_official_link(api, team):

@@ -25,6 +25,12 @@ Last updated: 2026-10-24
   weekly sweep, auto-match, `advocate_watch` behind a flag, Today at 07:30), change detection with per-user event keys,
   fan-out to every tracking organisation, Tomorrow's Board with expected slots and clash groups, order PDF pipeline,
   ClamAV upload scan (fails closed), window flags, stale-job sweeper, §11.8 budgets. 104 worker tests.
+- P1 Cases and case page ([ADR 0015](docs/adr/0015-p1-cases.md)): Cases list (Today · This week · Later · No next
+  date · Disposed · Found for you; transliteration search over case number, party, client and CNR; court, client,
+  status and assignee filters; three sorts; two panes on Windows); case page (header, refresh, share status, official
+  portal, tracking on/off, archive, delete; Timeline with hearing notes and editable manual hearings, orders;
+  Documents; Notes, tasks and manual deadlines; linked clients); Add case by CNR, court search or by hand;
+  `PATCH /v1/matters/{id}` for tracking on/off.
 - P1 Today and Tomorrow's Board ([ADR 0014](docs/adr/0014-p1-today-board.md)): Today in India time with the hero
   card (next open matter), Today by court with clashes, tasks due, new orders, needs attention, evening switch to the
   Tomorrow banner (`app_config.today_evening_switch`, default 18:30), pull-to-refresh / F5; Tomorrow's Board (kit
@@ -41,10 +47,10 @@ Last updated: 2026-10-24
   Hindi review, privacy-policy page.
 
 ## Next up
-1. P1 task 9: Cases and case page ("Found for you" opens `/found`; Add by CNR sheet is in `features/found_cases`;
-   replace the `/cases/:id` placeholder, honouring `?tab=notes`).
-2. P1 task 10: Calendar, Clients, Documents.
-3. P1 task 11: Team, notifications, dashboard, feedback.
+1. P1 task 10: Calendar, Clients, Documents (the case page's Documents tab and orders open in the system viewer
+   until the pdfrx viewer lands; client rows on the case page wait for the client profile).
+2. P1 task 11: Team, notifications, dashboard, feedback.
+3. P1 task 12: phase checks.
 
 ## Deviations from spec (with ADR links)
 - Kit: 5 P2-only components deferred to P2 start — [ADR 0001](docs/adr/0001-defer-p2-kit-components.md).
@@ -81,6 +87,8 @@ Last updated: 2026-10-24
 - Today/Board: clashes computed on the device (worker's `clash_group` unread), the diary skips the court-holiday
   check, "New orders" are unread `new_order` notifications, the §5.5 list stagger and check-mark draw are deferred,
   `share_plus` added for the OS share sheet — [ADR 0014](docs/adr/0014-p1-today-board.md).
+- Cases: `PATCH /v1/matters/{id}` added to §10.2 for tracking on/off (devices can't change `tracking`); `POST
+  /v1/matters/manual` still takes no Idempotency-Key — [ADR 0015](docs/adr/0015-p1-cases.md).
 - Windows `APPLY_STANDARD_SETTINGS` defines `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`: `local_auth_windows` 2.0.2 builds with `/await`, which MSVC 14.51 rejects (STL1011). Remove when the plugin moves to C++20 `<coroutine>`.
 
 ## Questions for the founder

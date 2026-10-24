@@ -406,19 +406,6 @@ List<DueTask> dueTasks(Iterable<Map<String, dynamic>> rows, DateTime todayIst) {
   return due..sort((a, b) => a.dueAt.compareTo(b.dueAt));
 }
 
-/// A synced timestamptz (with or without a zone; none means UTC) as a UTC instant.
-DateTime? parseInstant(Object? v) {
-  if (v is! String || v.isEmpty) return null;
-  final zoned = RegExp(r'(Z|[+-]\d\d(:?\d\d)?)$').hasMatch(v);
-  return DateTime.tryParse(zoned ? v : '${v}Z')?.toUtc();
-}
-
-/// A synced date (`YYYY-MM-DD`) as an IST day (see [istDay]).
-DateTime? parseDay(Object? v) {
-  final d = v is String ? DateTime.tryParse(v) : null;
-  return d == null ? null : DateTime.utc(d.year, d.month, d.day);
-}
-
 /// Open tasks due by the end of today (IST), assigned to the user or to no one, in the current org (spec §4.2
 /// "Tasks due"); overdue ones are included and marked.
 final tasksDueProvider = StreamProvider<List<DueTask>>((ref) {
@@ -701,30 +688,6 @@ final hasMattersProvider = StreamProvider<bool>((ref) {
       )
       .map((rows) => rows.first['any_matter'] == 1);
 });
-
-/// A case's number and title, for the case page placeholder (task 9 replaces it). Null when it isn't on the device.
-final StreamProviderFamily<({String caseLabel, String? title})?, String>
-caseHeaderProvider = StreamProvider.autoDispose
-    .family<({String caseLabel, String? title})?, String>((ref, id) {
-      final db = ref.watch(syncDatabaseProvider);
-      if (db == null) return Stream.value(null);
-      return db
-          .watch(
-            'select case_type, case_number, case_year, cnr, title from matters '
-            'where id = ? and deleted_at is null',
-            parameters: [id],
-          )
-          .map((rows) {
-            final r = rows.firstOrNull;
-            if (r == null) return null;
-            final title = r['title'] as String?;
-            final label = _rowLabel(r);
-            return (
-              caseLabel: label.isEmpty ? title ?? '' : label,
-              title: title,
-            );
-          });
-    });
 
 /// Today's and the board's writes (spec §4.2): local, uploaded when online. The server takes only these columns
 /// from a device (`device_columns` triggers, RLS): board rows from owners and advocates, task status from members,

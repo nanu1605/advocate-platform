@@ -23,6 +23,19 @@ DateTime istInstant(DateTime ist) => ist.subtract(istOffset);
 /// `YYYY-MM-DD`, the synced tables' date format.
 String isoDate(DateTime day) => day.toIso8601String().substring(0, 10);
 
+/// A synced timestamptz (with or without a zone; none means UTC) as a UTC instant.
+DateTime? parseInstant(Object? v) {
+  if (v is! String || v.isEmpty) return null;
+  final zoned = RegExp(r'(Z|[+-]\d\d(:?\d\d)?)$').hasMatch(v);
+  return DateTime.tryParse(zoned ? v : '${v}Z')?.toUtc();
+}
+
+/// A synced date (`YYYY-MM-DD`) as an IST day (see [istDay]).
+DateTime? parseDay(Object? v) {
+  final d = v is String ? DateTime.tryParse(v) : null;
+  return d == null ? null : DateTime.utc(d.year, d.month, d.day);
+}
+
 /// IST now, updated on each minute (the hero card, the evening switch and the day all follow it), and re-read when
 /// the app resumes: Dart timers stop while the device sleeps, so a phone opened in the morning would otherwise show
 /// last night for up to a minute.
