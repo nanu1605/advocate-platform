@@ -211,7 +211,10 @@ class TimelineItem extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            width: 72,
+            // Grows with large text so a month name isn't broken mid-word (spec §5.9).
+            width: MediaQuery.textScalerOf(context)
+                .clamp(maxScaleFactor: 1.5)
+                .scale(72),
             child: Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Text(date, style: context.text.bodySmall),

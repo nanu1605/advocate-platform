@@ -6,7 +6,10 @@ import 'package:advocate_app/core/theme/tokens.g.dart';
 import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/auth.dart';
 import 'package:advocate_app/features/board/board_screen.dart';
-import 'package:advocate_app/features/cases/case_placeholder_screen.dart';
+import 'package:advocate_app/features/case_page/case_page.dart';
+import 'package:advocate_app/features/cases/cases_screen.dart';
+import 'package:advocate_app/features/cases/manual_case_screen.dart';
+import 'package:advocate_app/features/cases/search_cases_screen.dart';
 import 'package:advocate_app/features/dev_kitchen_sink/kitchen_sink.dart';
 import 'package:advocate_app/features/found_cases/found_cases_screen.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
@@ -25,6 +28,7 @@ import 'package:advocate_app/features/settings/settings_screen.dart';
 import 'package:advocate_app/features/shell/home_shell.dart';
 import 'package:advocate_app/features/shell/screens.dart';
 import 'package:advocate_app/features/today/today_screen.dart';
+import 'package:advocate_app/ui/app_scaffold.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:animations/animations.dart';
 import 'package:flutter/foundation.dart';
@@ -262,17 +266,34 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/cases',
             pageBuilder: (c, s) => _tab(c, s, const CasesScreen()),
             routes: [
-              // Case notifications link to /cases/{id}; Today's Notes action adds ?tab=notes.
+              GoRoute(
+                path: 'search',
+                pageBuilder: (c, s) => _tab(c, s, const SearchCasesScreen()),
+              ),
+              GoRoute(
+                path: 'manual',
+                pageBuilder: (c, s) => _tab(c, s, const ManualCaseScreen()),
+              ),
+              // Case notifications link to /cases/{id}; Today's Notes action adds ?tab=notes. On a wide window the
+              // list stays beside the case: going to another case keeps this page (its key is the route pattern),
+              // so the list keeps its scroll and only the selection changes.
               GoRoute(
                 path: ':id',
-                pageBuilder: (c, s) => _tab(
-                  c,
-                  s,
-                  CasePlaceholderScreen(
-                    matterId: s.pathParameters['id']!,
-                    tab: s.uri.queryParameters['tab'],
-                  ),
-                ),
+                pageBuilder: (c, s) {
+                  final id = s.pathParameters['id']!;
+                  final tab = s.uri.queryParameters['tab'];
+                  final wide =
+                      sizeClassOf(MediaQuery.sizeOf(c).width) ==
+                      SizeClass.expanded;
+                  return _tab(
+                    c,
+                    s,
+                    wide
+                        ? CasesScreen(selectedId: id, tab: tab)
+                        // A fresh page per case, as in the wide pane: a refresh in flight stays with its case.
+                        : CasePage(key: ValueKey(id), matterId: id, tab: tab),
+                  );
+                },
               ),
             ],
           ),

@@ -1,10 +1,12 @@
-"""Cases (spec §10.2): search, add by CNR or by hand, on-demand refresh, official portal link and delete."""
+"""Cases (spec §10.2): search, add by CNR or by hand, on-demand refresh, tracking on/off, official portal link and
+delete."""
 
 import hashlib
 import json
 import re
 from dataclasses import asdict
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Request, Response
@@ -292,7 +294,7 @@ async def load_matter(db: UserDb, org: OrgContext, matter_id: UUID) -> RowMappin
         (
             await db.execute(
                 text(
-                    "select m.tracking, m.cnr, c.level from public.matters m "
+                    "select m.tracking, m.cnr, m.court_fetched_at, c.level from public.matters m "
                     "left join public.courts c on c.id = m.court_id "
                     "where m.id = :id and m.org_id = :o and m.deleted_at is null"
                 ),
@@ -336,6 +338,49 @@ async def refresh_matter(
     )
     after_commit(request, lambda: r.set(key, str(job_id), ex=REFRESH_EVERY_S))
     return idem.keep(JobOut(job_id=job_id))
+
+
+class TrackingIn(BaseModel):
+    tracking: Literal["auto", "off"]
+
+
+class TrackingOut(BaseModel):
+    matter_id: UUID
+    tracking: str
+    job_id: UUID | None
+
+
+# No Idempotency-Key: setting the value it already has is a no-op, and the fetch is claimed like a refresh.
+@router.patch("/matters/{matter_id}")
+async def set_tracking(db: UserDb, org: CurrentOrg, request: Request, matter_id: UUID, body: TrackingIn) -> TrackingOut:
+    """Tracking on/off from the case page (spec §4.3; ADR 0015 adds it to §10.2): devices can't change `tracking`
+    (§9.3), and the matters_allowance trigger checks the tracked-case allowance when it turns on (TRACKED_CASE_LIMIT).
+    Turning it on fetches the case as by-cnr does, unless it was fetched or refreshed in the last 6 h."""
+    matter = await load_matter(db, org, matter_id)
+    if matter["tracking"] == "manual":
+        raise ApiError(409, "MANUAL_CASE", "Manual cases are updated by hand")
+    if not matter["cnr"]:
+        raise ApiError(409, "NO_CNR", "This case has no CNR")
+    if matter["tracking"] == body.tracking:
+        return TrackingOut(matter_id=matter_id, tracking=body.tracking, job_id=None)
+    await db.execute(
+        text("update public.matters set tracking = :t where id = :id"), {"t": body.tracking, "id": matter_id}
+    )
+    job_id = None
+    fetched = matter["court_fetched_at"]
+    fresh = fetched is not None and datetime.now(UTC) - fetched < timedelta(seconds=REFRESH_EVERY_S)
+    r, key = redis(), f"refresh:{org.org_id}:{matter_id}"
+    if body.tracking == "auto" and not fresh and await r.set(key, "pending", nx=True, ex=120):
+        job_id = await create_job(
+            db,
+            request,
+            task=tasks.FETCH_CASES,
+            kind="fetch_cases",
+            org_id=org.org_id,
+            job_input={"matter_ids": [matter_id]},
+        )
+        after_commit(request, lambda: r.set(key, str(job_id), ex=REFRESH_EVERY_S))
+    return TrackingOut(matter_id=matter_id, tracking=body.tracking, job_id=job_id)
 
 
 class OfficialLink(BaseModel):

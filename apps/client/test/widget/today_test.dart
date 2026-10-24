@@ -4,7 +4,7 @@ import 'package:advocate_app/data/diary.dart';
 import 'package:advocate_app/data/diary_text.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/board/board_screen.dart';
-import 'package:advocate_app/features/cases/case_placeholder_screen.dart';
+import 'package:advocate_app/features/case_page/case_page.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:advocate_app/ui/case_card.dart';
 import 'package:advocate_app/ui/states.dart';
@@ -262,17 +262,13 @@ void main() {
     await _open(tester, sampleDiary());
     await tester.tap(find.text(en.caseNotes));
     await tester.pumpAndSettle();
-    var page = tester.widget<CasePlaceholderScreen>(
-      find.byType(CasePlaceholderScreen),
-    );
+    var page = tester.widget<CasePage>(find.byType(CasePage));
     expect((page.matterId, page.tab), ('m-1', 'notes'));
     await tester.pageBack();
     await tester.pumpAndSettle();
     await tester.tap(find.text(en.todayOpen));
     await tester.pumpAndSettle();
-    page = tester.widget<CasePlaceholderScreen>(
-      find.byType(CasePlaceholderScreen),
-    );
+    page = tester.widget<CasePage>(find.byType(CasePage));
     expect((page.matterId, page.tab), ('m-1', null));
   });
 
@@ -280,12 +276,7 @@ void main() {
     await _open(tester, sampleDiary());
     await tester.tap(find.text('WP 1003/2024'));
     await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<CasePlaceholderScreen>(find.byType(CasePlaceholderScreen))
-          .matterId,
-      'm-3',
-    );
+    expect(tester.widget<CasePage>(find.byType(CasePage)).matterId, 'm-3');
   });
 
   group('empty', () {
@@ -518,12 +509,7 @@ void main() {
     await tester.tap(order);
     await tester.pumpAndSettle();
     expect(diary.readNotifications, {'n-1'});
-    expect(
-      tester
-          .widget<CasePlaceholderScreen>(find.byType(CasePlaceholderScreen))
-          .matterId,
-      'm-2',
-    );
+    expect(tester.widget<CasePage>(find.byType(CasePage)).matterId, 'm-2');
   });
 
   testWidgets('needs attention: court and user dates; delayed data hides', (
@@ -548,12 +534,7 @@ void main() {
     expect(find.text('${en.todayAttention} (1)'), findsOneWidget);
     await tester.tap(mismatch);
     await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<CasePlaceholderScreen>(find.byType(CasePlaceholderScreen))
-          .matterId,
-      'm-9',
-    );
+    expect(tester.widget<CasePage>(find.byType(CasePage)).matterId, 'm-9');
   });
 
   testWidgets('Windows: a readable column; Enter opens the focused row', (
@@ -566,11 +547,6 @@ void main() {
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<CasePlaceholderScreen>(find.byType(CasePlaceholderScreen))
-          .matterId,
-      'm-2',
-    );
+    expect(tester.widget<CasePage>(find.byType(CasePage)).matterId, 'm-2');
   });
 }

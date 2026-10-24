@@ -236,6 +236,177 @@ void main() {
     );
   });
 
+  group('cases (spec §10.2)', () {
+    test(
+      'search sends only the terms given, in the body; parses the page',
+      () async {
+        final (api, adapter) = _client(
+          (_) => (
+            200,
+            {
+              'items': [
+                {
+                  'cnr': 'MPHC010012342024',
+                  'court_code': 'MPHC-IND',
+                  'case_type': 'WP',
+                  'case_number': '1234',
+                  'case_year': 2024,
+                  'title': 'Sharma v. State of MP',
+                  'status': 'pending',
+                  'next_hearing_date': '2026-11-12',
+                  'petitioners': ['Ramesh Sharma'],
+                  'respondents': ['State of MP'],
+                  'advocates': [
+                    {'name': 'Neha Sharma', 'side': 'petitioner'},
+                  ],
+                  'tracked': true,
+                },
+              ],
+              'total': 8,
+              'page': 2,
+              'has_next': true,
+              'cached': true,
+              'post_filtered': true,
+              'ignored_court_ids': ['c1'],
+            },
+          ),
+        );
+        final page = await api.searchCases(
+          orgId: 'o1',
+          party: '  Sharma ',
+          advocate: ' ',
+          courtIds: ['c1', 'c2'],
+          year: 2024,
+          page: 2,
+        );
+        final r = adapter.requests.single;
+        expect((r.method, r.path), ('POST', '/v1/search/cases'));
+        expect(r.uri.query, isEmpty); // names never in the URL
+        expect(r.data, {
+          'party': 'Sharma',
+          'court_ids': ['c1', 'c2'],
+          'year': 2024,
+          'page': 2,
+          'page_size': 20,
+        });
+        expect(r.headers['X-Org-Id'], 'o1');
+        expect(r.headers.containsKey('Idempotency-Key'), isFalse);
+        final hit = page.items.single;
+        expect(hit.caseLabel, 'WP 1234/2024');
+        expect(hit.nextHearingDate, DateTime.utc(2026, 11, 12));
+        expect(hit.advocates.single, (name: 'Neha Sharma', side: 'petitioner'));
+        expect(hit.tracked, isTrue);
+        expect(hit.petitioners, ['Ramesh Sharma']);
+        expect(
+          (page.total, page.page, page.hasNext, page.postFiltered),
+          (8, 2, true, true),
+        );
+        expect(page.ignoredCourtIds, ['c1']);
+      },
+    );
+
+    test('manual add sends the trimmed fields and the next date', () async {
+      final (api, adapter) = _client((_) => (201, {'id': 'm9'}));
+      final id = await api.addManual(
+        orgId: 'o1',
+        title: ' Demo v. State ',
+        courtName: 'Family Court, Dewas',
+        caseNumber: '12',
+        caseYear: 2025,
+        fileNo: ' ',
+        nextDate: DateTime.utc(2026, 11, 20),
+      );
+      expect(id, 'm9');
+      final r = adapter.requests.single;
+      expect((r.method, r.path), ('POST', '/v1/matters/manual'));
+      expect(r.data, {
+        'title': 'Demo v. State',
+        'court_name': 'Family Court, Dewas',
+        'case_number': '12',
+        'case_year': 2025,
+        'next_date': '2026-11-20',
+      });
+    });
+
+    test('official link, tracking, delete and file links', () async {
+      final (api, adapter) = _client(
+        (r) => switch ((r.method, r.path)) {
+          ('GET', '/v1/matters/m1/official-link') => (
+            200,
+            {
+              'url': 'https://hcservices.ecourts.gov.in/',
+              'cnr': 'MPHC010012342024',
+              'verified': false,
+            },
+          ),
+          ('PATCH', '/v1/matters/m1') => (
+            200,
+            {'matter_id': 'm1', 'tracking': 'auto', 'job_id': 'j7'},
+          ),
+          ('DELETE', '/v1/matters/m1') => (204, null),
+          ('GET', '/v1/documents/d1/download-url') => (
+            200,
+            {'url': 'https://files.test/d1', 'expires_in_s': 300},
+          ),
+          ('GET', '/v1/orders/o1/pdf-url') => (
+            200,
+            {'url': 'https://files.test/o1', 'expires_in_s': 300},
+          ),
+          _ => (404, null),
+        },
+      );
+      expect(await api.officialLink(orgId: 'o1', matterId: 'm1'), (
+        url: 'https://hcservices.ecourts.gov.in/',
+        cnr: 'MPHC010012342024',
+        verified: false,
+      ));
+      expect(
+        await api.setTracking(orgId: 'o1', matterId: 'm1', tracking: 'auto'),
+        (tracking: 'auto', jobId: 'j7'),
+      );
+      await api.deleteMatter(orgId: 'o1', matterId: 'm1');
+      expect(
+        await api.documentUrl(orgId: 'o1', documentId: 'd1'),
+        'https://files.test/d1',
+      );
+      expect(
+        await api.orderPdfUrl(orgId: 'o1', orderId: 'o1'),
+        'https://files.test/o1',
+      );
+      expect(adapter.requests[1].data, {'tracking': 'auto'});
+      expect(adapter.requests.map((r) => r.headers['X-Org-Id']).toSet(), {
+        'o1',
+      });
+    });
+
+    test(
+      'turning tracking on over the allowance is TRACKED_CASE_LIMIT',
+      () async {
+        final (api, _) = _client(
+          (_) => (
+            409,
+            {
+              'error': {
+                'code': 'TRACKED_CASE_LIMIT',
+                'message': 'Your plan tracks no more cases',
+                'retryable': false,
+                'details': {'limit': 100},
+              },
+            },
+          ),
+        );
+        await expectLater(
+          api.setTracking(orgId: 'o1', matterId: 'm1', tracking: 'auto'),
+          throwsA(
+            isA<ApiException>()
+                .having((e) => e.code, 'code', 'TRACKED_CASE_LIMIT')
+                .having((e) => e.details['limit'], 'limit', 100),
+          ),
+        );
+      },
+    );
+  });
+
   test('no response at all is NETWORK, retryable', () async {
     final dio = Dio(BaseOptions(baseUrl: 'http://api.test'))
       ..interceptors.add(
