@@ -4,10 +4,12 @@ import 'package:advocate_app/core/flags.dart';
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/core/theme/app_theme.dart';
+import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/ui/app_scaffold.dart';
 import 'package:advocate_app/ui/command_palette.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/sheets.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -23,6 +25,7 @@ class HomeShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
     final flags = ref.watch(featureFlagsProvider);
+    final offline = ref.watch(syncViewProvider).value?.offline ?? false;
     final today = NavDest('/today', AppIcons.sun, AppIcons.sunFill, l.navToday);
     final cases = NavDest(
       '/cases',
@@ -74,6 +77,7 @@ class HomeShell extends ConsumerWidget {
       railDestinations: rail,
       onNavigate: context.go,
       onCenterAction: () => showAddSheet(context),
+      banner: offline ? const OfflineBanner() : null,
       onCommandPalette: () => showCommandPalette(context, [
         for (final (i, d) in rail.indexed)
           PaletteCommand(

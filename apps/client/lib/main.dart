@@ -3,6 +3,7 @@ import 'package:advocate_app/core/config.dart';
 import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/core/window.dart';
 import 'package:advocate_app/data/auth.dart';
+import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -35,6 +36,7 @@ Future<void> main() async {
     ),
   );
   final lock = await LockStore().load();
+  final db = await openSyncDatabase();
   if (defaultTargetPlatform == TargetPlatform.windows) await setUpWindow(prefs);
 
   runApp(
@@ -42,6 +44,7 @@ Future<void> main() async {
       overrides: [
         prefsProvider.overrideWithValue(prefs),
         initialLockProvider.overrideWithValue(lock),
+        syncDatabaseProvider.overrideWithValue(db),
       ],
       child: const App(),
     ),

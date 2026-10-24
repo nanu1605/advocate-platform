@@ -275,6 +275,13 @@ max_frequency = "60s"
 919999900003 = "123456"
 919999900004 = "123456"
 919999900005 = "123456"
+# 06-11: sync leakage tests (owner, advocate, junior, clerk, outsider, removed member).
+919999900006 = "123456"
+919999900007 = "123456"
+919999900008 = "123456"
+919999900009 = "123456"
+919999900010 = "123456"
+919999900011 = "123456"
 
 # OTP delivery goes through our API (WhatsApp authentication template, DLT SMS fallback).
 # Test numbers above skip delivery. Secret comes from supabase/.env (local) or the dashboard (hosted).

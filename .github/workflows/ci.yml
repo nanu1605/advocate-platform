@@ -46,7 +46,9 @@ jobs:
           npx supabase start --exclude studio,imgproxy,mailpit,storage-api
       - name: Row-level security tests (pgTAP)
         run: npx supabase test db
-      - name: API and worker tests
+      - name: Start local sync service
+        run: docker compose -f infra/docker/compose.yml up -d --wait powersync
+      - name: API, worker and sync tests
         run: uv run pytest -q
 
   flutter:

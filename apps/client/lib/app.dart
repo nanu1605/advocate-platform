@@ -4,6 +4,7 @@ import 'package:advocate_app/core/router.dart';
 import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/core/theme/app_theme.dart';
 import 'package:advocate_app/core/theme/tokens.g.dart';
+import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/lock/lock_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -15,6 +16,7 @@ class App extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(settingsProvider);
+    ref.watch(syncConnectionProvider);
     final osReduce = WidgetsBinding
         .instance
         .platformDispatcher
