@@ -16,6 +16,7 @@ class AppSettings {
     this.reduceMotion = false,
     this.haptics = true,
     this.consentVersion,
+    this.onboardingDone,
   });
 
   /// null until the user picks a language on the first screen.
@@ -27,18 +28,24 @@ class AppSettings {
   /// Version of the privacy notice the user accepted on this device (server keeps the record).
   final String? consentVersion;
 
+  /// Onboarding steps 5–10 (spec §4.1) for the signed-in account on this device: null until the account first
+  /// loads here, false while this device is onboarding it, true once done (or it was already set up elsewhere).
+  final bool? onboardingDone;
+
   AppSettings copyWith({
     Locale? locale,
     AppThemeMode? theme,
     bool? reduceMotion,
     bool? haptics,
     String? consentVersion,
+    bool? onboardingDone,
   }) => AppSettings(
     locale: locale ?? this.locale,
     theme: theme ?? this.theme,
     reduceMotion: reduceMotion ?? this.reduceMotion,
     haptics: haptics ?? this.haptics,
     consentVersion: consentVersion ?? this.consentVersion,
+    onboardingDone: onboardingDone ?? this.onboardingDone,
   );
 }
 
@@ -48,6 +55,7 @@ class SettingsController extends Notifier<AppSettings> {
   static const _reduceMotion = 'settings.reduce_motion';
   static const _haptics = 'settings.haptics';
   static const _consent = 'settings.consent_version';
+  static const _onboardingDone = 'settings.onboarding_done';
 
   SharedPreferences get _prefs => ref.read(prefsProvider);
 
@@ -63,6 +71,7 @@ class SettingsController extends Notifier<AppSettings> {
       reduceMotion: p.getBool(_reduceMotion) ?? false,
       haptics: p.getBool(_haptics) ?? true,
       consentVersion: p.getString(_consent),
+      onboardingDone: p.getBool(_onboardingDone),
     );
   }
 
@@ -91,6 +100,11 @@ class SettingsController extends Notifier<AppSettings> {
     await _prefs.setString(_consent, version);
   }
 
+  Future<void> setOnboardingDone({required bool value}) async {
+    state = state.copyWith(onboardingDone: value);
+    await _prefs.setBool(_onboardingDone, value);
+  }
+
   /// Sign-out keeps device preferences (language, theme) but forgets per-account state.
   Future<void> clearAccountState() async {
     state = AppSettings(
@@ -100,6 +114,7 @@ class SettingsController extends Notifier<AppSettings> {
       haptics: state.haptics,
     );
     await _prefs.remove(_consent);
+    await _prefs.remove(_onboardingDone);
   }
 }
 

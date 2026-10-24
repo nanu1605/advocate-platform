@@ -48,7 +48,7 @@ void main() {
   for (final (locale, language) in [('hi', 'हिंदी'), ('en', 'English')]) {
     final l = lookupAppLocalizations(Locale(locale));
     testWidgets(
-      'first run in $locale: language → phone → OTP → consent → PIN → Today → Settings',
+      'first run in $locale: language → phone → OTP → consent → PIN → role',
       (tester) async {
         final (auth, api, store) = await _pumpApp(tester);
 
@@ -97,12 +97,26 @@ void main() {
         await tester.pumpAndSettle();
         expect(store.method, LockMethod.pin);
 
-        // 6. Today, in the chosen language, with the P1 bottom bar.
+        // 6. A new account (no organisation) goes on to choose a role.
+        expect(find.text(l.roleTitle), findsOneWidget);
+      },
+    );
+  }
+
+  for (final locale in ['hi', 'en']) {
+    final l = lookupAppLocalizations(Locale(locale));
+    testWidgets(
+      'a set-up account on a new device skips onboarding in $locale: Today → Settings',
+      (tester) async {
+        await pumpApp(tester, locale: locale);
+
+        // Today, in the chosen language, with the P1 bottom bar.
         expect(find.text(l.todayEmpty), findsOneWidget);
         expect(find.text(l.navCases), findsWidgets);
         expect(find.text(l.navMore), findsOneWidget);
+        expect(container(tester).read(settingsProvider).onboardingDone, isTrue);
 
-        // 7. More → Settings.
+        // More → Settings.
         await tester.tap(find.text(l.navMore));
         await tester.pumpAndSettle();
         await tester.tap(find.text(l.navSettings));
