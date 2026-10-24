@@ -578,6 +578,7 @@ class ApiClient {
   }) async {
     final part = '$path.part';
     final watch = _Watchdog(transferIdle, cancel);
+    var saved = false;
     try {
       await _files.download(
         url,
@@ -589,6 +590,7 @@ class ApiClient {
         cancelToken: watch.token,
       );
       await File(part).rename(path);
+      saved = true;
     } on DioException catch (e) {
       if (e.type == DioExceptionType.cancel && !watch.stalled) {
         throw const ApiException('CANCELLED');
@@ -606,6 +608,14 @@ class ApiClient {
       throw const ApiException('SAVE_FAILED');
     } finally {
       watch.done();
+      // dio's own delete of a cancelled download can land after its error does; don't leave the part behind.
+      if (!saved) {
+        try {
+          await File(part).delete();
+        } on FileSystemException {
+          // Not there, or still open (Windows): dio deletes it once it closes.
+        }
+      }
     }
   }
 
