@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal, Self
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 
@@ -126,6 +126,44 @@ async def create_invite(db: UserDb, org_id: UUID, body: InviteIn) -> Invite:
             base = get_settings().app_link_base
             return Invite(**row, link=f"{base}/join/{row['code']}" if base else None)
     raise ApiError(500, "INTERNAL", "Something went wrong", retryable=True)
+
+
+@router.get("/orgs/{org_id}/invites")
+async def list_invites(db: UserDb, org_id: UUID) -> list[Invite]:
+    """Open invites (not accepted, not expired), newest first: each holds a seat for 7 days, so the owner sees them
+    (invites never sync, §9.4). Owner only."""
+    await owned_org(db, org_id)
+    rows = (
+        await db.execute(
+            text(
+                "select id, code, role, phone, expires_at from public.invites "
+                "where org_id = :o and accepted_at is null and expires_at > now() order by created_at desc, id"
+            ),
+            {"o": org_id},
+        )
+    ).mappings()
+    base = get_settings().app_link_base
+    return [Invite(**r, link=f"{base}/join/{r['code']}" if base else None) for r in rows]
+
+
+@router.delete("/orgs/{org_id}/invites/{invite_id}", status_code=204)
+async def revoke_invite(db: UserDb, org_id: UUID, invite_id: UUID) -> Response:
+    """Cancels an open invite by expiring it: its code stops working and its seat is free. 404 for an accepted,
+    expired or unknown one. Owner only. It expires at -infinity, not now(): an accept already under way checks
+    against its own, earlier transaction time, and must still find the invite expired."""
+    await owned_org(db, org_id)
+    revoked = (
+        await db.execute(
+            text(
+                "update public.invites set expires_at = '-infinity' where id = :i and org_id = :o "
+                "and accepted_at is null and expires_at > now() returning id"
+            ),
+            {"i": invite_id, "o": org_id},
+        )
+    ).scalar_one_or_none()
+    if revoked is None:
+        raise ApiError(404, "NOT_FOUND", "Invite not found")
+    return Response(status_code=204)
 
 
 @router.post("/invites/{code}/accept")
