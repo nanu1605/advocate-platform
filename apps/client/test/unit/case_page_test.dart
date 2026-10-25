@@ -129,35 +129,17 @@ void main() {
     );
   });
 
-  test('documents: kind, size and why one cannot open', () {
+  test('documents: type, size and case', () {
     expect(fileSizeText(1000), '1 KB');
     expect(fileSizeText(245760), '240 KB');
     expect(fileSizeText(2516582), '2.4 MB');
     expect(
-      documentLine(
-        en,
-        const CaseDocument(
-          id: 'd',
-          title: 't',
-          kind: 'pleading',
-          sizeBytes: 2516582,
-        ),
-      ),
+      documentLine(en, kind: 'pleading', sizeBytes: 2516582),
       'Pleadings · 2.4 MB',
     );
     expect(
-      documentLine(
-        hi,
-        const CaseDocument(id: 'd', title: 't', uploadStatus: 'quarantined'),
-      ),
-      '${hi.casesDocOther} · ${hi.casePageDocQuarantined}',
-    );
-    expect(
-      documentLine(
-        en,
-        const CaseDocument(id: 'd', title: 't', uploadStatus: 'pending'),
-      ),
-      'Other · ${en.casePageDocChecking}',
+      documentLine(hi, kind: 'other', caseLabel: 'WP 1234/2024'),
+      '${hi.casesDocOther} · WP 1234/2024',
     );
   });
 

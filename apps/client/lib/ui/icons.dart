@@ -15,6 +15,7 @@ abstract final class AppIcons {
     0xe0a0,
     fontFamily: 'PhosphorRegular',
   );
+  static const arrowSquareOut = IconData(0xe5de, fontFamily: 'PhosphorRegular');
   static const bank = IconData(0xe0b4, fontFamily: 'PhosphorRegular');
   static const bell = IconData(0xe0ce, fontFamily: 'PhosphorRegular');
   static const briefcaseFill = IconData(0xe0ee, fontFamily: 'PhosphorFill');
@@ -22,7 +23,9 @@ abstract final class AppIcons {
   static const calendarBlankFill = IconData(0xe10a, fontFamily: 'PhosphorFill');
   static const calendarBlank = IconData(0xe10a, fontFamily: 'PhosphorRegular');
   static const calendarCheck = IconData(0xe712, fontFamily: 'PhosphorRegular');
+  static const camera = IconData(0xe10e, fontFamily: 'PhosphorRegular');
   static const caretDown = IconData(0xe136, fontFamily: 'PhosphorRegular');
+  static const caretLeft = IconData(0xe138, fontFamily: 'PhosphorRegular');
   static const caretRight = IconData(0xe13a, fontFamily: 'PhosphorRegular');
   static const caretUp = IconData(0xe13c, fontFamily: 'PhosphorRegular');
   static const chatCircleTextFill = IconData(
@@ -39,6 +42,7 @@ abstract final class AppIcons {
     0xe1a0,
     fontFamily: 'PhosphorRegular',
   );
+  static const cloudArrowUp = IconData(0xe1ae, fontFamily: 'PhosphorRegular');
   static const cloudCheck = IconData(0xe1b0, fontFamily: 'PhosphorRegular');
   static const cloudWarning = IconData(0xea98, fontFamily: 'PhosphorRegular');
   static const coffee = IconData(0xe1c2, fontFamily: 'PhosphorRegular');
@@ -54,10 +58,14 @@ abstract final class AppIcons {
     0xe208,
     fontFamily: 'PhosphorRegular',
   );
+  static const downloadSimple = IconData(0xe20c, fontFamily: 'PhosphorRegular');
   static const downloadSimpleFill = IconData(
     0xe20c,
     fontFamily: 'PhosphorFill',
   );
+  static const envelope = IconData(0xe214, fontFamily: 'PhosphorRegular');
+  static const fileDoc = IconData(0xeb1e, fontFamily: 'PhosphorRegular');
+  static const fileImage = IconData(0xea24, fontFamily: 'PhosphorRegular');
   static const filePdf = IconData(0xe702, fontFamily: 'PhosphorRegular');
   static const filePlus = IconData(0xe236, fontFamily: 'PhosphorRegular');
   static const fileText = IconData(0xe23a, fontFamily: 'PhosphorRegular');
@@ -76,6 +84,14 @@ abstract final class AppIcons {
     0xe30c,
     fontFamily: 'PhosphorRegular',
   );
+  static const magnifyingGlassMinus = IconData(
+    0xe30e,
+    fontFamily: 'PhosphorRegular',
+  );
+  static const magnifyingGlassPlus = IconData(
+    0xe310,
+    fontFamily: 'PhosphorRegular',
+  );
   static const mapPin = IconData(0xe316, fontFamily: 'PhosphorRegular');
   static const password = IconData(0xe752, fontFamily: 'PhosphorRegular');
   static const pencilSimple = IconData(0xe3b4, fontFamily: 'PhosphorRegular');
@@ -84,19 +100,24 @@ abstract final class AppIcons {
   static const plus = IconData(0xe3d4, fontFamily: 'PhosphorRegular');
   static const question = IconData(0xe3e8, fontFamily: 'PhosphorRegular');
   static const shareNetwork = IconData(0xe408, fontFamily: 'PhosphorRegular');
+  static const shieldWarning = IconData(0xe412, fontFamily: 'PhosphorRegular');
   static const squaresFour = IconData(0xe464, fontFamily: 'PhosphorRegular');
   static const sunFill = IconData(0xe472, fontFamily: 'PhosphorFill');
   static const sun = IconData(0xe472, fontFamily: 'PhosphorRegular');
   static const sunDimFill = IconData(0xe474, fontFamily: 'PhosphorFill');
   static const sunDim = IconData(0xe474, fontFamily: 'PhosphorRegular');
+  static const translate = IconData(0xe4a2, fontFamily: 'PhosphorRegular');
+  static const trash = IconData(0xe4a6, fontFamily: 'PhosphorRegular');
   static const tray = IconData(0xe4aa, fontFamily: 'PhosphorRegular');
   static const userSwitch = IconData(0xe756, fontFamily: 'PhosphorRegular');
   static const usersFill = IconData(0xe4d6, fontFamily: 'PhosphorFill');
   static const users = IconData(0xe4d6, fontFamily: 'PhosphorRegular');
   static const warning = IconData(0xe4e0, fontFamily: 'PhosphorRegular');
   static const warningCircle = IconData(0xe4e2, fontFamily: 'PhosphorRegular');
+  static const whatsappLogo = IconData(0xe5d0, fontFamily: 'PhosphorRegular');
   static const wifiSlash = IconData(0xe4f2, fontFamily: 'PhosphorRegular');
   static const windowsLogo = IconData(0xe692, fontFamily: 'PhosphorRegular');
+  static const x = IconData(0xe4f6, fontFamily: 'PhosphorRegular');
 }
 
 /// Size for an icon that sits inline with text: grows with the user's text scale (up to 200%).

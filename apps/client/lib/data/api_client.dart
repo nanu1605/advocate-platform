@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:advocate_app/core/clock.dart';
 import 'package:advocate_app/core/config.dart';
 import 'package:advocate_app/data/account.dart';
@@ -145,9 +148,24 @@ class CaseSearchPage {
 /// money take an `idempotencyKey` (spec §10.1): make one UUID per user action (`uuidV4()`) and pass the same
 /// one when that action is retried, so a retry never runs twice.
 class ApiClient {
-  ApiClient(this._dio);
+  /// [files] sends and fetches signed storage URLs: a plain client, so the API's token never goes to storage.
+  /// [transferIdle]: a PUT or download that moves no bytes for this long is dropped as NETWORK (tests shorten it).
+  ApiClient(
+    this._dio, [
+    Dio? files,
+    this.transferIdle = const Duration(seconds: 60),
+  ]) : _files =
+           files ??
+           Dio(
+             BaseOptions(
+               connectTimeout: const Duration(seconds: 15),
+               receiveTimeout: transferIdle,
+             ),
+           );
 
   final Dio _dio;
+  final Dio _files;
+  final Duration transferIdle;
 
   /// The API's limit on ids per add request.
   static const addChunk = 500;
@@ -452,6 +470,155 @@ class ApiClient {
     return r['url'] as String;
   }
 
+  /// Starts an upload (spec §10.2): the documents row is created now, `pending`. Send the file to `uploadUrl`
+  /// with [putUpload] (valid `expiresInS`), then [completeUpload]. RATE_LIMITED, NOT_FOUND (the case),
+  /// VALIDATION_ERROR. The title goes in the body, never a URL.
+  Future<({String documentId, String uploadUrl, int expiresInS})> uploadUrl({
+    required String orgId,
+    required String title,
+    required String kind,
+    required String mime,
+    required int sizeBytes,
+    String? matterId,
+  }) async {
+    final r = await _send<Map<String, dynamic>>(
+      () => _dio.post(
+        '/v1/documents/upload-url',
+        data: {
+          'title': title,
+          'kind': kind,
+          'matter_id': ?matterId,
+          'mime': mime,
+          'size_bytes': sizeBytes,
+        },
+        options: _org(orgId),
+      ),
+    );
+    return (
+      documentId: r['document_id'] as String,
+      uploadUrl: r['upload_url'] as String,
+      expiresInS: r['expires_in_s'] as int,
+    );
+  }
+
+  /// PUTs [file] to a signed upload URL with [mime] as its Content-Type, which complete checks. Nothing of the
+  /// API's (no token) goes to storage. A file already stored there (a retry after a lost response) counts as sent.
+  /// FILE_TOO_LARGE; CANCELLED (by [cancel]); UPLOAD_URL_EXPIRED (any other refusal: get a new URL),
+  /// STORAGE_UNAVAILABLE and NETWORK (also a stalled connection) are retryable.
+  Future<void> putUpload(
+    String url,
+    File file, {
+    required String mime,
+    void Function(int sent, int total)? onProgress,
+    CancelToken? cancel,
+  }) async {
+    final watch = _Watchdog(transferIdle, cancel);
+    try {
+      await _files.put<Object?>(
+        url,
+        data: file.openRead(),
+        options: Options(
+          headers: {
+            Headers.contentTypeHeader: mime,
+            Headers.contentLengthHeader: await file.length(),
+          },
+        ),
+        onSendProgress: (sent, total) {
+          watch.tick();
+          onProgress?.call(sent, total);
+        },
+        cancelToken: watch.token,
+      );
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel && !watch.stalled) {
+        throw const ApiException('CANCELLED');
+      }
+      final r = e.response;
+      if (r == null) throw const ApiException('NETWORK', retryable: true);
+      // Storage answers a duplicate path with 409, or with 400 and `statusCode: "409"` in the body.
+      final code = r.data is Map ? '${(r.data as Map)['statusCode']}' : '';
+      final status = r.statusCode ?? 0;
+      if (status == 409 || code == '409') return;
+      if (status == 413 || code == '413') {
+        throw ApiException('FILE_TOO_LARGE', status: status);
+      }
+      throw ApiException(
+        status >= 500 ? 'STORAGE_UNAVAILABLE' : 'UPLOAD_URL_EXPIRED',
+        retryable: true,
+        status: status,
+      );
+    } finally {
+      watch.done();
+    }
+  }
+
+  /// Ends an upload: the server checks the stored file and starts the safety scan (the row stays `pending` until
+  /// it is `ready` or `quarantined`). Retry with the same [idempotencyKey]. ALREADY_COMPLETE (done before),
+  /// UPLOAD_MISSING (the file never arrived), FILE_TOO_LARGE, UNSUPPORTED_FILE_TYPE.
+  Future<void> completeUpload({
+    required String orgId,
+    required String documentId,
+    required String idempotencyKey,
+  }) => _send(
+    () => _dio.post(
+      '/v1/documents/$documentId/complete',
+      options: _org(orgId, idempotencyKey),
+    ),
+  );
+
+  /// Streams a signed URL's file to [path] with [onProgress], through `path.part`, so a cancelled or broken
+  /// download never leaves a partial file at [path]. CANCELLED (by [cancel]); SAVE_FAILED (the device couldn't
+  /// write it: full, or the old copy is open in another app); NETWORK (also a stalled connection) and
+  /// DOWNLOAD_FAILED (the link expired or storage failed: get a new link) are retryable.
+  Future<void> download(
+    String url,
+    String path, {
+    void Function(int received, int total)? onProgress,
+    CancelToken? cancel,
+  }) async {
+    final part = '$path.part';
+    final watch = _Watchdog(transferIdle, cancel);
+    var saved = false;
+    try {
+      await _files.download(
+        url,
+        part,
+        onReceiveProgress: (received, total) {
+          watch.tick();
+          onProgress?.call(received, total);
+        },
+        cancelToken: watch.token,
+      );
+      await File(part).rename(path);
+      saved = true;
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel && !watch.stalled) {
+        throw const ApiException('CANCELLED');
+      }
+      if (e.error is FileSystemException) {
+        throw const ApiException('SAVE_FAILED');
+      }
+      final status = e.response?.statusCode;
+      throw ApiException(
+        status == null ? 'NETWORK' : 'DOWNLOAD_FAILED',
+        retryable: true,
+        status: status,
+      );
+    } on FileSystemException {
+      throw const ApiException('SAVE_FAILED');
+    } finally {
+      watch.done();
+      // dio's own delete of a cancelled download can land after its error does; don't leave the part behind.
+      if (!saved) {
+        try {
+          await File(part).delete();
+        } on FileSystemException {
+          // Not there, or still open (Windows): dio deletes it once it closes.
+        }
+      }
+    }
+  }
+
   Options _org(String orgId, [String? idempotencyKey]) =>
       Options(headers: {'X-Org-Id': orgId, 'Idempotency-Key': ?idempotencyKey});
 
@@ -476,6 +643,31 @@ class ApiClient {
       );
     }
   }
+}
+
+/// A transfer's cancel token that also fires when no bytes have moved for [idle]: dio's timeouts don't cover a
+/// body that stalls part-way (a phone between towers, Wi-Fi gone with the socket left open). The caller's cancel
+/// token still cancels it.
+class _Watchdog {
+  _Watchdog(this.idle, CancelToken? cancel) {
+    unawaited(cancel?.whenCancel.then((_) => token.cancel()));
+    tick();
+  }
+
+  final Duration idle;
+  final token = CancelToken();
+  bool stalled = false;
+  Timer? _timer;
+
+  void tick() {
+    _timer?.cancel();
+    _timer = Timer(idle, () {
+      stalled = true;
+      token.cancel();
+    });
+  }
+
+  void done() => _timer?.cancel();
 }
 
 final apiClientProvider = Provider<ApiClient>((ref) {

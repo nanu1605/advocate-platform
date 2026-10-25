@@ -6,12 +6,14 @@ import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/api_client.dart';
 import 'package:advocate_app/data/case_text.dart';
 import 'package:advocate_app/data/cases.dart';
+import 'package:advocate_app/data/document_files.dart';
 import 'package:advocate_app/features/board/board_share.dart';
 import 'package:advocate_app/features/case_page/case_page.dart';
 import 'package:advocate_app/features/case_page/case_page_text.dart';
 import 'package:advocate_app/features/case_page/links.dart';
 import 'package:advocate_app/features/cases/cases_screen.dart';
 import 'package:advocate_app/ui/icons.dart';
+import 'package:advocate_app/ui/pdf_viewer.dart';
 import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -633,24 +635,31 @@ void main() {
       expect(find.text(en.statusNewOrder), findsNWidgets(2));
     });
 
-    testWidgets('opening an order reads it and opens it outside; offline it '
-        'stays New', (tester) async {
+    testWidgets('opening an order shows it in the viewer and reads it; '
+        'offline without a copy it stays New', (tester) async {
       final cases = sampleCases();
-      final api = await open(tester, cases: cases);
-      api.offline = true;
+      final docs = FakeDocuments()
+        ..failOpen = const ApiException('NETWORK', retryable: true);
+      await open(tester, cases: cases, overrides: docs.overrides);
       await tester.tap(find.text(en.casePageOpenOrder));
       await tester.pumpAndSettle();
-      expect(snack(en.errorNeedsNetwork), findsOneWidget);
+      // An order has no Keep offline: it says when it will open instead.
+      expect(find.text(en.docsNoCopyOrder), findsOneWidget);
       expect(cases.writes, isEmpty);
-      expect(opened, isEmpty);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
 
-      api.offline = false;
+      docs.failOpen = null;
       await tester.tap(find.text(en.casePageOpenOrder));
       await tester.pumpAndSettle();
-      expectCall(api.calls.last, 'orderPdfUrl', 'o-1');
+      expectCall(docs.calls.last, 'open', orderFile('o-1'));
+      expect(find.byType(AppPdfViewer), findsOneWidget);
       expectCall(cases.writes.single, 'markOrderRead', 'o-1');
-      expect(opened, [Uri.parse('https://files.test/orders/o-1')]);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
       expect(find.text(en.statusNewOrder), findsNothing);
+      // The file is on the device now.
+      expect(find.text(en.availableOffline), findsOneWidget);
     });
 
     testWidgets('a hearing note on a court hearing', (tester) async {
@@ -731,33 +740,44 @@ void main() {
   });
 
   group('documents', () {
-    testWidgets('a ready file opens outside; one being checked or quarantined '
-        'says why not', (tester) async {
-      final api = await open(tester, location: '/cases/m-1?tab=documents');
+    testWidgets('a ready file opens in the viewer; one being checked or '
+        'blocked says why not; Add document uploads into the case', (
+      tester,
+    ) async {
+      final docs = FakeDocuments();
+      await open(
+        tester,
+        location: '/cases/m-1?tab=documents',
+        overrides: docs.overrides,
+      );
       expect(
         find.text('${en.casesDocPleading} · 240 KB · ${en.pages(12)}'),
         findsOneWidget,
       );
-      expect(
-        find.text('${en.casesDocCorrespondence} · ${en.casePageDocChecking}'),
-        findsOneWidget,
-      );
+      expect(find.text(en.docsStateChecking), findsOneWidget);
+      expect(find.text(en.docsStateBlocked), findsOneWidget);
       await tester.tap(find.text('Reply draft'));
       await tester.pumpAndSettle();
       expect(snack(en.errorDocumentNotReady), findsOneWidget);
       await tester.tap(find.text('Scan from client'));
       await tester.pumpAndSettle();
       expect(snack(en.errorDocumentQuarantined), findsOneWidget);
-      expect(api.callNames, isNot(contains('documentUrl')));
-
-      await tester.tap(find.text('Writ petition'));
-      await tester.pumpAndSettle();
-      expectCall(api.calls.last, 'documentUrl', 'd-1');
-      expect(opened, [Uri.parse('https://files.test/documents/d-1')]);
+      expect(docs.calls, isEmpty);
 
       await tester.tap(find.text(en.addDocument));
       await tester.pumpAndSettle();
-      expect(snack(en.comingSoon), findsOneWidget);
+      expect(find.text(en.docsScan), findsOneWidget);
+      await tester.tapAt(const Offset(200, 40));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Writ petition'));
+      await tester.pumpAndSettle();
+      expectCall(docs.calls.last, 'open', (
+        kind: 'document',
+        id: 'd-1',
+        mime: 'application/pdf',
+      ));
+      expect(find.byType(AppPdfViewer), findsOneWidget);
     });
 
     testWidgets('no documents: an empty state', (tester) async {

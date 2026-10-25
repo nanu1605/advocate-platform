@@ -7,8 +7,10 @@ import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/api_client.dart';
 import 'package:advocate_app/data/auth.dart';
+import 'package:advocate_app/data/documents.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/board/board_share.dart';
+import 'package:advocate_app/features/documents/upload_flow.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:advocate_app/features/onboarding/consent_screen.dart';
 import 'package:advocate_app/features/onboarding/lock_setup_screen.dart';
@@ -171,18 +173,30 @@ void main() {
     expect(await c.read(accountProvider.future), same(ownerAccount));
   });
 
-  test('sign-out forgets the onboarding flag but keeps the language', () async {
+  test('sign-out forgets the onboarding flag, queued and offline files, but '
+      'keeps the language', () async {
     SharedPreferences.setMockInitialValues({
       'settings.locale': 'hi',
       'settings.onboarding_done': true,
     });
     final prefs = await SharedPreferences.getInstance();
+    // The app's support folder with a queued upload and an offline copy; the scanner's and picker's caches.
+    final support = Directory.systemTemp.createTempSync('pairavi_support');
+    addTearDown(() => support.deleteSync(recursive: true));
+    for (final f in ['uploads/q1.pdf', 'offline/d1.pdf']) {
+      File('${support.path}/$f')
+        ..createSync(recursive: true)
+        ..writeAsBytesSync([0]);
+    }
+    final sources = _CountingSources();
     final c = ProviderContainer(
       overrides: [
         prefsProvider.overrideWithValue(prefs),
         authRepositoryProvider.overrideWithValue(FakeAuth(signedIn: true)),
         lockStoreProvider.overrideWithValue(MemoryLockStore()),
         testShareDir(),
+        appSupportDirProvider.overrideWithValue(support),
+        uploadSourcesProvider.overrideWithValue(sources),
       ],
     );
     addTearDown(c.dispose);
@@ -194,10 +208,21 @@ void main() {
       ..writeAsBytesSync([0]);
     await c.read(sessionProvider).signOut();
     expect(shares.existsSync(), isFalse);
+    expect(filesDir(support, 'uploads').existsSync(), isFalse);
+    expect(filesDir(support, 'offline').existsSync(), isFalse);
+    expect(sources.cleaned, 1);
     expect(c.read(settingsProvider).onboardingDone, isNull);
     expect(prefs.getBool('settings.onboarding_done'), isNull);
     expect(c.read(settingsProvider).locale, const Locale('hi'));
   });
+}
+
+/// The scanner's and picker's clean-up, counted.
+class _CountingSources extends UploadSources {
+  int cleaned = 0;
+
+  @override
+  Future<void> cleanUp() async => cleaned++;
 }
 
 /// /v1/me never answers.

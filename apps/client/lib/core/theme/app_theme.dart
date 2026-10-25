@@ -161,11 +161,18 @@ ThemeData buildTheme(AppColors c, {required bool reduceMotion}) {
         ),
       ),
     ),
+    // A selected chip shows a primary tick (the default is near-white); in Sunlight, where its fill is as white
+    // as the rest, a primary border too, so the choice never rests on a tint.
     chipTheme: ChipThemeData(
       backgroundColor: c.surface,
       selectedColor: c.primarySoft,
+      checkmarkColor: c.primary,
       labelStyle: text.bodySmall?.copyWith(color: c.ink),
-      side: BorderSide(color: c.outline, width: c.borderWidth),
+      side: WidgetStateBorderSide.resolveWith(
+        (s) => c.isSunlight && s.contains(WidgetState.selected)
+            ? BorderSide(color: c.primary, width: 2)
+            : BorderSide(color: c.outline, width: c.borderWidth),
+      ),
       shape: RoundedRectangleBorder(borderRadius: radius8),
     ),
     checkboxTheme: CheckboxThemeData(

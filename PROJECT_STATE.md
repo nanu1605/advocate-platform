@@ -25,6 +25,12 @@ Last updated: 2026-10-24
   weekly sweep, auto-match, `advocate_watch` behind a flag, Today at 07:30), change detection with per-user event keys,
   fan-out to every tracking organisation, Tomorrow's Board with expected slots and clash groups, order PDF pipeline,
   ClamAV upload scan (fails closed), window flags, stale-job sweeper, §11.8 budgets. 104 worker tests.
+- P1 Calendar, Clients, Documents ([ADR 0016](docs/adr/0016-p1-calendar-clients-docs.md)): Calendar (Day, Week,
+  Month, Agenda over hearings, deadlines and tasks, type filter, Windows keys); Clients (list with transliterated
+  search, profile, edit, WhatsApp opt-in, linked cases, two panes on Windows); Documents (list and filters, upload by
+  ML Kit scan, file picker or drag-drop on Windows and onto a case, an offline upload queue that resumes after each
+  step, pdfrx viewer with find and selection, Keep offline plus the last 10 opened and the latest order of today's and
+  tomorrow's cases kept on the device, all cleared at sign-out).
 - P1 Cases and case page ([ADR 0015](docs/adr/0015-p1-cases.md)): Cases list (Today · This week · Later · No next
   date · Disposed · Found for you; transliteration search over case number, party, client and CNR; court, client,
   status and assignee filters; three sorts; two panes on Windows); case page (header, refresh, share status, official
@@ -47,10 +53,10 @@ Last updated: 2026-10-24
   Hindi review, privacy-policy page.
 
 ## Next up
-1. P1 task 10: Calendar, Clients, Documents (the case page's Documents tab and orders open in the system viewer
-   until the pdfrx viewer lands; client rows on the case page wait for the client profile).
-2. P1 task 11: Team, notifications, dashboard, feedback.
-3. P1 task 12: phase checks.
+1. P1 task 11: Team, notifications, dashboard, feedback (local notification when a background find-my-cases
+   finishes; removed-member path).
+2. P1 task 12: phase checks (incl. pdfrx scroll and memory on the low-end Android and a Windows laptop, ADR 0005).
+3. iOS (P2): NSCameraUsageDescription and NSFaceIDUsageDescription in Info.plist.
 
 ## Deviations from spec (with ADR links)
 - Kit: 5 P2-only components deferred to P2 start — [ADR 0001](docs/adr/0001-defer-p2-kit-components.md).
@@ -89,6 +95,9 @@ Last updated: 2026-10-24
   `share_plus` added for the OS share sheet — [ADR 0014](docs/adr/0014-p1-today-board.md).
 - Cases: `PATCH /v1/matters/{id}` added to §10.2 for tracking on/off (devices can't change `tracking`); `POST
   /v1/matters/manual` still takes no Idempotency-Key — [ADR 0015](docs/adr/0015-p1-cases.md).
+- Documents: `desktop_drop` stays on 0.8.4 until `file_picker`/`share_plus` accept `cross_file` 0.4; `open_filex` hands
+  Word files to another app on Android; auto-kept orders are the latest per case on today's and tomorrow's diary —
+  [ADR 0016](docs/adr/0016-p1-calendar-clients-docs.md).
 - Windows `APPLY_STANDARD_SETTINGS` defines `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`: `local_auth_windows` 2.0.2 builds with `/await`, which MSVC 14.51 rejects (STL1011). Remove when the plugin moves to C++20 `<coroutine>`.
 
 ## Questions for the founder
@@ -100,4 +109,5 @@ Flutter 3.47.7 · Dart 3.13.5 · Python 3.14.6 · uv 0.11.26 · Node 24.17 · Su
 FastAPI 0.161.1 · Pydantic 2.14.1 · SQLAlchemy 2.1.6 · asyncpg 0.32.0 · Celery 5.6.3 · PyJWT 2.15.1 · structlog 26.1.0 ·
 ruff 0.17.2 · pyright 1.1.414 · pytest 9.1.1 · flutter_riverpod 3.4.3 · go_router 18.1.1 · supabase_flutter 2.18.3 ·
 dio 5.11.1 · local_auth 3.0.2 · flutter_secure_storage 11.2.0 · animations 3.0.0 · window_manager 0.5.2 · intl 0.20.3 ·
-very_good_analysis 11.0.0 · flutter_quill 11.6.0 (P4) · pdfrx 2.10.1 (P1) · share_plus 13.3.1 · powersync (Flutter SDK) 2.5.0 · PowerSync Service 1.27.1 (local/CI)
+very_good_analysis 11.0.0 · flutter_quill 11.6.0 (P4) · pdfrx 2.10.1 · share_plus 13.3.1 · cunning_document_scanner 3.0.4 · file_picker 13.2.0 · desktop_drop 0.8.4 ·
+open_filex 5.0.0 · powersync (Flutter SDK) 2.5.0 · PowerSync Service 1.27.1 (local/CI)

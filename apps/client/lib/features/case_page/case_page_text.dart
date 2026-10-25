@@ -97,10 +97,15 @@ String fileSizeText(int bytes) => bytes < 1024 * 1024
     ? '${(bytes / 1024).ceil()} KB'
     : '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 
-/// A document's line under its title: kind, size, and why it can't open yet.
-String documentLine(AppLocalizations l, CaseDocument d) => [
-  documentKindLabel(l, d.kind),
-  if (d.sizeBytes != null) fileSizeText(d.sizeBytes!),
-  if (d.uploadStatus == 'pending') l.casePageDocChecking,
-  if (d.uploadStatus == 'quarantined') l.casePageDocQuarantined,
+/// A document's line under its title: type, size and, on the Documents screen, its case. The safety check and an
+/// upload's progress show under it (`DocumentTile.state`).
+String documentLine(
+  AppLocalizations l, {
+  required String kind,
+  int? sizeBytes,
+  String? caseLabel,
+}) => [
+  documentKindLabel(l, kind),
+  if (sizeBytes != null) fileSizeText(sizeBytes),
+  ?caseLabel,
 ].join(' · ');

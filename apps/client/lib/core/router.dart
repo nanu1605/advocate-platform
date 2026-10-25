@@ -1,16 +1,20 @@
 import 'dart:async';
 
-import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/core/theme/tokens.g.dart';
 import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/auth.dart';
 import 'package:advocate_app/features/board/board_screen.dart';
+import 'package:advocate_app/features/calendar/calendar_screen.dart';
 import 'package:advocate_app/features/case_page/case_page.dart';
 import 'package:advocate_app/features/cases/cases_screen.dart';
 import 'package:advocate_app/features/cases/manual_case_screen.dart';
 import 'package:advocate_app/features/cases/search_cases_screen.dart';
+import 'package:advocate_app/features/clients/client_profile.dart';
+import 'package:advocate_app/features/clients/clients_screen.dart';
 import 'package:advocate_app/features/dev_kitchen_sink/kitchen_sink.dart';
+import 'package:advocate_app/features/documents/documents_screen.dart';
+import 'package:advocate_app/features/documents/viewer_screen.dart';
 import 'package:advocate_app/features/found_cases/found_cases_screen.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:advocate_app/features/onboarding/account_loading_screen.dart';
@@ -29,7 +33,6 @@ import 'package:advocate_app/features/shell/home_shell.dart';
 import 'package:advocate_app/features/shell/screens.dart';
 import 'package:advocate_app/features/today/today_screen.dart';
 import 'package:advocate_app/ui/app_scaffold.dart';
-import 'package:advocate_app/ui/icons.dart';
 import 'package:animations/animations.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -132,6 +135,10 @@ Page<void> _tab(BuildContext context, GoRouterState state, Widget child) =>
         child: child,
       ),
     );
+
+/// A window wide enough for a list beside its item (Cases, Clients).
+bool _wide(BuildContext context) =>
+    sizeClassOf(MediaQuery.sizeOf(context).width) == SizeClass.expanded;
 
 /// Onboarding steps 5–9 move on a shared X axis.
 Page<void> _step(BuildContext context, GoRouterState state, Widget child) =>
@@ -282,18 +289,30 @@ final routerProvider = Provider<GoRouter>((ref) {
                 pageBuilder: (c, s) {
                   final id = s.pathParameters['id']!;
                   final tab = s.uri.queryParameters['tab'];
-                  final wide =
-                      sizeClassOf(MediaQuery.sizeOf(c).width) ==
-                      SizeClass.expanded;
                   return _tab(
                     c,
                     s,
-                    wide
+                    _wide(c)
                         ? CasesScreen(selectedId: id, tab: tab)
                         // A fresh page per case, as in the wide pane: a refresh in flight stays with its case.
                         : CasePage(key: ValueKey(id), matterId: id, tab: tab),
                   );
                 },
+                routes: [
+                  // An order's file in the viewer (spec §5.2 routes), over the case.
+                  GoRoute(
+                    path: 'orders/:orderId',
+                    pageBuilder: (c, s) => _tab(
+                      c,
+                      s,
+                      ViewerScreen.order(
+                        key: ValueKey(s.pathParameters['orderId']),
+                        matterId: s.pathParameters['id']!,
+                        orderId: s.pathParameters['orderId']!,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -307,33 +326,45 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/calendar',
-            pageBuilder: (c, s) => _tab(
-              c,
-              s,
-              PlaceholderScreen(
-                title: c.l10n.navCalendar,
-                icon: AppIcons.calendarBlank,
-              ),
-            ),
+            pageBuilder: (c, s) => _tab(c, s, const CalendarScreen()),
           ),
           GoRoute(
             path: '/clients',
-            pageBuilder: (c, s) => _tab(
-              c,
-              s,
-              PlaceholderScreen(title: c.l10n.navClients, icon: AppIcons.users),
-            ),
+            pageBuilder: (c, s) => _tab(c, s, const ClientsScreen()),
+            routes: [
+              // As /cases/:id: on a wide window the list stays beside the profile (the page is keyed by the
+              // route pattern); on phones a fresh profile page per client.
+              GoRoute(
+                path: ':id',
+                pageBuilder: (c, s) {
+                  final id = s.pathParameters['id']!;
+                  return _tab(
+                    c,
+                    s,
+                    _wide(c)
+                        ? ClientsScreen(selectedId: id)
+                        : ClientProfile(key: ValueKey(id), clientId: id),
+                  );
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: '/documents',
-            pageBuilder: (c, s) => _tab(
-              c,
-              s,
-              PlaceholderScreen(
-                title: c.l10n.navDocuments,
-                icon: AppIcons.files,
+            pageBuilder: (c, s) => _tab(c, s, const DocumentsScreen()),
+            routes: [
+              GoRoute(
+                path: ':id',
+                pageBuilder: (c, s) => _tab(
+                  c,
+                  s,
+                  ViewerScreen.document(
+                    s.pathParameters['id']!,
+                    key: ValueKey(s.pathParameters['id']),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),

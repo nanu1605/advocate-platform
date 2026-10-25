@@ -145,6 +145,8 @@ void main() {
     expect(synced, streamed);
     expect(schema.tables.where((t) => t.localOnly).map((t) => t.name), [
       'found_selection',
+      'upload_queue',
+      'offline_files',
     ]);
   });
 }
