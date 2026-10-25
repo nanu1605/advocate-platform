@@ -138,7 +138,7 @@ class FindJobController extends Notifier<String?> {
     final signedIn = ref.watch(signedInProvider.select((s) => s.value));
     if (signedIn == false) _started = null;
     return _started ??
-        ref.watch(_latestFindJobProvider.select((j) => j.value?.id));
+        ref.watch(latestFindJobProvider.select((j) => j.value?.id));
   }
 
   /// POST /v1/onboarding/find-cases (returns the running search if there is one). Pass the same
@@ -158,8 +158,9 @@ final findJobIdProvider = NotifierProvider<FindJobController, String?>(
   FindJobController.new,
 );
 
-/// The current org's newest synced find_cases job; null without sync or before any search.
-final _latestFindJobProvider = StreamProvider<Job?>((ref) {
+/// The current org's newest synced find_cases job (synced jobs are the user's own); null without sync or before
+/// any search.
+final latestFindJobProvider = StreamProvider<Job?>((ref) {
   final db = ref.watch(syncDatabaseProvider);
   final org = ref.watch(currentOrgIdProvider);
   if (db == null || org == null) return Stream.value(null);
@@ -179,6 +180,6 @@ final _latestFindJobProvider = StreamProvider<Job?>((ref) {
 // ids always if that window ever matters.
 final findSettledProvider = Provider<bool>(
   (ref) =>
-      ref.watch(_latestFindJobProvider.select((j) => j.value?.finished)) ??
+      ref.watch(latestFindJobProvider.select((j) => j.value?.finished)) ??
       false,
 );

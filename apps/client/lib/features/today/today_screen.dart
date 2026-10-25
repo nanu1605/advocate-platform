@@ -11,9 +11,11 @@ import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/api_client.dart';
 import 'package:advocate_app/data/diary.dart';
 import 'package:advocate_app/data/diary_text.dart';
+import 'package:advocate_app/data/notifications.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/cases/add_case.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
+import 'package:advocate_app/features/notifications/notification_centre.dart';
 import 'package:advocate_app/features/today/today_refresh.dart';
 import 'package:advocate_app/ui/board_table.dart';
 import 'package:advocate_app/ui/case_card.dart';
@@ -120,14 +122,14 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
   }
 
   void _openNotice(DiaryNotice n) {
-    unawaited(ref.read(diaryWriterProvider).markNotificationRead(n.id));
+    unawaited(ref.read(notificationWriterProvider).markRead([n.id]));
     final link = n.link ?? (n.matterId == null ? null : '/cases/${n.matterId}');
     if (link != null) _open(link);
   }
 
   void _openAttention(AttentionItem a) {
     if (a.notificationId case final id?) {
-      unawaited(ref.read(diaryWriterProvider).markNotificationRead(id));
+      unawaited(ref.read(notificationWriterProvider).markRead([id]));
     }
     if (a.matterId case final id?) _open('/cases/$id');
   }
@@ -178,29 +180,13 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
         onAction: toTomorrow ? toBoard : () => showAddCaseChooser(context),
       );
     } else {
-      // The kit's board rows, by court: case number, court and item number, clash and why, proxy arranged.
       // ponytail: rows appear without spec §5.5's fade-and-rise stagger (and a done task without the check-mark
       // draw); add both with the kit's motion helpers, off under reduce motion.
       dayList = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SectionHeader(l.navToday, count: entries.length),
-          BoardTable([
-            for (final e in entries)
-              BoardRow(
-                caseNumber: e.caseLabel,
-                court: e.court?.label(locale) ?? l.foundOtherCourt,
-                courtNo: e.courtNo,
-                itemNo: e.itemNo,
-                // Partial data says so plainly (spec §5.4).
-                purpose: e.itemNo == null ? l.todayNoItem : null,
-                clash: e.clash,
-                proxy: e.proxyArranged,
-                note: clashExplanation(l, locale, e, entries),
-                semanticsLabel: diaryRowLabel(l, locale, e),
-                onTap: () => _open('/cases/${e.matterId}'),
-              ),
-          ]),
+          TodayMatters(entries),
         ],
       );
     }
@@ -276,6 +262,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
         title: Text('${l.navToday} · ${f.shortDate(day)}'),
         actions: [
           SyncIndicator(sync),
+          const NotificationBell(),
           // Sunlight is one tap from Today because people need it outdoors (spec §5.6).
           IconButton(
             tooltip: l.sunlightToggle,
@@ -312,6 +299,36 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
         ),
       ),
     );
+  }
+}
+
+/// [entries] (one IST day, in Today's order) as the kit's board rows, by court: case number, court and item number,
+/// clash and why, proxy arranged; each opens its case. Today and the practice dashboard both list them.
+class TodayMatters extends StatelessWidget {
+  const TodayMatters(this.entries, {super.key});
+
+  final List<DiaryEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final locale = Localizations.localeOf(context);
+    return BoardTable([
+      for (final e in entries)
+        BoardRow(
+          caseNumber: e.caseLabel,
+          court: e.court?.label(locale) ?? l.foundOtherCourt,
+          courtNo: e.courtNo,
+          itemNo: e.itemNo,
+          // Partial data says so plainly (spec §5.4).
+          purpose: e.itemNo == null ? l.todayNoItem : null,
+          clash: e.clash,
+          proxy: e.proxyArranged,
+          note: clashExplanation(l, locale, e, entries),
+          semanticsLabel: diaryRowLabel(l, locale, e),
+          onTap: () => unawaited(context.push('/cases/${e.matterId}')),
+        ),
+    ]);
   }
 }
 

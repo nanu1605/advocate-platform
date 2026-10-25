@@ -1,4 +1,5 @@
 import 'package:advocate_app/data/diary.dart';
+import 'package:advocate_app/data/notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:powersync/powersync.dart' hide SyncStatus;
 
@@ -350,7 +351,8 @@ void main() {
       ('n1', 'm1', '/cases/m1', 'WP 1/2024'),
     ]);
 
-    await c.read(diaryWriterProvider).markNotificationRead('n1');
+    // Today marks a notice read through the notification writer (the one writer for read_at).
+    await c.read(notificationWriterProvider).markRead(['n1']);
     await firstValue(c, newOrdersProvider, (o) => o.isEmpty);
     final write = await lastWrite(db);
     expect(write.take(3), [UpdateType.patch, 'notifications', 'n1']);

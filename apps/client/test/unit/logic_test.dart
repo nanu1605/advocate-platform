@@ -106,6 +106,21 @@ void main() {
       },
     );
 
+    test('removed from the only team: back to the role step, never an empty '
+        'Today', () {
+      const none = AccountStage.noOrg;
+      expect(go('/today', stage: none), '/onboarding/role');
+      expect(go('/cases/m-1', stage: none), '/onboarding/role');
+      expect(go('/onboarding/notifications', stage: none), '/onboarding/role');
+      // From there: join another team by code, or set up on their own.
+      expect(go('/onboarding/role', stage: none), isNull);
+      expect(go('/onboarding/join', stage: none), isNull);
+      expect(go('/join/ABCD2345', stage: none), isNull);
+      expect(go('/onboarding/details', stage: none), isNull);
+      // Offline start (no account loaded): the finished device stays put.
+      expect(go('/today', stage: null), isNull);
+    });
+
     test(
       'a set-up account on a new device counts as done (no second search)',
       () {

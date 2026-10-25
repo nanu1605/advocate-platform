@@ -4,11 +4,9 @@ import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/data/api_client.dart';
 import 'package:advocate_app/data/jobs.dart';
 import 'package:advocate_app/features/found_cases/found_cases_screen.dart';
-import 'package:advocate_app/features/onboarding/notifications_screen.dart';
 import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers.dart';
@@ -637,25 +635,4 @@ Future<FakeApi> _pumpFinding(
   await tester.tap(find.text(l.findingStart));
   await tester.pumpAndSettle();
   return api;
-}
-
-/// The OS notification prompt, answered with [granted].
-class FakePermission extends NotificationPermission {
-  FakePermission({this.granted = true});
-
-  final bool granted;
-  int requests = 0;
-  int settingsOpened = 0;
-
-  Override get asOverride =>
-      notificationPermissionProvider.overrideWithValue(this);
-
-  @override
-  Future<bool> request() async {
-    requests++;
-    return granted;
-  }
-
-  @override
-  Future<void> openSettings() async => settingsOpened++;
 }

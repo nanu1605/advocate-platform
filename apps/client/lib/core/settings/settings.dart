@@ -17,6 +17,7 @@ class AppSettings {
     this.haptics = true,
     this.consentVersion,
     this.onboardingDone,
+    this.urgentBreaksQuiet = true,
   });
 
   /// null until the user picks a language on the first screen.
@@ -32,6 +33,10 @@ class AppSettings {
   /// loads here, false while this device is onboarding it, true once done (or it was already set up elsewhere).
   final bool? onboardingDone;
 
+  /// "Urgent alerts may break quiet hours" (spec §13.2: listed early, a deadline due today). On this device only:
+  /// the notification_prefs table has no column for it (ADR 0017).
+  final bool urgentBreaksQuiet;
+
   AppSettings copyWith({
     Locale? locale,
     AppThemeMode? theme,
@@ -39,6 +44,7 @@ class AppSettings {
     bool? haptics,
     String? consentVersion,
     bool? onboardingDone,
+    bool? urgentBreaksQuiet,
   }) => AppSettings(
     locale: locale ?? this.locale,
     theme: theme ?? this.theme,
@@ -46,6 +52,7 @@ class AppSettings {
     haptics: haptics ?? this.haptics,
     consentVersion: consentVersion ?? this.consentVersion,
     onboardingDone: onboardingDone ?? this.onboardingDone,
+    urgentBreaksQuiet: urgentBreaksQuiet ?? this.urgentBreaksQuiet,
   );
 }
 
@@ -56,6 +63,7 @@ class SettingsController extends Notifier<AppSettings> {
   static const _haptics = 'settings.haptics';
   static const _consent = 'settings.consent_version';
   static const _onboardingDone = 'settings.onboarding_done';
+  static const _urgentBreaksQuiet = 'settings.urgent_breaks_quiet';
 
   SharedPreferences get _prefs => ref.read(prefsProvider);
 
@@ -72,6 +80,7 @@ class SettingsController extends Notifier<AppSettings> {
       haptics: p.getBool(_haptics) ?? true,
       consentVersion: p.getString(_consent),
       onboardingDone: p.getBool(_onboardingDone),
+      urgentBreaksQuiet: p.getBool(_urgentBreaksQuiet) ?? true,
     );
   }
 
@@ -105,6 +114,11 @@ class SettingsController extends Notifier<AppSettings> {
     await _prefs.setBool(_onboardingDone, value);
   }
 
+  Future<void> setUrgentBreaksQuiet({required bool value}) async {
+    state = state.copyWith(urgentBreaksQuiet: value);
+    await _prefs.setBool(_urgentBreaksQuiet, value);
+  }
+
   /// Sign-out keeps device preferences (language, theme) but forgets per-account state.
   Future<void> clearAccountState() async {
     state = AppSettings(
@@ -115,6 +129,7 @@ class SettingsController extends Notifier<AppSettings> {
     );
     await _prefs.remove(_consent);
     await _prefs.remove(_onboardingDone);
+    await _prefs.remove(_urgentBreaksQuiet);
   }
 }
 

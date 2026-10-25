@@ -1,6 +1,7 @@
 package `in`.jainavinfotech.advocate_app
 
 import android.Manifest
+import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -10,8 +11,9 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * Answers the notification explainer (lib/features/onboarding/notifications_screen.dart) without a plugin:
- * the Android 13+ POST_NOTIFICATIONS prompt, and the app's notification settings after a denial.
+ * Answers the notification explainer and preferences (lib/features/onboarding/notifications_screen.dart): the
+ * Android 13+ POST_NOTIFICATIONS prompt, whether notifications are on, and the app's notification settings after a
+ * denial. flutter_local_notifications shows them but can't open those settings, so this channel stays (ADR 0017).
  */
 class MainActivity : FlutterActivity() {
     private var pending: MethodChannel.Result? = null
@@ -32,6 +34,8 @@ class MainActivity : FlutterActivity() {
                             pending = result
                             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS)
                         }
+                    "enabled" ->
+                        result.success(getSystemService(NotificationManager::class.java).areNotificationsEnabled())
                     "openSettings" -> {
                         startActivity(
                             Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)

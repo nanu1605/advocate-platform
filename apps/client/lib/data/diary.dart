@@ -690,14 +690,13 @@ final hasMattersProvider = StreamProvider<bool>((ref) {
 });
 
 /// Today's and the board's writes (spec §4.2): local, uploaded when online. The server takes only these columns
-/// from a device (`device_columns` triggers, RLS): board rows from owners and advocates, task status from members,
-/// read_at on the user's own notifications. A refused write is dropped and the server's row comes back.
-/// Without a sync database (builds without sync) they do nothing.
+/// from a device (`device_columns` triggers, RLS): board rows from owners and advocates, task status from members.
+/// (Notices are marked read through `NotificationWriter`.) A refused write is dropped and the server's row comes
+/// back. Without a sync database (builds without sync) they do nothing.
 class DiaryWriter {
-  DiaryWriter(this._db, this._clock);
+  DiaryWriter(this._db);
 
   final PowerSyncDatabase? _db;
-  final DateTime Function() _clock;
 
   /// Assign to (board rows only); null = no one, for Undo of a first assignment.
   Future<void> assign(String boardEntryId, String? userId) => _run(
@@ -718,17 +717,11 @@ class DiaryWriter {
   Future<void> reopenTask(String taskId) =>
       _run("update tasks set status = 'open' where id = ?", [taskId]);
 
-  Future<void> markNotificationRead(String notificationId) => _run(
-    'update notifications set read_at = ? where id = ? and read_at is null',
-    [_clock().toUtc().toIso8601String(), notificationId],
-  );
-
   Future<void> _run(String sql, List<Object?> parameters) async {
     await _db?.execute(sql, parameters);
   }
 }
 
 final diaryWriterProvider = Provider<DiaryWriter>(
-  (ref) =>
-      DiaryWriter(ref.watch(syncDatabaseProvider), ref.watch(clockProvider)),
+  (ref) => DiaryWriter(ref.watch(syncDatabaseProvider)),
 );

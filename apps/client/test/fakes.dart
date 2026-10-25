@@ -18,12 +18,15 @@ import 'package:advocate_app/data/document_files.dart';
 import 'package:advocate_app/data/documents.dart';
 import 'package:advocate_app/data/found_cases.dart';
 import 'package:advocate_app/data/jobs.dart';
+import 'package:advocate_app/data/local_notifier.dart';
+import 'package:advocate_app/data/notifications.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/board/board_share.dart';
 import 'package:advocate_app/features/dev_kitchen_sink/kitchen_sink.dart';
 import 'package:advocate_app/features/documents/viewer_screen.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:advocate_app/features/onboarding/consent_screen.dart';
+import 'package:advocate_app/features/onboarding/notifications_screen.dart';
 import 'package:advocate_app/ui/states.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -241,6 +244,72 @@ class FakeApi extends ApiClient {
         );
         return (orgId: 'org-2', role: inviteRole);
       });
+
+  /// The team's open invites, newest first: listInvites returns them, createInvite adds one (codes ABCD2345,
+  /// ABCD2346, …; phone stored as 91 + the digits, expiring 7 days after [testNow]), revokeInvite removes one
+  /// (NOT_FOUND if it isn't there).
+  final invites = <Invite>[];
+  var _invites = 0;
+
+  @override
+  Future<Invite> createInvite({
+    required String orgId,
+    required String role,
+    String? phone,
+  }) => _call('createInvite', {'role': role, 'phone': phone}, () {
+    final n = ++_invites;
+    final invite = Invite(
+      id: 'inv-$n',
+      code: 'ABCD${2344 + n}',
+      role: role,
+      phone: phone == null ? null : '91$phone',
+      expiresAt: testNow.add(const Duration(days: 7)),
+    );
+    invites.insert(0, invite);
+    return invite;
+  });
+
+  @override
+  Future<List<Invite>> listInvites(String orgId) =>
+      _call('listInvites', orgId, () => [...invites]);
+
+  @override
+  Future<void> revokeInvite({
+    required String orgId,
+    required String inviteId,
+  }) => _call('revokeInvite', inviteId, () {
+    if (!invites.any((i) => i.id == inviteId)) {
+      throw const ApiException('NOT_FOUND', status: 404);
+    }
+    invites.removeWhere((i) => i.id == inviteId);
+  });
+
+  @override
+  Future<void> updateMember({
+    required String orgId,
+    required String userId,
+    String? role,
+    String? status,
+    String? displayName,
+  }) => _call('updateMember', {
+    'userId': userId,
+    'role': ?role,
+    'status': ?status,
+    'displayName': ?displayName,
+  }, () {});
+
+  @override
+  Future<void> sendFeedback({
+    required String note,
+    String? screen,
+    String? appVersion,
+    String? orgId,
+  }) => _call('sendFeedback', {
+    'note': note,
+    'screen': screen,
+    'appVersion': appVersion,
+    'orgId': orgId,
+  }, () {});
 
   @override
   Future<String> findCases({
@@ -539,6 +608,7 @@ List<Override> syncedData({
 /// The whole app with fake auth, API and lock storage: signed in, consented, app lock set, then sent to
 /// [location] through the real router (which may redirect it). [onboardingDone] is the device flag; null lets
 /// the router decide from [account]. Synced reads are empty unless [overrides] include [syncedData].
+/// OS notifications go to [notifier] (a fresh [FakeLocalNotifier] unless given).
 /// Returns the [FakeApi] for assertions; read the router with `container(tester).read(routerProvider)`.
 Future<FakeApi> pumpApp(
   WidgetTester tester, {
@@ -551,6 +621,7 @@ Future<FakeApi> pumpApp(
   Size size = const Size(400, 860),
   List<Override> overrides = const [],
   FakeApi? api,
+  FakeLocalNotifier? notifier,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -578,6 +649,9 @@ Future<FakeApi> pumpApp(
           const AppLockState(method: LockMethod.none),
         ),
         testShareDir(),
+        localNotifierProvider.overrideWithValue(
+          notifier ?? FakeLocalNotifier(),
+        ),
         // PDFium doesn't run under flutter test: the viewer shows sample pages.
         pdfPagesProvider.overrideWithValue((_) => SamplePdfPages()),
         ...overrides,
@@ -664,8 +738,9 @@ DiaryEntry diaryEntry(
 /// The diary in memory for widget tests (no PowerSync): what Today and the board read, by IST date, and the
 /// writer they write through. Writes change what the providers show, as the synced database would: Assign to and
 /// Mark proxy arranged re-apply the clash rule, a completed task leaves Tasks due, a read notification leaves New
-/// orders and Needs attention. Pass [overrides] to pumpApp (they include the clock, [now]); [writes] records each
-/// write (`assign`, `setProxy`, `completeTask`, `reopenTask`, `markNotificationRead`).
+/// orders and Needs attention. Pass [overrides] to pumpApp (they include the clock, [now], and the notification
+/// writer Today marks its notices read through, so not next to [FakeNotifications]'); [writes] records each write
+/// (`assign`, `setProxy`, `completeTask`, `reopenTask`, `markRead`).
 class FakeDiary extends DiaryWriter {
   FakeDiary({
     Map<String, List<DiaryEntry>> days = const {},
@@ -682,7 +757,7 @@ class FakeDiary extends DiaryWriter {
          for (final MapEntry(:key, :value) in days.entries)
            key: withClashes(value, ownerId),
        },
-       super(null, DateTime.now);
+       super(null);
 
   /// Entries by IST date ([testToday], [testTomorrow]), in any order: the providers order them.
   final Map<String, List<DiaryEntry>> days;
@@ -743,6 +818,7 @@ class FakeDiary extends DiaryWriter {
       hasMatters == null ? const AsyncLoading() : AsyncData(hasMatters!),
     ),
     diaryWriterProvider.overrideWithValue(this),
+    notificationWriterProvider.overrideWithValue(_DiaryReads(this)),
   ];
 
   void _record(String name, Object? args) {
@@ -788,11 +864,18 @@ class FakeDiary extends DiaryWriter {
     doneTasks.remove(taskId);
     _record('reopenTask', taskId);
   }
+}
+
+/// [FakeDiary]'s notices marked read, as Today does through [NotificationWriter].
+class _DiaryReads extends NotificationWriter {
+  _DiaryReads(this._diary) : super(null, DateTime.now);
+
+  final FakeDiary _diary;
 
   @override
-  Future<void> markNotificationRead(String notificationId) async {
-    readNotifications.add(notificationId);
-    _record('markNotificationRead', notificationId);
+  Future<void> markRead(Iterable<String> ids) async {
+    _diary.readNotifications.addAll(ids);
+    _diary._record('markRead', ids.toList());
   }
 }
 
@@ -1787,4 +1870,186 @@ class _FakeOfflineFiles extends OfflineFiles {
     required String orgId,
     required List<FileRef> kept,
   }) async => _store._record('keep', kept);
+}
+
+/// OS notifications in memory: [shown] records each notice, [onTap] is what the app passed to start (call it to
+/// play a tap), [cancelled] counts cancelAll calls.
+class FakeLocalNotifier implements LocalNotifier {
+  final shown = <LocalNotice>[];
+  void Function(String link)? onTap;
+  int cancelled = 0;
+
+  @override
+  Future<void> start(void Function(String link) onTap) async =>
+      this.onTap = onTap;
+
+  @override
+  Future<void> show(LocalNotice notice) async => shown.add(notice);
+
+  @override
+  Future<void> cancelAll() async => cancelled++;
+}
+
+/// Notification [n] (id `n-n`): by default an unread `new_order` for case `m-n` ("New order in WP 100n/2024."),
+/// created [n] minutes before [testNow], with the worker's link and collapse key.
+AppNotification notification(
+  int n, {
+  String kind = 'new_order',
+  String? title,
+  String? body,
+  DateTime? createdAt,
+  bool read = false,
+  String? link,
+  String? collapseKey,
+  Map<String, Object?> data = const {},
+}) => AppNotification(
+  id: 'n-$n',
+  kind: kind,
+  title: title ?? 'New order',
+  body: body ?? 'New order in WP ${1000 + n}/2024.',
+  data: {
+    'matter_id': 'm-$n',
+    'link': link ?? '/cases/m-$n',
+    'collapse_key': collapseKey ?? '$kind:m-$n',
+    ...data,
+  },
+  readAt: read ? testNow : null,
+  createdAt: createdAt ?? testNow.subtract(Duration(minutes: n)),
+);
+
+/// The user's notifications and preferences in memory for widget tests (no PowerSync), and the
+/// [NotificationWriter] the screens write through. Writes change what the providers show, as the synced database
+/// would: marking read sets `readAt` (at [now]), preference writes change [prefs]; [arrive] plays a row arriving
+/// by sync. [writes] records each write by method name with its arguments (`markRead`, `markAllRead`,
+/// `setKindEnabled`, `setIncludeTitles`, `setQuietHours`). [rows] are newest first, as the query orders them. Pass
+/// [overrides] next to a FakeDiary's or FakeCases' (it sets no clock).
+class FakeNotifications extends NotificationWriter {
+  FakeNotifications({
+    List<AppNotification> rows = const [],
+    this.prefs = const NotificationPrefs(),
+    DateTime? now,
+  }) : rows = [...rows],
+       now = now ?? testNow,
+       super(null, DateTime.now);
+
+  final List<AppNotification> rows;
+  NotificationPrefs prefs;
+  DateTime now;
+  final writes = <FakeCall>[];
+  final _changes = StreamController<void>.broadcast();
+
+  List<Override> get overrides => [
+    notificationRowsProvider.overrideWith(
+      (ref) => _live(_changes.stream, () => [...rows]),
+    ),
+    notificationPrefsProvider.overrideWith(
+      (ref) => _live(_changes.stream, () => prefs),
+    ),
+    notificationWriterProvider.overrideWithValue(this),
+  ];
+
+  /// A row arriving by sync (newest first).
+  void arrive(AppNotification n) {
+    rows.insert(0, n);
+    _changes.add(null);
+  }
+
+  void _record(String name, Object? args) {
+    writes.add((name: name, args: args));
+    _changes.add(null);
+  }
+
+  void _read(bool Function(AppNotification) which) {
+    for (final (i, n) in rows.indexed) {
+      if (n.readAt == null && which(n)) {
+        rows[i] = AppNotification(
+          id: n.id,
+          kind: n.kind,
+          title: n.title,
+          body: n.body,
+          data: n.data,
+          readAt: now,
+          createdAt: n.createdAt,
+        );
+      }
+    }
+  }
+
+  @override
+  Future<void> markRead(Iterable<String> ids) async {
+    final set = ids.toSet();
+    _read((n) => set.contains(n.id));
+    _record('markRead', set.toList());
+  }
+
+  @override
+  Future<void> markAllRead() async {
+    _read((_) => true);
+    _record('markAllRead', null);
+  }
+
+  NotificationPrefs _prefs({
+    Set<String>? off,
+    bool? includeTitles,
+    Duration? quietStart,
+    Duration? quietEnd,
+  }) => NotificationPrefs(
+    off: off ?? prefs.off,
+    includeTitles: includeTitles ?? prefs.includeTitles,
+    quietStart: quietStart ?? prefs.quietStart,
+    quietEnd: quietEnd ?? prefs.quietEnd,
+  );
+
+  @override
+  Future<void> setKindEnabled(String kind, {required bool enabled}) async {
+    prefs = _prefs(
+      off: enabled ? ({...prefs.off}..remove(kind)) : {...prefs.off, kind},
+    );
+    _record('setKindEnabled', {'kind': kind, 'enabled': enabled});
+  }
+
+  @override
+  Future<void> setIncludeTitles({required bool include}) async {
+    prefs = _prefs(includeTitles: include);
+    _record('setIncludeTitles', include);
+  }
+
+  @override
+  Future<void> setQuietHours(Duration start, Duration end) async {
+    prefs = _prefs(quietStart: start, quietEnd: end);
+    _record('setQuietHours', {'start': start, 'end': end});
+  }
+}
+
+/// What Settings' sign-out confirm reads: [changes] local writes and [uploads] queued documents not yet sent.
+Override pendingChanges({int changes = 0, int uploads = 0}) =>
+    pendingChangesProvider.overrideWithValue(
+      () async => (changes: changes, uploads: uploads),
+    );
+
+/// The OS notification permission: the prompt answers [granted]; [enabled] is what the OS says now (the
+/// preferences screen's "Open settings" state). [requests] and [settingsOpened] count calls.
+class FakePermission extends NotificationPermission {
+  FakePermission({this.granted = true, bool? enabled})
+    : isEnabled = enabled ?? granted;
+
+  final bool granted;
+  bool isEnabled;
+  int requests = 0;
+  int settingsOpened = 0;
+
+  Override get asOverride =>
+      notificationPermissionProvider.overrideWithValue(this);
+
+  @override
+  Future<bool> request() async {
+    requests++;
+    return isEnabled = granted;
+  }
+
+  @override
+  Future<bool> enabled() async => isEnabled;
+
+  @override
+  Future<void> openSettings() async => settingsOpened++;
 }

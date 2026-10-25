@@ -8,8 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// The OS notification permission. Android 13+ asks at runtime through a small channel in MainActivity.kt (no
-/// plugin); older Android grants it at install and Windows toasts need none.
+/// The OS notification permission. Android 13+ asks at runtime through a small channel in MainActivity.kt
+/// (flutter_local_notifications shows notifications but can't open the app's notification settings); older
+/// Android grants it at install and Windows toasts need none.
 // ponytail: iOS isn't asked yet (P1 ships Android + Windows); add it with iOS push in P2.
 class NotificationPermission {
   const NotificationPermission();
@@ -21,6 +22,11 @@ class NotificationPermission {
   /// Shows the OS prompt if needed; true when notifications may be shown.
   Future<bool> request() async =>
       await _channel.invokeMethod<bool>('request') ?? false;
+
+  /// Whether the OS lets the app show notifications now (the user may turn them off in settings at any time).
+  /// Always true where no prompt is needed.
+  Future<bool> enabled() async =>
+      !needsPrompt || (await _channel.invokeMethod<bool>('enabled') ?? false);
 
   /// The app's notification settings, for turning them on after a denial (spec §5.4 "Permission denied").
   Future<void> openSettings() => _channel.invokeMethod<void>('openSettings');

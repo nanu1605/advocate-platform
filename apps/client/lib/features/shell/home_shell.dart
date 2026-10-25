@@ -5,10 +5,12 @@ import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/core/theme/app_theme.dart';
 import 'package:advocate_app/data/document_files.dart';
+import 'package:advocate_app/data/local_notifier.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/case_page/task_sheet.dart';
 import 'package:advocate_app/features/cases/add_case.dart';
 import 'package:advocate_app/features/documents/upload_flow.dart';
+import 'package:advocate_app/features/feedback/feedback_sheet.dart';
 import 'package:advocate_app/ui/app_scaffold.dart';
 import 'package:advocate_app/ui/command_palette.dart';
 import 'package:advocate_app/ui/icons.dart';
@@ -30,10 +32,12 @@ class HomeShell extends ConsumerWidget {
     final l = context.l10n;
     final flags = ref.watch(featureFlagsProvider);
     final offline = ref.watch(syncViewProvider).value?.offline ?? false;
-    // Queued uploads and offline copies are looked after while signed-in screens are up (ADR 0016).
+    // Queued uploads and offline copies are looked after while signed-in screens are up (ADR 0016), and new
+    // notifications become local ones (ADR 0017).
     ref
       ..watch(uploadDrainerProvider)
-      ..watch(offlineKeeperProvider);
+      ..watch(offlineKeeperProvider)
+      ..watch(localAlertsProvider);
     final today = NavDest('/today', AppIcons.sun, AppIcons.sunFill, l.navToday);
     final cases = NavDest(
       '/cases',
@@ -108,6 +112,26 @@ class HomeShell extends ConsumerWidget {
           icon: AppIcons.plus,
           shortcut: 'Ctrl+N',
           run: () => unawaited(showAddCaseChooser(context)),
+        ),
+        PaletteCommand(
+          label: l.navDashboard,
+          icon: AppIcons.chartBar,
+          run: () => context.go('/dashboard'),
+        ),
+        PaletteCommand(
+          label: l.navNotifications,
+          icon: AppIcons.bell,
+          run: () => context.go('/notifications'),
+        ),
+        PaletteCommand(
+          label: l.navTeam,
+          icon: AppIcons.usersThree,
+          run: () => context.go('/team'),
+        ),
+        PaletteCommand(
+          label: l.navFeedback,
+          icon: AppIcons.chatTeardropText,
+          run: () => unawaited(showFeedbackSheet(context)),
         ),
       ]),
       child: child,

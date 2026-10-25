@@ -34,6 +34,9 @@ class Membership {
 
   /// Assign to and Mark proxy arranged on the board (RLS `board_entries_update`); others see it read-only.
   bool get managesBoard => role == 'owner' || role == 'advocate';
+
+  /// Invite, change roles and remove members (spec §15.3); others see the team read-only.
+  bool get managesTeam => role == 'owner';
 }
 
 /// Where the signed-in account stands in onboarding steps 5–8 (spec §4.1, §9.2).
@@ -121,10 +124,18 @@ class AccountController extends AsyncNotifier<Account?> {
       signedInProvider.select((s) => s.value ?? auth.isSignedIn),
     );
     if (!signedIn) return null;
-    ref.listen(syncViewProvider.select((s) => s.value?.offline), (was, now) {
-      final backOnline = (was ?? false) && now == false;
-      if (backOnline && state.hasError) ref.invalidateSelf();
-    });
+    ref
+      ..listen(syncViewProvider.select((s) => s.value?.offline), (was, now) {
+        final backOnline = (was ?? false) && now == false;
+        if (backOnline && state.hasError) ref.invalidateSelf();
+      })
+      // Sync took a membership away (removed from a team, maybe the current one or the last): reload, so the
+      // account moves to a team the user is still in, or the router sends them to join one.
+      ..listen(_syncedMembershipsProvider, (was, now) {
+        if (now.value case final n? when n < (was?.value ?? 0)) {
+          ref.invalidateSelf();
+        }
+      });
     try {
       return await ref.read(apiClientProvider).me();
     } on ApiException catch (e) {
@@ -166,6 +177,21 @@ Future<Account?> _fromSync(PowerSyncDatabase db, String userId) async {
     'memberships': memberships,
   });
 }
+
+/// How many active memberships the signed-in user's synced rows hold; nothing without sync.
+final _syncedMembershipsProvider = StreamProvider<int>((ref) {
+  final db = ref.watch(syncDatabaseProvider);
+  final auth = ref.watch(authRepositoryProvider);
+  ref.watch(signedInProvider);
+  final userId = auth.userId;
+  if (db == null || userId == null) return const Stream.empty();
+  return db
+      .watch(
+        "select count(*) as n from memberships where user_id = ? and status = 'active'",
+        parameters: [userId],
+      )
+      .map((rows) => rows.first['n'] as int);
+});
 
 // No automatic retry: /loading shows the offline state at once, with Retry; the controller retries on reconnect.
 final accountProvider = AsyncNotifierProvider<AccountController, Account?>(

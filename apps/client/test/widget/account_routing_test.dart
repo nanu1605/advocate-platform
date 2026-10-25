@@ -8,6 +8,7 @@ import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/api_client.dart';
 import 'package:advocate_app/data/auth.dart';
 import 'package:advocate_app/data/documents.dart';
+import 'package:advocate_app/data/feedback.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/board/board_share.dart';
 import 'package:advocate_app/features/documents/upload_flow.dart';
@@ -206,7 +207,10 @@ void main() {
     File('${shares.path}${Platform.pathSeparator}board-2026-11-06.png')
       ..createSync(recursive: true)
       ..writeAsBytesSync([0]);
+    // A feedback note that couldn't be sent.
+    c.read(feedbackDraftProvider.notifier).text = 'Court 7 is missing.';
     await c.read(sessionProvider).signOut();
+    expect(c.read(feedbackDraftProvider), '');
     expect(shares.existsSync(), isFalse);
     expect(filesDir(support, 'uploads').existsSync(), isFalse);
     expect(filesDir(support, 'offline').existsSync(), isFalse);

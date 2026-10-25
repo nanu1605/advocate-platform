@@ -72,6 +72,26 @@ SyncView syncView({
   return (status: status, offline: offline);
 }
 
+/// What a sign-out would lose (ADR 0013 follow-up): `changes` are local writes waiting to upload (PowerSync's CRUD
+/// queue, one per change), `uploads` are documents still in task 10's upload queue (failed ones included: their file
+/// is only on this device).
+typedef PendingChanges = ({int changes, int uploads});
+
+/// Reads [PendingChanges] now (Settings' sign-out confirm); none without sync.
+final pendingChangesProvider = Provider<Future<PendingChanges> Function()>((
+  ref,
+) {
+  final db = ref.watch(syncDatabaseProvider);
+  return () async {
+    if (db == null) return (changes: 0, uploads: 0);
+    final queued = await db.get('select count(*) as n from upload_queue');
+    return (
+      changes: (await db.getUploadQueueStats()).count,
+      uploads: queued['n'] as int,
+    );
+  };
+});
+
 /// Device writes go straight to Supabase as the signed-in user, so row-level security and the §9.3 column
 /// triggers decide what is accepted (ADR 0003, 0009).
 class SupabaseConnector extends PowerSyncBackendConnector {

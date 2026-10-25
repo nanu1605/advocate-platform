@@ -32,7 +32,13 @@ abstract final class AppIcons {
     0xe16e,
     fontFamily: 'PhosphorFill',
   );
+  static const chartBar = IconData(0xe150, fontFamily: 'PhosphorRegular');
   static const chatCircleText = IconData(0xe16e, fontFamily: 'PhosphorRegular');
+  static const chatTeardropText = IconData(
+    0xe178,
+    fontFamily: 'PhosphorRegular',
+  );
+  static const checks = IconData(0xe53a, fontFamily: 'PhosphorRegular');
   static const checkCircleFill = IconData(0xe184, fontFamily: 'PhosphorFill');
   static const checkSquare = IconData(0xe186, fontFamily: 'PhosphorRegular');
   static const circle = IconData(0xe18a, fontFamily: 'PhosphorRegular');
@@ -46,6 +52,7 @@ abstract final class AppIcons {
   static const cloudCheck = IconData(0xe1b0, fontFamily: 'PhosphorRegular');
   static const cloudWarning = IconData(0xea98, fontFamily: 'PhosphorRegular');
   static const coffee = IconData(0xe1c2, fontFamily: 'PhosphorRegular');
+  static const copy = IconData(0xe1ca, fontFamily: 'PhosphorRegular');
   static const dotsThreeCircleFill = IconData(
     0xe200,
     fontFamily: 'PhosphorFill',
@@ -109,9 +116,11 @@ abstract final class AppIcons {
   static const translate = IconData(0xe4a2, fontFamily: 'PhosphorRegular');
   static const trash = IconData(0xe4a6, fontFamily: 'PhosphorRegular');
   static const tray = IconData(0xe4aa, fontFamily: 'PhosphorRegular');
+  static const userPlus = IconData(0xe4d0, fontFamily: 'PhosphorRegular');
   static const userSwitch = IconData(0xe756, fontFamily: 'PhosphorRegular');
   static const usersFill = IconData(0xe4d6, fontFamily: 'PhosphorFill');
   static const users = IconData(0xe4d6, fontFamily: 'PhosphorRegular');
+  static const usersThree = IconData(0xe68e, fontFamily: 'PhosphorRegular');
   static const warning = IconData(0xe4e0, fontFamily: 'PhosphorRegular');
   static const warningCircle = IconData(0xe4e2, fontFamily: 'PhosphorRegular');
   static const whatsappLogo = IconData(0xe5d0, fontFamily: 'PhosphorRegular');

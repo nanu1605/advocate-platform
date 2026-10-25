@@ -16,7 +16,7 @@ String errorText(AppLocalizations l, Object? error) {
     'RATE_LIMITED' => l.errorTooMany,
     'IDEMPOTENCY_IN_PROGRESS' => l.errorInProgress,
     'VALIDATION_ERROR' => l.errorInvalidInput,
-    'NOT_FOUND' => l.errorNotFound,
+    'NOT_FOUND' || 'MATTER_NOT_FOUND' => l.errorNotFound,
     'FORBIDDEN' || 'ROLE_NOT_ALLOWED' => l.errorForbidden,
     'PROFILE_INCOMPLETE' => l.errorProfileIncomplete,
     'INVITE_INVALID' => l.errorInviteInvalid,
@@ -50,6 +50,18 @@ String errorText(AppLocalizations l, Object? error) {
     'FILE_MISSING' => l.docsDataFileMissing,
     'FILE_UNREADABLE' => l.docsDataUnreadable,
     'SAVE_FAILED' => l.docsDataSaveFailed,
+    'ALREADY_COMPLETE' => l.errorAlreadyComplete,
+    'CONSENT_REQUIRED' => l.errorConsentRequired,
+    'FILE_NOT_FOUND' => l.errorFileNotFound,
+    'OWNER_LOCKED' => l.errorOwnerLocked,
+    'STORAGE_UNAVAILABLE' => l.errorStorageUnavailable,
+    'UPLOAD_MISSING' => l.errorUploadMissing,
+    'JOB_EXPIRED' => l.errorJobExpired,
+    'SCANNER_UNAVAILABLE' => l.errorScannerUnavailable,
+    'CASE_NOT_FOUND' => l.errorCaseNotFound,
+    'COURT_PROVIDER_ERROR' => l.errorProviderError,
+    // INTERNAL (API), INTERNAL_ERROR (workers), METHOD_NOT_ALLOWED and HTTP_ERROR (the API's catch-alls) are ours
+    // to fix: the generic text. So is an unexpected code a court-data provider passes through to a job.
     _ => l.errorGeneric,
   };
 }

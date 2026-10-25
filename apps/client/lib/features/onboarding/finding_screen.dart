@@ -18,10 +18,8 @@ import 'package:go_router/go_router.dart';
 
 /// /onboarding/finding (spec §4.1 step 7, §11.4): the find_cases job's real progress, court group by court group.
 /// The search keeps running if the user leaves ("Continue in the background"); "Stop searching" keeps what was
-/// found. Done or stopped → Found cases, which fills as rows sync.
-///
-/// ponytail: no local notification when the search finishes in the background; task 11 adds Windows toasts and
-/// local notifications.
+/// found. Done or stopped → Found cases, which fills as rows sync. A search that finishes while the user is
+/// elsewhere says so with a local notification (ADR 0017).
 class FindingScreen extends ConsumerStatefulWidget {
   const FindingScreen({super.key});
 
