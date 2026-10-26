@@ -26,8 +26,8 @@ only `matter_id`, and may delete its own note (§9.2 gives voice notes no `delet
 from workers, the confirm from the API.
 
 **AI runs and answers**
-- `ai_runs` adds `prompt_version` (§12.3: runs record it); `org_id` is null for a shared summary's run, a platform
-  cost. No prompt or answer text.
+- `ai_runs` adds `prompt_version` (§12.3: runs record it); `org_id` is null for a platform run. No prompt or answer
+  text. (A shared summary's run is costed to the organisation it was made for: ADR 0020.)
 - `ai_answers` adds `language`, `document_id` and `updated_at`; kinds are `ask`, `brief` and `upload_summary`, with one
   upload summary per document and language (an upload summary must name both). Answers are deleted softly through the API by the asker or the owner.
   They are readable by every member (§9.3), so Ask and Brief me must never draw on private notes (task 6).

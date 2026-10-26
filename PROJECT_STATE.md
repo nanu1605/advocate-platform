@@ -9,6 +9,13 @@ Last updated: 2026-10-26
   court-order text), `voice_notes`, `ai_runs`, `ai_answers`, `public_summaries`, `client_messages` (approval enforced
   in the database, recipient fixed at approval), `display_board_snapshots`, `calendar_feeds`; voice notes and the live
   tracker sync; 329 new pgTAP assertions (1348 in all); sync tests for voice-note privacy.
+- `legal_ai` core ([ADR 0020](docs/adr/0020-p2-legal-ai-core.md)): `LLMClient` on Bedrock Converse (ap-south-1,
+  `bedrock-runtime`, `in.` profiles only, checked in config and against boto3's real endpoint; effort and token budgets
+  from `config/ai_models.yaml`; no sampling parameters); versioned prompts pinned by hash, with untrusted text in
+  escaped `<source>`/`<data>` blocks; Pydantic contracts for the six P2 tasks with source-id checks and two retries;
+  cost per run (thinking included × list price × multiplier); local stand-in while `AI_LIVE=0`; `ai_runs` and ledger
+  records, shared summary cache, automatic-AI cap, credits, platform daily budget and hourly cost alerts; eval harness
+  with synthetic v1 datasets (10 orders, 19 case-file questions, 15 voice notes); 42 deliberate breaks all caught.
 
 ## Done (Phase 1, Track A)
 - Gate exceptions decided 26 Oct 2026 (the founder delegated the call) ([phase-1-report.md](docs/phases/phase-1-report.md)): the focus
@@ -78,8 +85,8 @@ Last updated: 2026-10-26
   Hindi review, privacy-policy page.
 
 ## Next up
-1. P2 Track A tasks 2–14 in order ([phase-2-plan.md](docs/phases/phase-2-plan.md)); next is task 2, the `legal_ai`
-   core.
+1. P2 Track A tasks 3–14 in order ([phase-2-plan.md](docs/phases/phase-2-plan.md)); next is task 3, the kit
+   components deferred from P0.
 2. iOS (P2): NSCameraUsageDescription and NSFaceIDUsageDescription in Info.plist.
 3. Phase 0 and 1 gates: Track B (on hold); see [phase-1-report.md](docs/phases/phase-1-report.md).
 
@@ -132,6 +139,9 @@ Last updated: 2026-10-26
   CI — [ADR 0018](docs/adr/0018-p1-phase-checks.md).
 - P2 schema additions to §9.2 (shared court-order chunks, `calendar_feeds`, client-message approval in the database)
   — [ADR 0019](docs/adr/0019-p2-schema.md).
+- `legal_ai` core: Converse rather than the Anthropic SDK; prompts inside the package; `usd_inr`, per-tier prices and
+  `effort_supported` added to `ai_models.yaml`; a `usage_ledger` kind `ai_automatic`; plan limits by organisation kind
+  until subscriptions (P3); order-summary credits 4 per 5 pages (max 24) — [ADR 0020](docs/adr/0020-p2-legal-ai-core.md).
 - Phase 2 started before the Phase 1 gate closed (founder go-ahead, 26 Oct 2026); both earlier gates wait on Track B.
 - Windows `APPLY_STANDARD_SETTINGS` defines `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`: `local_auth_windows` 2.0.2 builds with `/await`, which MSVC 14.51 rejects (STL1011). Remove when the plugin moves to C++20 `<coroutine>`.
 
