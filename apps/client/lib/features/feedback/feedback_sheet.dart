@@ -7,6 +7,7 @@ import 'package:advocate_app/data/feedback.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/case_page/sheet_form.dart';
 import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
+import 'package:advocate_app/ui/fields.dart';
 import 'package:advocate_app/ui/sheets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -106,7 +107,18 @@ class _FeedbackSheetState extends ConsumerState<_FeedbackSheet> {
           autofocus: true,
           minLines: 4,
           maxLines: 10,
-          maxLength: feedbackMaxLength,
+          // Counted in code points, as the API counts (not maxLength's characters).
+          inputFormatters: const [CodePointLimit(feedbackMaxLength)],
+          buildCounter:
+              (_, {required currentLength, required isFocused, maxLength}) {
+                final n = _text.text.runes.length;
+                return Text(
+                  '$n/$feedbackMaxLength',
+                  semanticsLabel: MaterialLocalizations.of(context)
+                      .remainingTextFieldCharacterCount(feedbackMaxLength - n),
+                  style: context.text.bodySmall,
+                );
+              },
           textCapitalization: TextCapitalization.sentences,
           style: context.text.bodyLarge,
           onChanged: (s) => ref.read(feedbackDraftProvider.notifier).text = s,

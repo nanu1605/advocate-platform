@@ -141,6 +141,11 @@ async def test_feedback(api, team):
     assert r.json()["error"]["code"] == "NOT_A_MEMBER"
     assert (await api.post("/v1/feedback", json={"note": ""}, headers=team.h("owner"))).status_code == 422
 
+    # 4000 code points, as the app counts them (CodePointLimit): "कि" is one letter but two code points.
+    r = await api.post("/v1/feedback", json={"note": "कि" * 2000}, headers=team.h("owner"))
+    assert r.status_code == 201, r.text
+    assert (await api.post("/v1/feedback", json={"note": "कि" * 2001}, headers=team.h("owner"))).status_code == 422
+
 
 async def test_feedback_rate_limit(api, team):
     h = auth(team.tokens["writer"])

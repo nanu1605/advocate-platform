@@ -279,6 +279,25 @@ void main() {
     expect(isValidIndianMobile('98765'), isFalse);
   });
 
+  test('CodePointLimit counts as the API does and never splits a letter', () {
+    const limit = CodePointLimit(5);
+    TextEditingValue v(String s) => TextEditingValue(text: s);
+    String cut(String old, String typed) =>
+        limit.formatEditUpdate(v(old), v(typed)).text;
+    // "कि" is one letter, two code points: two fit in 5, a third would be split.
+    expect(cut('', 'किकिकि'), 'किकि');
+    expect(cut('', 'abcdefg'), 'abcde');
+    expect(cut('', 'abcde'), 'abcde');
+    // A full field: an edit inside it changes nothing.
+    expect(cut('abcde', 'abXcde'), 'abcde');
+    // An input method still composing is left alone; its result is cut when it commits.
+    const composing = TextEditingValue(
+      text: 'abcdef',
+      composing: TextRange(start: 4, end: 6),
+    );
+    expect(limit.formatEditUpdate(v('abcd'), composing), composing);
+  });
+
   test('uuidV4 shape', () {
     final id = uuidV4(Random(1));
     expect(

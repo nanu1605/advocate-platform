@@ -151,7 +151,7 @@ class _ManualCaseScreenState extends ConsumerState<ManualCaseScreen> {
       keyboardType: keyboardType,
       inputFormatters: [
         ...?inputFormatters,
-        if (max != null) LengthLimitingTextInputFormatter(max),
+        if (max != null) CodePointLimit(max),
       ],
       textInputAction: TextInputAction.next,
     ),

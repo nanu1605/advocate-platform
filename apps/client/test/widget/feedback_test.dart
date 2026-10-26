@@ -112,6 +112,26 @@ void main() {
     expect(find.text('4000/4000'), findsOneWidget);
   });
 
+  testWidgets('Hindi counts as the server counts: code points, not letters', (
+    tester,
+  ) async {
+    final api = await _open(tester, locale: 'hi');
+    // "कि" is one letter on screen but two code points; the API's 4000 is code points.
+    await tester.enterText(find.byType(TextField), 'कि' * 2500);
+    await tester.pump();
+    final text = tester
+        .widget<TextField>(find.byType(TextField))
+        .controller!
+        .text;
+    expect(text, 'कि' * 2000);
+    expect(find.text('4000/4000'), findsOneWidget);
+    await _send(
+      tester,
+      lookupAppLocalizations(const Locale('hi')).feedbackSend,
+    );
+    expect((_sent(api).single! as Map)['note'], 'कि' * 2000);
+  });
+
   testWidgets('rate limited: says so and keeps the note', (tester) async {
     final api = FakeApi(account: ownerAccount);
     api.fail['sendFeedback'] = const ApiException('RATE_LIMITED');

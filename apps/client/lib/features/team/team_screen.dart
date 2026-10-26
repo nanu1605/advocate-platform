@@ -22,7 +22,6 @@ import 'package:advocate_app/ui/skeleton.dart';
 import 'package:advocate_app/ui/states.dart';
 import 'package:advocate_app/ui/tiles.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -495,7 +494,7 @@ class _NameDialogState extends State<_NameDialog> {
         error: _error,
         autofocus: true,
         textInputAction: TextInputAction.done,
-        inputFormatters: [LengthLimitingTextInputFormatter(100)],
+        inputFormatters: const [CodePointLimit(100)],
         onSubmitted: (_) => unawaited(_submit()),
       ),
       actions: [

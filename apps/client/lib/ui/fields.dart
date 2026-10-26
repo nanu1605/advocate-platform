@@ -7,6 +7,36 @@ import 'package:flutter/services.dart';
 /// Indian mobile: 10 digits starting 6–9.
 bool isValidIndianMobile(String s) => RegExp(r'^[6-9]\d{9}$').hasMatch(s);
 
+/// Caps a field at [max] Unicode code points, the way the API counts (`max_length`). Flutter's own limit counts what
+/// a reader sees as one character: "कि" is one of those but two code points, so a Hindi text it allows can be refused.
+/// Cuts at a character boundary; waits while an input method is composing, like Flutter's.
+class CodePointLimit extends TextInputFormatter {
+  const CodePointLimit(this.max);
+
+  final int max;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.runes.length <= max ||
+        (newValue.composing.isValid && !newValue.composing.isCollapsed)) {
+      return newValue;
+    }
+    // An edit inside a full field changes nothing.
+    if (oldValue.text.runes.length == max) return oldValue;
+    var runes = 0;
+    final kept = newValue.text.characters
+        .takeWhile((c) => (runes += c.runes.length) <= max)
+        .string;
+    return TextEditingValue(
+      text: kept,
+      selection: TextSelection.collapsed(offset: kept.length),
+    );
+  }
+}
+
 /// Text field with inline error announced to screen readers (spec §5.9).
 class AppTextField extends StatelessWidget {
   const AppTextField({
