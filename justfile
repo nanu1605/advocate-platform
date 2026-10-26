@@ -45,9 +45,10 @@ test:
     cd apps/client; flutter test --exclude-tags golden
     uv run python tools/pseudo_l10n.py flutter test test/widget
 
-# Offline sync end to end with the real SDK on a desktop or device (needs `just dev`)
-test-sync device="windows":
+# End to end with the real SDK on a desktop or device (needs `just dev`): offline sync, onboarding → import → Today
+test-e2e device="windows":
     cd apps/client; flutter test integration_test/sync_test.dart -d {{device}} --dart-define-from-file=env.local.json
+    cd apps/client; flutter test integration_test/onboarding_import_test.dart -d {{device}} --dart-define-from-file=env.local.json
 
 # Widget tests with English 40% longer, to catch overflow (spec §16.4)
 pseudo:
