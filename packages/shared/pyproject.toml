@@ -2,7 +2,7 @@
 name = "advocate-shared"
 version = "0.0.0"
 requires-python = ">=3.14"
-dependencies = ["court-data", "pydantic-settings", "sqlalchemy[asyncio]", "structlog"]
+dependencies = ["court-data", "legal-ai", "pydantic-settings", "sqlalchemy[asyncio]", "structlog"]
 
 [build-system]
 requires = ["hatchling"]

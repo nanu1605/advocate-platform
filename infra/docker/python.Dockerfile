@@ -9,6 +9,7 @@ COPY packages/legal_ai packages/legal_ai
 COPY packages/court_data packages/court_data
 COPY services/api services/api
 COPY services/workers services/workers
+COPY config/ai_models.yaml config/ai_models.yaml
 RUN uv sync --frozen --no-dev --all-packages
 RUN useradd --system app
 USER app
