@@ -5,6 +5,10 @@ Last updated: 2026-10-26
 ## Done (this phase)
 - Plan: [phase-2-plan.md](docs/phases/phase-2-plan.md) (Track A local, Track B on hold). Phase 2 started 26 Oct 2026
   on the founder's go-ahead.
+- P2 schema ([ADR 0019](docs/adr/0019-p2-schema.md)): `document_chunks` (pgvector 1024-d, full text, trigram; shared
+  court-order text), `voice_notes`, `ai_runs`, `ai_answers`, `public_summaries`, `client_messages` (approval enforced
+  in the database, recipient fixed at approval), `display_board_snapshots`, `calendar_feeds`; voice notes and the live
+  tracker sync; 329 new pgTAP assertions (1348 in all); sync tests for voice-note privacy.
 
 ## Done (Phase 1, Track A)
 - Gate exceptions decided 26 Oct 2026 (the founder delegated the call) ([phase-1-report.md](docs/phases/phase-1-report.md)): the focus
@@ -74,8 +78,8 @@ Last updated: 2026-10-26
   Hindi review, privacy-policy page.
 
 ## Next up
-1. P2 Track A tasks 1–14 in order ([phase-2-plan.md](docs/phases/phase-2-plan.md)), starting with task 1: schema,
-   RLS and pgTAP for the P2 tables.
+1. P2 Track A tasks 2–14 in order ([phase-2-plan.md](docs/phases/phase-2-plan.md)); next is task 2, the `legal_ai`
+   core.
 2. iOS (P2): NSCameraUsageDescription and NSFaceIDUsageDescription in Info.plist.
 3. Phase 0 and 1 gates: Track B (on hold); see [phase-1-report.md](docs/phases/phase-1-report.md).
 
@@ -126,6 +130,8 @@ Last updated: 2026-10-26
   fires itself (pickers, text selection) follow the phone's setting, not the app's; the Devanagari digits setting, the
   Found counter flight and Windows keep-running-in-tray are deferred; end-to-end tests run locally on Windows, not in
   CI — [ADR 0018](docs/adr/0018-p1-phase-checks.md).
+- P2 schema additions to §9.2 (shared court-order chunks, `calendar_feeds`, client-message approval in the database)
+  — [ADR 0019](docs/adr/0019-p2-schema.md).
 - Phase 2 started before the Phase 1 gate closed (founder go-ahead, 26 Oct 2026); both earlier gates wait on Track B.
 - Windows `APPLY_STANDARD_SETTINGS` defines `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`: `local_auth_windows` 2.0.2 builds with `/await`, which MSVC 14.51 rejects (STL1011). Remove when the plugin moves to C++20 `<coroutine>`.
 
