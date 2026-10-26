@@ -433,7 +433,9 @@ final kitSections = <KitSection>[
         lines: [
           AnswerLine(
             'Respondent No. 1 to file a reply within four weeks.',
-            sources: [SourceChip('Order', page: 2, paragraph: 3, onTap: _noop)],
+            sources: [
+              SourceChip('Order', page: 2, paragraph: '3', onTap: _noop),
+            ],
           ),
           AnswerLine(
             'Interim order to continue till the next date.',
@@ -457,7 +459,7 @@ final kitSections = <KitSection>[
       spacing: 8,
       runSpacing: 8,
       children: [
-        SourceChip('Writ petition', page: 12, paragraph: 4, onTap: _noop),
+        SourceChip('Writ petition', page: 12, paragraph: '4.1', onTap: _noop),
         SourceChip(
           '(2019) 5 SCC 123',
           check: CitationCheck.verified,
@@ -513,7 +515,10 @@ final kitSections = <KitSection>[
         nextDateUnsure: true,
         purpose: 'Reply',
         outcome: 'Adjourned',
-        tasks: const ['File reply', 'Get certified copy'],
+        tasks: [
+          (title: 'File reply', due: DateTime(2026, 11, 18)),
+          (title: 'Get certified copy', due: null),
+        ],
       ),
       matters: const {
         'wp': 'WP 1234/2024 · Sharma v. State',
@@ -525,23 +530,48 @@ final kitSections = <KitSection>[
   ),
   KitSection('item_tracker', (context) {
     final now = DateTime(2026, 11, 4, 11);
-    CourtUpdate at(int item, int minutesAgo) => CourtUpdate(
-      item: item,
-      at: now.subtract(Duration(minutes: minutesAgo)),
-      by: 'Priya',
-    );
+    DateTime clock() => now;
+    CourtUpdate at(String item, int minutesAgo, {String? by = 'Priya'}) =>
+        CourtUpdate(
+          item: item,
+          at: now.subtract(Duration(minutes: minutesAgo)),
+          by: by,
+        );
     return _col([
       ItemTracker(
         court: 'Court 12',
-        mine: 23,
-        update: at(18, 3),
-        now: now,
+        mine: '23',
+        update: at('18', 3),
+        clock: clock,
         onUpdate: _noop,
       ),
-      ItemTracker(court: 'Court 12', mine: 23, update: at(23, 0), now: now),
-      ItemTracker(court: 'Court 7', mine: 41, update: at(44, 1), now: now),
-      ItemTracker(court: 'Court 5', mine: 8, update: at(2, 25), now: now),
-      const ItemTracker(court: 'Court 5', mine: 8, onUpdate: _noop),
+      ItemTracker(
+        court: 'Court 12',
+        mine: '23',
+        update: at('23', 0),
+        clock: clock,
+      ),
+      ItemTracker(
+        court: 'Court 7',
+        mine: '41',
+        update: at('44', 1),
+        clock: clock,
+      ),
+      // Old, on a supplementary list.
+      ItemTracker(
+        court: 'Court 5',
+        mine: 'S-8',
+        update: at('S-2', 25),
+        clock: clock,
+      ),
+      // Another list: no count. From a member who has left.
+      ItemTracker(
+        court: 'Court 9',
+        mine: '12',
+        update: at('S-3', 4, by: null),
+        clock: clock,
+      ),
+      const ItemTracker(court: 'Court 5', mine: '8', onUpdate: _noop),
     ]);
   }),
   KitSection('board_phone', (context) => BoardTable(_board(context))),

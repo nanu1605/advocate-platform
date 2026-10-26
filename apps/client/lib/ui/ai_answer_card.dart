@@ -99,8 +99,10 @@ class AIAnswerCard extends StatelessWidget {
           ],
           if (actions.isNotEmpty) ...[
             const SizedBox(height: 8),
+            // 8 dp between targets (spec §5.9).
             Wrap(
-              spacing: 4,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 for (final (icon, label, onPressed) in actions)
                   TextButton.icon(

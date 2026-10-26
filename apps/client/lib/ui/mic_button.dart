@@ -1,17 +1,20 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
+import 'package:advocate_app/core/theme/app_theme.dart';
 import 'package:advocate_app/core/theme/motion.dart';
-import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:flutter/material.dart';
 
 enum MicState { idle, recording, processing, error }
 
 /// The voice button (spec §5.2, §5.11 #9): tap for quick add, press and hold to record at once. Recording shows the
-/// live waveform and the time; processing a "reading" pulse (still with reduce motion); an error asks to try again.
-/// Holding has no screen-reader gesture: quick add (the tap) offers a voice note too.
+/// live waveform; processing a "reading" pulse (still with reduce motion); an error asks to try again. It stays 56 dp
+/// round in every state, so it fits the bottom bar's centre slot; the time recorded is in its spoken label, and a
+/// screen that wants it shown shows it beside. Holding has no screen-reader gesture: quick add (the tap) offers a
+/// voice note too.
 class MicButton extends StatefulWidget {
   const MicButton({
     required this.state,
@@ -33,7 +36,8 @@ class MicButton extends StatefulWidget {
   final VoidCallback? onTap;
   final VoidCallback? onHoldStart;
 
-  /// Letting go after a hold: stop recording.
+  /// The hold is over: the finger lifted, the system took the touch (a call, a system gesture), or the button went.
+  /// Stop recording.
   final VoidCallback? onHoldEnd;
 
   @override
@@ -42,7 +46,7 @@ class MicButton extends StatefulWidget {
 
 class _MicButtonState extends State<MicButton>
     with SingleTickerProviderStateMixin {
-  late final _pulse = AnimationController(
+  late final AnimationController _pulse = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 900),
   );
@@ -50,6 +54,8 @@ class _MicButtonState extends State<MicButton>
     begin: 1,
     end: 0.4,
   ).animate(_pulse);
+  var _holding = false;
+  var _focused = false;
 
   @override
   void didChangeDependencies() {
@@ -73,8 +79,22 @@ class _MicButtonState extends State<MicButton>
     }
   }
 
+  void _holdStart() {
+    _holding = true;
+    widget.onHoldStart?.call();
+  }
+
+  /// Once per hold, however it ends. A quick tap also "cancels" a long press, but never started one.
+  void _holdEnd() {
+    if (!_holding) return;
+    _holding = false;
+    widget.onHoldEnd?.call();
+  }
+
   @override
   void dispose() {
+    // After the tree is unlocked, as the caller will likely set state.
+    if (_holding) scheduleMicrotask(widget.onHoldEnd ?? () {});
     _pulse.dispose();
     super.dispose();
   }
@@ -94,36 +114,24 @@ class _MicButtonState extends State<MicButton>
       MicState.processing => (c.primaryFill, c.onPrimary, l.micProcessing),
       MicState.error => (urgent.bg, urgent.fg, l.micError),
     };
-    final shape = StadiumBorder(
-      side: widget.state == MicState.error
+    // The keyboard ring goes outside the fill, which can be the focus colour itself (spec §5.9).
+    final shape = CircleBorder(
+      side: _focused && focusVisible
+          ? focusRingSide(c)
+          : widget.state == MicState.error
           ? BorderSide(color: urgent.fg, width: 2)
           : BorderSide.none,
     );
     final content = switch (widget.state) {
-      MicState.idle => Icon(AppIcons.microphone, size: 28, color: fg),
-      MicState.recording => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(AppIcons.microphone, size: 24, color: fg),
-          const SizedBox(width: 8),
-          CustomPaint(
-            size: const Size(46, 24),
-            painter: _Waveform(widget.levels, fg),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            time,
-            style: context.text.titleSmall?.copyWith(
-              color: fg,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
+      MicState.recording => CustomPaint(
+        size: const Size(30, 24),
+        painter: _Waveform(widget.levels, fg),
       ),
       MicState.processing => FadeTransition(
         opacity: _opacity,
         child: Icon(AppIcons.waveform, size: 28, color: fg),
       ),
+      MicState.idle => Icon(AppIcons.microphone, size: 28, color: fg),
       MicState.error => Icon(AppIcons.warning, size: 28, color: fg),
     };
     return Semantics(
@@ -132,31 +140,19 @@ class _MicButtonState extends State<MicButton>
       onTap: widget.onTap,
       excludeSemantics: true,
       child: GestureDetector(
-        onLongPressStart: widget.onHoldStart == null
-            ? null
-            : (_) => widget.onHoldStart!(),
-        onLongPressEnd: widget.onHoldEnd == null
-            ? null
-            : (_) => widget.onHoldEnd!(),
-        child: FocusRing(
-          radius: 28,
-          child: Material(
-            color: fill,
-            shape: shape,
-            child: InkWell(
-              onTap: widget.onTap,
-              customBorder: shape,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  child: Center(
-                    widthFactor: 1,
-                    heightFactor: 1,
-                    child: content,
-                  ),
-                ),
-              ),
+        onLongPressStart: (_) => _holdStart(),
+        onLongPressEnd: (_) => _holdEnd(),
+        onLongPressCancel: _holdEnd,
+        child: Material(
+          color: fill,
+          shape: shape,
+          child: InkWell(
+            onTap: widget.onTap,
+            onFocusChange: (f) => setState(() => _focused = f),
+            customBorder: shape,
+            child: SizedBox.square(
+              dimension: 56,
+              child: Center(child: content),
             ),
           ),
         ),
@@ -171,7 +167,7 @@ class _Waveform extends CustomPainter {
 
   final List<double> levels;
   final Color color;
-  static const bars = 8;
+  static const bars = 5;
 
   @override
   void paint(Canvas canvas, Size size) {

@@ -4,6 +4,9 @@ import 'package:advocate_app/ui/fields.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:flutter/material.dart';
 
+/// A task a voice note asked for, with the date it is due if the note gave one.
+typedef DraftTask = ({String title, DateTime? due});
+
 /// What a voice note was understood to say (`voice_parse`), for the user to check before anything is saved.
 @immutable
 class VoiceDraft {
@@ -28,12 +31,12 @@ class VoiceDraft {
   final bool nextDateUnsure;
   final String? purpose;
   final String? outcome;
-  final List<String> tasks;
+  final List<DraftTask> tasks;
   final String? note;
 }
 
 /// The parsed fields of a voice note, editable, with the transcript (spec §5.11 #10, §12.9). Fields the model wasn't
-/// sure of are marked until changed. Nothing is saved until Save, which needs a case and a next date that reads.
+/// sure of are marked until changed. Nothing is saved until Save, which needs a case and dates that read.
 class VoiceConfirmSheet extends StatefulWidget {
   const VoiceConfirmSheet({
     required this.draft,
@@ -67,20 +70,25 @@ class _VoiceConfirmSheetState extends State<VoiceConfirmSheet> {
   late final _purpose = TextEditingController(text: d.purpose);
   late final _outcome = TextEditingController(text: d.outcome);
   late final _note = TextEditingController(text: d.note);
-  late final List<TextEditingController> _tasks = [
-    for (final t in d.tasks) TextEditingController(text: t),
+  late final List<_Task> _tasks = [
+    for (final t in d.tasks) _Task(t.title, t.due),
   ];
 
   @override
   void dispose() {
-    for (final c in [_date, _purpose, _outcome, _note, ..._tasks]) {
+    for (final c in [_date, _purpose, _outcome, _note]) {
       c.dispose();
+    }
+    for (final t in _tasks) {
+      t.dispose();
     }
     super.dispose();
   }
 
-  bool get _dateReads =>
-      _date.text.isEmpty || Formats.parseEntry(_date.text) != null;
+  static bool _reads(TextEditingController c) =>
+      c.text.isEmpty || Formats.parseEntry(c.text) != null;
+
+  bool get _datesRead => _reads(_date) && _tasks.every((t) => _reads(t.due));
 
   static String? _text(TextEditingController c) =>
       c.text.trim().isEmpty ? null : c.text.trim();
@@ -92,44 +100,57 @@ class _VoiceConfirmSheetState extends State<VoiceConfirmSheet> {
       nextDate: Formats.parseEntry(_date.text),
       purpose: _text(_purpose),
       outcome: _text(_outcome),
-      tasks: [..._tasks.map(_text).nonNulls],
+      tasks: [
+        for (final t in _tasks)
+          if (_text(t.title) case final title?)
+            (title: title, due: Formats.parseEntry(t.due.text)),
+      ],
       note: _text(_note),
     ),
   );
 
-  /// A field the model wasn't sure of: a tinted edge and "Please check".
+  /// A field the model wasn't sure of: a tinted edge and "Please check". The field keeps its place in the tree when
+  /// the mark goes, so it keeps focus and the keyboard while being typed in.
   Widget _unsure(bool unsure, Widget field) {
-    if (!unsure) return field;
     final s = context.colors.of(StatusKind.adjourned);
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-      decoration: BoxDecoration(
-        color: s.bg,
-        border: Border(left: BorderSide(color: s.fg, width: 4)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                AppIcons.warning,
-                size: inlineIconSize(context, 18),
-                color: s.fg,
+    // Not a Container: it adds and drops its Padding and DecoratedBox with their values, which would remount the field.
+    return DecoratedBox(
+      decoration: unsure
+          ? BoxDecoration(
+              color: s.bg,
+              border: Border(left: BorderSide(color: s.fg, width: 4)),
+            )
+          : const BoxDecoration(),
+      child: Padding(
+        padding: unsure
+            ? const EdgeInsets.fromLTRB(12, 8, 8, 8)
+            : EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (unsure) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    AppIcons.warning,
+                    size: inlineIconSize(context, 18),
+                    color: s.fg,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      context.l10n.voiceUnsure,
+                      style: context.text.bodySmall?.copyWith(color: s.fg),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  context.l10n.voiceUnsure,
-                  style: context.text.bodySmall?.copyWith(color: s.fg),
-                ),
-              ),
+              const SizedBox(height: 8),
             ],
-          ),
-          const SizedBox(height: 8),
-          field,
-        ],
+            KeyedSubtree(key: const ValueKey('field'), child: field),
+          ],
+        ),
       ),
     );
   }
@@ -183,6 +204,8 @@ class _VoiceConfirmSheetState extends State<VoiceConfirmSheet> {
           DropdownButtonFormField<String>(
             initialValue: _matter,
             isExpanded: true,
+            // Not dense, so the chosen case wraps at 200% text rather than losing its parties.
+            isDense: false,
             decoration: InputDecoration(
               labelText: l.boardCase,
               hintText: l.voiceChooseCase,
@@ -217,9 +240,23 @@ class _VoiceConfirmSheetState extends State<VoiceConfirmSheet> {
           const SizedBox(height: 8),
           Row(
             key: ObjectKey(t),
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: AppTextField(label: l.voiceTask(i + 1), controller: t),
+                child: Column(
+                  children: [
+                    AppTextField(
+                      label: l.voiceTask(i + 1),
+                      controller: t.title,
+                    ),
+                    const SizedBox(height: 8),
+                    DateField(
+                      controller: t.due,
+                      label: l.casePageDueDate,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ],
+                ),
               ),
               IconButton(
                 tooltip: l.voiceRemoveTask(i + 1),
@@ -236,7 +273,7 @@ class _VoiceConfirmSheetState extends State<VoiceConfirmSheet> {
           ),
         ],
         TextButton.icon(
-          onPressed: () => setState(() => _tasks.add(TextEditingController())),
+          onPressed: () => setState(() => _tasks.add(_Task('', null))),
           icon: const Icon(AppIcons.plus),
           label: Text(l.addTask),
         ),
@@ -253,12 +290,27 @@ class _VoiceConfirmSheetState extends State<VoiceConfirmSheet> {
               child: Text(l.cancel),
             ),
             FilledButton(
-              onPressed: _matter != null && _dateReads ? _save : null,
+              onPressed: _matter != null && _datesRead ? _save : null,
               child: Text(l.voiceSave),
             ),
           ],
         ),
       ],
     );
+  }
+}
+
+/// One task's fields.
+class _Task {
+  _Task(String title, DateTime? due)
+    : title = TextEditingController(text: title),
+      due = TextEditingController(text: due == null ? '' : Formats.entry(due));
+
+  final TextEditingController title;
+  final TextEditingController due;
+
+  void dispose() {
+    title.dispose();
+    due.dispose();
   }
 }

@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 /// A citation's check (spec §12.7): shown as an icon and a word, never colour alone.
 enum CitationCheck { verified, needsReview, notFound, checkManually }
 
-/// A source an AI answer rests on, e.g. "Order dated 28-10-2026 · p. 3 · para 4". Tapping it opens the source at
+/// A source an AI answer rests on, e.g. "Order dated 28-10-2026 · p. 3 · para 12.1". Tapping it opens the source at
 /// that page and paragraph (spec §5.1). With [check] it is a citation chip showing the citation's check status
 /// (spec §5.11 #8).
 class SourceChip extends StatelessWidget {
@@ -23,7 +23,7 @@ class SourceChip extends StatelessWidget {
 
   final String label;
   final int? page;
-  final int? paragraph;
+  final String? paragraph;
   final CitationCheck? check;
 
   /// Opens the source at [page] and [paragraph].
