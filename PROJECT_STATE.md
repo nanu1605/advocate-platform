@@ -1,6 +1,6 @@
 # PROJECT_STATE
 Current phase: 2 — Daily AI assistant (status: planning; Phase 0 and 1 gates wait on Track B)
-Last updated: 2026-10-26
+Last updated: 2026-10-27
 
 ## Done (this phase)
 - Plan: [phase-2-plan.md](docs/phases/phase-2-plan.md) (Track A local, Track B on hold). Phase 2 started 26 Oct 2026
@@ -16,6 +16,10 @@ Last updated: 2026-10-26
   cost per run (thinking included × list price × multiplier); local stand-in while `AI_LIVE=0`; `ai_runs` and ledger
   records, shared summary cache, automatic-AI cap, credits, platform daily budget and hourly cost alerts; eval harness
   with synthetic v1 datasets (10 orders, 19 case-file questions, 15 voice notes); 42 deliberate breaks all caught.
+- Kit components deferred from P0 ([ADR 0021](docs/adr/0021-p2-kit-components.md)): AIAnswerCard, SourceChip with
+  citation checks, MicButton, VoiceConfirmSheet, ItemTracker; kitchen-sink sections, goldens (3 themes × en/hi ×
+  1.0/2.0), tap-target and label checks, pseudo-locale, and tests for tap versus hold, save only on confirm and tracker
+  read-outs. All 22 §5.11 components are now in the kit.
 
 ## Done (Phase 1, Track A)
 - Gate exceptions decided 26 Oct 2026 (the founder delegated the call) ([phase-1-report.md](docs/phases/phase-1-report.md)): the focus
@@ -85,13 +89,13 @@ Last updated: 2026-10-26
   Hindi review, privacy-policy page.
 
 ## Next up
-1. P2 Track A tasks 3–14 in order ([phase-2-plan.md](docs/phases/phase-2-plan.md)); next is task 3, the kit
-   components deferred from P0.
+1. P2 Track A tasks 4–14 in order ([phase-2-plan.md](docs/phases/phase-2-plan.md)); next is task 4, the document
+   pipeline (text layer, OCR, Kruti Dev, chunks, embedder, hybrid retrieval).
 2. iOS (P2): NSCameraUsageDescription and NSFaceIDUsageDescription in Info.plist.
 3. Phase 0 and 1 gates: Track B (on hold); see [phase-1-report.md](docs/phases/phase-1-report.md).
 
 ## Deviations from spec (with ADR links)
-- Kit: 5 P2-only components deferred to P2 start — [ADR 0001](docs/adr/0001-defer-p2-kit-components.md).
+- Kit: 5 P2-only components deferred to P2 start — [ADR 0001](docs/adr/0001-defer-p2-kit-components.md); built in P2 task 3 ([ADR 0021](docs/adr/0021-p2-kit-components.md)).
 - Local backend on Docker Desktop from the Windows checkout, not inside WSL2 — [ADR 0002](docs/adr/0002-backend-dev-on-docker-desktop.md).
 - Supabase local ports moved to 553xx: Windows reserves 54236–54335 on this machine.
 - Phosphor icons from vendored fonts; `phosphor_flutter` no longer builds — [ADR 0007](docs/adr/0007-vendored-phosphor-icons.md).
