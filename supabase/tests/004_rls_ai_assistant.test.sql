@@ -78,7 +78,8 @@ select tests.matrix('document_chunks insert', $$insert into public.document_chun
 select tests.matrix('document_chunks update', $$update public.document_chunks set text = 'x'$$, true, '{0,0,0,0,0}');
 select tests.matrix('document_chunks delete', 'delete from public.document_chunks', true, '{0,0,0,0,0}');
 
-select is((select count(*)::int from public.document_chunks where tsv @@ to_tsquery('simple', 'जमानत')), 1,
+select is((select count(*)::int from public.document_chunks
+  where document_id = 'aa000000-0000-0000-0000-0000000000d1' and tsv @@ to_tsquery('simple', 'जमानत')), 1,
   'document_chunks full-text search finds a Hindi word');
 select is((select count(*)::int from pg_indexes where tablename = 'document_chunks' and indexname in
   ('document_chunks_embedding_idx', 'document_chunks_tsv_idx', 'document_chunks_trgm_idx')), 3,

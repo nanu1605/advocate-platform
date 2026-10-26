@@ -14,11 +14,16 @@ import '../widget/documents_test.dart'
 import 'scene_goldens.dart';
 
 /// Documents goldens (spec §4.3) on a phone: the list (uploads waiting, failed and sending; documents ready, kept
-/// offline, being checked and blocked), the upload sheet and the viewer × light/dark/sunlight × en/hi × text scale
-/// 1.0/2.0. Reference images are rendered on Windows; CI runs this file on windows-latest.
+/// offline, being checked and blocked), the upload sheet, the viewer, search inside, and search inside court orders
+/// with no documents × light/dark/sunlight × en/hi × text scale 1.0/2.0. Reference images are rendered on Windows;
+/// CI runs this file on windows-latest.
 void main() {
   setUpAll(loadAppFonts);
-  sceneGoldens('documents', {'document viewer': 'viewer'});
+  sceneGoldens('documents', {
+    'document viewer': 'viewer',
+    'documents, search inside': 'search_inside',
+    'documents, none: search inside': 'empty_search',
+  });
 
   for (final screen in ['list', 'upload']) {
     for (final MapEntry(key: name, value: theme) in themes.entries) {

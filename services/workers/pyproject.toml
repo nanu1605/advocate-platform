@@ -10,6 +10,7 @@ dependencies = [
     "asyncpg",
     "redis",
     "httpx",
+    "pypdfium2>=5.14",
 ]
 
 [build-system]

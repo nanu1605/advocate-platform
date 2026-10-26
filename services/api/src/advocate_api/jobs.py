@@ -12,17 +12,21 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from advocate_api.db import after_commit
+from advocate_shared import tasks
 from advocate_shared.settings import get_settings
 
 
 @lru_cache
 def celery() -> Celery:
-    return Celery("advocate_api", broker=get_settings().redis_url)
+    app = Celery("advocate_api", broker=get_settings().redis_url)
+    app.conf.task_routes = tasks.ROUTES  # the sender picks the queue
+    return app
 
 
-async def enqueue(task: str, job_id: UUID) -> None:
-    """Replaced in tests. Workers read everything else from the job row, so a redelivered task resumes the same job."""
-    celery().send_task(task, args=[str(job_id)])
+async def enqueue(task: str, *args: object) -> None:
+    """Sends a Celery task; replaced in tests. A job task takes only the job id: workers read everything else from the
+    job row, so a redelivered task resumes the same job."""
+    celery().send_task(task, args=[str(a) for a in args])
 
 
 async def create_job(

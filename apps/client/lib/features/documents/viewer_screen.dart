@@ -54,19 +54,23 @@ typedef _Target = ({
 /// pages), images can be zoomed, and Word files open in another app. An order is marked read once its file is
 /// here. A document's Keep offline toggle is in the app bar.
 class ViewerScreen extends ConsumerStatefulWidget {
-  const ViewerScreen.document(String this.documentId, {super.key})
+  const ViewerScreen.document(String this.documentId, {this.page, super.key})
     : matterId = null,
       orderId = null;
 
   const ViewerScreen.order({
     required String this.matterId,
     required String this.orderId,
+    this.page,
     super.key,
   }) : documentId = null;
 
   final String? documentId;
   final String? matterId;
   final String? orderId;
+
+  /// A PDF opens at this page (`?page=`, from a search hit).
+  final int? page;
 
   @override
   ConsumerState<ViewerScreen> createState() => _ViewerScreenState();
@@ -215,15 +219,19 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
     );
   }
 
+  PdfPages _pdf(String path) {
+    final pages = ref.read(pdfPagesProvider)(path);
+    if (widget.page case final page?) pages.goTo(page);
+    return pages;
+  }
+
   Widget _body(BuildContext context, _Target? target) {
     final l = context.l10n;
     final file = _file;
     final opened = _fileRef;
     if (file != null && opened != null) {
       return switch (opened.mime) {
-        pdfMime => AppPdfViewer(
-          _pages ??= ref.read(pdfPagesProvider)(file.path),
-        ),
+        pdfMime => AppPdfViewer(_pages ??= _pdf(file.path)),
         'image/jpeg' || 'image/png' => InteractiveViewer(
           maxScale: 6,
           child: Center(

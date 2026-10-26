@@ -20,6 +20,12 @@ Last updated: 2026-10-27
   citation checks, MicButton, VoiceConfirmSheet, ItemTracker; kitchen-sink sections, goldens (3 themes × en/hi ×
   1.0/2.0), tap-target and label checks, pseudo-locale, and tests for tap versus hold, save only on confirm and tracker
   read-outs. All 22 §5.11 components are now in the kit.
+- Document pipeline ([ADR 0022](docs/adr/0022-p2-document-pipeline.md)): Kruti Dev / DevLys to Unicode in Python and
+  Dart (100 shared vectors; PDFs convert only the legacy-font runs; notes offer to convert a paste;
+  `POST /v1/text/krutidev-to-unicode`); text per page from pypdfium2, Tesseract `hin+eng` for scans and images, DOCX;
+  ~400-token chunks with page and paragraph numbers, on their own `text` queue; `services/embedder` (BGE-M3 +
+  bge-reranker-v2-m3 on CPU, fake models in CI); hybrid search (full text + vectors, RRF, rerank, top 8) with nukta,
+  visarga and digit folding; search inside documents in the app, hits opening at their page. Sarvam OCR waits for B7.
 
 ## Done (Phase 1, Track A)
 - Gate exceptions decided 26 Oct 2026 (the founder delegated the call) ([phase-1-report.md](docs/phases/phase-1-report.md)): the focus
@@ -89,12 +95,13 @@ Last updated: 2026-10-27
   Hindi review, privacy-policy page.
 
 ## Next up
-1. P2 Track A tasks 4–14 in order ([phase-2-plan.md](docs/phases/phase-2-plan.md)); next is task 4, the document
-   pipeline (text layer, OCR, Kruti Dev, chunks, embedder, hybrid retrieval).
+1. P2 Track A tasks 5–14 in order ([phase-2-plan.md](docs/phases/phase-2-plan.md)); next is task 5, the order
+   pipeline (order summary and order intelligence).
 2. iOS (P2): NSCameraUsageDescription and NSFaceIDUsageDescription in Info.plist.
 3. Phase 0 and 1 gates: Track B (on hold); see [phase-1-report.md](docs/phases/phase-1-report.md).
 
 ## Deviations from spec (with ADR links)
+- OCR: Tesseract `hin+eng` only until B7; spec F15 makes Sarvam Document Digitization primary — [ADR 0022](docs/adr/0022-p2-document-pipeline.md).
 - Kit: 5 P2-only components deferred to P2 start — [ADR 0001](docs/adr/0001-defer-p2-kit-components.md); built in P2 task 3 ([ADR 0021](docs/adr/0021-p2-kit-components.md)).
 - Local backend on Docker Desktop from the Windows checkout, not inside WSL2 — [ADR 0002](docs/adr/0002-backend-dev-on-docker-desktop.md).
 - Supabase local ports moved to 553xx: Windows reserves 54236–54335 on this machine.

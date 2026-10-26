@@ -1,0 +1,531 @@
+{
+ "_": "Kruti Dev 010 test vectors, shared by advocate_shared.krutidev and apps/client/lib/core/krutidev.dart. The text is synthetic.",
+ "vectors": [
+  {
+   "legacy": "U;k;ky;",
+   "unicode": "न्यायालय",
+   "rule": "half form + following consonant"
+  },
+  {
+   "legacy": "mPp U;k;ky;",
+   "unicode": "उच्च न्यायालय",
+   "rule": "half form"
+  },
+  {
+   "legacy": ";kfpdkdrkZ",
+   "unicode": "याचिकाकर्ता",
+   "rule": "ikar; reph skips aa-matra"
+  },
+  {
+   "legacy": "izfroknh",
+   "unicode": "प्रतिवादी",
+   "rule": "z rakar; ikar"
+  },
+  {
+   "legacy": "çfroknh",
+   "unicode": "प्रतिवादी",
+   "rule": "ligature ç"
+  },
+  {
+   "legacy": "vf/koDrk",
+   "unicode": "अधिवक्ता",
+   "rule": "ikar before half form completed by k"
+  },
+  {
+   "legacy": "vkns'k",
+   "unicode": "आदेश",
+   "rule": "vk; half श् + k"
+  },
+  {
+   "legacy": "tekur",
+   "unicode": "जमानत",
+   "rule": "basic"
+  },
+  {
+   "legacy": "e/;izns'k",
+   "unicode": "मध्यप्रदेश",
+   "rule": "half ध्; rakar"
+  },
+  {
+   "legacy": "bankSj",
+   "unicode": "इंदौर",
+   "rule": "kS = au-matra"
+  },
+  {
+   "legacy": "Xokfy;j",
+   "unicode": "ग्वालियर",
+   "rule": "half ग्; ikar"
+  },
+  {
+   "legacy": "tcyiqj",
+   "unicode": "जबलपुर",
+   "rule": "u-matra"
+  },
+  {
+   "legacy": "fnukad",
+   "unicode": "दिनांक",
+   "rule": "ikar; anusvara"
+  },
+  {
+   "legacy": "/kkjk",
+   "unicode": "धारा",
+   "rule": "/k = ध"
+  },
+  {
+   "legacy": "vijk/k",
+   "unicode": "अपराध",
+   "rule": "basic"
+  },
+  {
+   "legacy": "'kklu",
+   "unicode": "शासन",
+   "rule": "'k = श"
+  },
+  {
+   "legacy": "Jherh",
+   "unicode": "श्रीमती",
+   "rule": "ligature J"
+  },
+  {
+   "legacy": "Øekad",
+   "unicode": "क्रमांक",
+   "rule": "ligature Ø"
+  },
+  {
+   "legacy": "dzekad",
+   "unicode": "क्रमांक",
+   "rule": "z rakar"
+  },
+  {
+   "legacy": "izdj.k",
+   "unicode": "प्रकरण",
+   "rule": ".k = ण"
+  },
+  {
+   "legacy": "fujkd`r",
+   "unicode": "निराकृत",
+   "rule": "` = ृ"
+  },
+  {
+   "legacy": "fujkÑr",
+   "unicode": "निराकृत",
+   "rule": "ligature Ñ"
+  },
+  {
+   "legacy": "LFkfxr",
+   "unicode": "स्थगित",
+   "rule": "half स् + Fk"
+  },
+  {
+   "legacy": "lk{;",
+   "unicode": "साक्ष्य",
+   "rule": "{ = क्ष्"
+  },
+  {
+   "legacy": "dk;Zokgh",
+   "unicode": "कार्यवाही",
+   "rule": "reph"
+  },
+  {
+   "legacy": "lkeF;Z",
+   "unicode": "सामर्थ्य",
+   "rule": "reph jumps a whole conjunct"
+  },
+  {
+   "legacy": "fLFkfr",
+   "unicode": "स्थिति",
+   "rule": "ikar jumps a whole conjunct"
+  },
+  {
+   "legacy": "dhfrZ",
+   "unicode": "कीर्ति",
+   "rule": "ikar + reph on same consonant"
+  },
+  {
+   "legacy": "dhÆr",
+   "unicode": "कीर्ति",
+   "rule": "Æ = ikar+reph glyph"
+  },
+  {
+   "legacy": "fganh",
+   "unicode": "हिंदी",
+   "rule": "ikar then anusvara"
+  },
+  {
+   "legacy": "Çgnh",
+   "unicode": "हिंदी",
+   "rule": "Ç = ikar+anusvara glyph"
+  },
+  {
+   "legacy": "esa",
+   "unicode": "में",
+   "rule": "e-matra + anusvara"
+  },
+  {
+   "legacy": "eas",
+   "unicode": "में",
+   "rule": "anusvara typed before matra"
+  },
+  {
+   "legacy": "vkn'kZ",
+   "unicode": "आदर्श",
+   "rule": "reph after half+k"
+  },
+  {
+   "legacy": "/keZ",
+   "unicode": "धर्म",
+   "rule": "reph"
+  },
+  {
+   "legacy": "ikVhZ",
+   "unicode": "पार्टी",
+   "rule": "reph skips ii-matra"
+  },
+  {
+   "legacy": "ikVÊ",
+   "unicode": "पार्टी",
+   "rule": "Ê = ii+reph glyph"
+  },
+  {
+   "legacy": "varxZr",
+   "unicode": "अंतर्गत",
+   "rule": "reph"
+  },
+  {
+   "legacy": "t+ekur",
+   "unicode": "ज़मानत",
+   "rule": "nukta (decomposed, NFC-stable)"
+  },
+  {
+   "legacy": "lM+d",
+   "unicode": "सड़क",
+   "rule": "nukta"
+  },
+  {
+   "legacy": "egRoiw.kZ",
+   "unicode": "महत्वपूर्ण",
+   "rule": "reph after half+k"
+  },
+  {
+   "legacy": "fu.kZ;",
+   "unicode": "निर्णय",
+   "rule": "ikar + reph on different consonants"
+  },
+  {
+   "legacy": "fnukad% 12&05&2010",
+   "unicode": "दिनांक: 12-05-2010",
+   "rule": "% word-final after क = colon; & = hyphen"
+  },
+  {
+   "legacy": "vr% iqu% nq%[k Qyr%",
+   "unicode": "अतः पुनः दुःख फलतः",
+   "rule": "% = visarga inside a word and in visarga words"
+  },
+  {
+   "legacy": "LFkku% vyhjktiqj",
+   "unicode": "स्थान: अलीराजपुर",
+   "rule": "% word-final elsewhere = colon"
+  },
+  {
+   "legacy": ",-vkb Z-vkj- 2014",
+   "unicode": "ए.आई.आर. 2014",
+   "rule": "space inserted before Z by PDF extraction"
+  },
+  {
+   "legacy": "&%% U;k;ky; %",
+   "unicode": "-:: न्यायालय :",
+   "rule": "% after punctuation/space = colon"
+  },
+  {
+   "legacy": "10%30",
+   "unicode": "10:30",
+   "rule": "% after digit = colon"
+  },
+  {
+   "legacy": "ƒ„…å",
+   "unicode": "१२३०",
+   "rule": "Devanagari digits"
+  },
+  {
+   "legacy": "U;k; gSA",
+   "unicode": "न्याय है।",
+   "rule": "A = danda"
+  },
+  {
+   "legacy": "lekIr AA",
+   "unicode": "समाप्त ॥",
+   "rule": "AA = double danda"
+  },
+  {
+   "legacy": "/kkjk 302 Hkk-na-la-",
+   "unicode": "धारा 302 भा.दं.सं.",
+   "rule": "- = full stop; ASCII digits pass through"
+  },
+  {
+   "legacy": "Kku",
+   "unicode": "ज्ञान",
+   "rule": "ligature K"
+  },
+  {
+   "legacy": "}kjk",
+   "unicode": "द्वारा",
+   "rule": "ligature }"
+  },
+  {
+   "legacy": "fo|ky;",
+   "unicode": "विद्यालय",
+   "rule": "ligature |"
+  },
+  {
+   "legacy": "{ks=",
+   "unicode": "क्षेत्र",
+   "rule": "half क्ष् + k + s; ="
+  },
+  {
+   "legacy": "'kq)",
+   "unicode": "शुद्ध",
+   "rule": "ligature )"
+  },
+  {
+   "legacy": "czã",
+   "unicode": "ब्रह्म",
+   "rule": "ligature ã"
+  },
+  {
+   "legacy": "vkWfQl",
+   "unicode": "ऑफिस",
+   "rule": "vkW = ऑ"
+  },
+  {
+   "legacy": "dkWyst",
+   "unicode": "कॉलेज",
+   "rule": "kW = ॉ"
+  },
+  {
+   "legacy": "ikWap",
+   "unicode": "पाँच",
+   "rule": "kWa = ाँ (candra+dot = chandrabindu)"
+  },
+  {
+   "legacy": "esjk uke jes'k gSA eSa Hkksiky esa jgrk gw¡A",
+   "unicode": "मेरा नाम रमेश है। मैं भोपाल में रहता हूँ।",
+   "rule": "¡ chandrabindu; sentence"
+  },
+  {
+   "legacy": "fu\"d\"kZ",
+   "unicode": "निष्कर्ष",
+   "rule": "ikar + half ष् + reph"
+  },
+  {
+   "legacy": "Hkkjrh; n.M izfØ;k lafgrk 1860",
+   "unicode": "भारतीय दण्ड प्रक्रिया संहिता 1860",
+   "rule": "sentence"
+  },
+  {
+   "legacy": "Jheku~",
+   "unicode": "श्रीमान्",
+   "rule": "~ = halant kept"
+  },
+  {
+   "legacy": "Izk",
+   "unicode": "प्र",
+   "rule": "half + z + bar = full + rakar (SIL)"
+  },
+  {
+   "legacy": "vfHk;qDr",
+   "unicode": "अभियुक्त",
+   "rule": "ikar before half+k"
+  },
+  {
+   "legacy": "U;k;k/kh'k",
+   "unicode": "न्यायाधीश",
+   "rule": "half forms"
+  },
+  {
+   "legacy": "_.k",
+   "unicode": "ऋण",
+   "rule": "_ = ऋ"
+  },
+  {
+   "legacy": "iwoZ",
+   "unicode": "पूर्व",
+   "rule": "reph"
+  },
+  {
+   "legacy": "loksZPp",
+   "unicode": "सर्वोच्च",
+   "rule": "reph skips o-matra"
+  },
+  {
+   "legacy": "lokZsPp",
+   "unicode": "सर्वोच्च",
+   "rule": "reph typed between k and s"
+  },
+  {
+   "legacy": "is'kh",
+   "unicode": "पेशी",
+   "rule": "basic"
+  },
+  {
+   "legacy": "'ks\"k",
+   "unicode": "शेष",
+   "rule": "half श् + ks = शे; \" = ष्"
+  },
+  {
+   "legacy": "dk;ks±",
+   "unicode": "कार्यों",
+   "rule": "± = reph+anusvara"
+  },
+  {
+   "legacy": "vkSj",
+   "unicode": "और",
+   "rule": "vkS = औ"
+  },
+  {
+   "legacy": "vksj",
+   "unicode": "ओर",
+   "rule": "vks = ओ"
+  },
+  {
+   "legacy": ",slk",
+   "unicode": "ऐसा",
+   "rule": ",s = ऐ"
+  },
+  {
+   "legacy": "bZekunkj",
+   "unicode": "ईमानदार",
+   "rule": "bZ = ई"
+  },
+  {
+   "legacy": "Åij",
+   "unicode": "ऊपर",
+   "rule": "Å = ऊ"
+  },
+  {
+   "legacy": "fp=",
+   "unicode": "चित्र",
+   "rule": "ikar on single consonant before ligature"
+  },
+  {
+   "legacy": "fØ;k",
+   "unicode": "क्रिया",
+   "rule": "ikar jumps ligature with rakar"
+  },
+  {
+   "legacy": "f}rh;",
+   "unicode": "द्वितीय",
+   "rule": "ikar jumps ligature"
+  },
+  {
+   "legacy": "nLrkost",
+   "unicode": "दस्तावेज",
+   "rule": "half स्"
+  },
+  {
+   "legacy": "'kiFk&i=",
+   "unicode": "शपथ-पत्र",
+   "rule": "& = hyphen"
+  },
+  {
+   "legacy": "gLrk{kj",
+   "unicode": "हस्ताक्षर",
+   "rule": "{k = क्ष"
+  },
+  {
+   "legacy": "ijh{kk",
+   "unicode": "परीक्षा",
+   "rule": "{k + k"
+  },
+  {
+   "legacy": "f'kdk;r",
+   "unicode": "शिकायत",
+   "rule": "ikar before half+k"
+  },
+  {
+   "legacy": "vfHk;kstu",
+   "unicode": "अभियोजन",
+   "rule": "ks = ो"
+  },
+  {
+   "legacy": "lqizhe dksVZ",
+   "unicode": "सुप्रीम कोर्ट",
+   "rule": "reph after o-matra consonant"
+  },
+  {
+   "legacy": "e/;izns'k mPp U;k;ky;] [kaMihB tcyiqj",
+   "unicode": "मध्यप्रदेश उच्च न्यायालय, खंडपीठ जबलपुर",
+   "rule": "sentence; ] = comma"
+  },
+  {
+   "legacy": "tekur ;kfpdk fujkd`r dh tkrh gSA",
+   "unicode": "जमानत याचिका निराकृत की जाती है।",
+   "rule": "sentence"
+  },
+  {
+   "legacy": "vkosnu LFkfxr fd;k tkrk gSA",
+   "unicode": "आवेदन स्थगित किया जाता है।",
+   "rule": "sentence"
+  },
+  {
+   "legacy": "lk{; ds vHkko esa",
+   "unicode": "साक्ष्य के अभाव में",
+   "rule": "sentence"
+  },
+  {
+   "legacy": "izdj.k dzekad 123@2020",
+   "unicode": "प्रकरण क्रमांक 123/2020",
+   "rule": "@ = solidus"
+  },
+  {
+   "legacy": "vf/koDrk Jh",
+   "unicode": "अधिवक्ता श्री",
+   "rule": "sentence"
+  },
+  {
+   "legacy": "U;k;ky; esa vihy ¼vkijkf/kd½",
+   "unicode": "न्यायालय में अपील (आपराधिक)",
+   "rule": "¼ ½ = parentheses"
+  },
+  {
+   "legacy": "\uf064\uf06b",
+   "unicode": "का",
+   "rule": "PDF symbol-font PUA input"
+  },
+  {
+   "legacy": "“k ‘k",
+   "unicode": "श ष",
+   "rule": "KD 010 smart quotes: “ = श्, ‘ = ष्"
+  },
+  {
+   "legacy": "i zf r",
+   "unicode": "प्रति",
+   "rule": "spaces inserted by PDF extraction before signs/after f"
+  }
+ ],
+ "devlys": [
+  {
+   "legacy": "’kklu",
+   "unicode": "शासन"
+  },
+  {
+   "legacy": "“kjr",
+   "unicode": "भारत"
+  }
+ ],
+ "detect": {
+  "legacy": [
+   "izdj.k esa ;kfpdkdrkZ dh vksj ls vf/koDrk mifLFkr gSA vukosnd dh vksj ls dksbZ mifLFkr ugha gSA",
+   "U;k;ky; us vkns'k fn;k fd vkosnd dks tekur ij fjgk fd;k tk,A izdj.k vkxkeh fnukad 20&11&2026 dks is'k gksA",
+   "ekuuh; mPp U;k;ky; e/;izns'k [k.MihB bankSj }kjk ikfjr vkns'k fnukad 12&05&2010 ds vuqlkj ;kfpdk Lohdkj dh xbZA"
+  ],
+  "other": [
+   "The petitioner was represented by counsel and the respondent filed a reply within four weeks.",
+   "Ramesh Kumar Sharma vs State of Madhya Pradesh; Kakkar and Kokkinakis appeared for the parties.",
+   "aap kal court mein aa jaiye, hum sab baat kar lenge aur kagaz bhi le aaiye, kaam ho jayega",
+   "AIR 2014 SC 1234; (2019) 5 SCC 123; 2023 SCC OnLine MP 1021; https://example.com/a?b=c",
+   "def convert(legacy: str) -> str: return {'k': [1, 2], 'v': legacy}  # snippet",
+   "न्यायालय ने आदेश दिया कि आवेदक को जमानत पर रिहा किया जाए। U;k;ky;",
+   "dk ds dh"
+  ]
+ }
+}

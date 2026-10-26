@@ -15,6 +15,7 @@ from celery import Task
 from conftest import Factory, Org, _up, sql
 from structlog.testing import capture_logs
 
+from advocate_shared import tasks
 from advocate_shared.settings import get_settings
 from advocate_workers import jobs, scan, storage
 
@@ -101,7 +102,7 @@ def _task(retries: int) -> Any:
     return task
 
 
-async def test_clean_file_becomes_ready_with_its_sha256(upload, clamd: FakeClamd):
+async def test_clean_file_becomes_ready_with_its_sha256(upload, clamd: FakeClamd, sent):
     data = b"%PDF-1.4 a clean petition, longer than one chunk"
     _, doc_id, job_id = await upload(data)
     await jobs.run(job_id, scan.scan)
@@ -109,9 +110,10 @@ async def test_clean_file_becomes_ready_with_its_sha256(upload, clamd: FakeClamd
     assert clamd.streams == [data]  # every chunk arrived, in order
     assert doc == {"upload_status": "ready", "sha256": hashlib.sha256(data).hexdigest()}
     assert job == {"status": "done", "result": {"upload_status": "ready"}, "error": None}
+    assert sent == [(tasks.EXTRACT_TEXT, ("document", doc_id))]  # then its text is read
 
 
-async def test_infected_file_is_quarantined_and_only_the_signature_logged(upload, clamd: FakeClamd):
+async def test_infected_file_is_quarantined_and_only_the_signature_logged(upload, clamd: FakeClamd, sent):
     data = b"%PDF-1.4 " + MARKER
     _, doc_id, job_id = await upload(data)
     with capture_logs() as logs:
@@ -122,6 +124,7 @@ async def test_infected_file_is_quarantined_and_only_the_signature_logged(upload
     [entry] = [e for e in logs if e["event"] == "document_quarantined"]
     assert entry["signature"] == "Eicar-Test-Signature"
     assert "Ramesh" not in repr(logs)  # never the title
+    assert sent == []  # a quarantined file is never read
 
 
 async def test_scanner_down_keeps_document_pending_and_retries_then_fails(upload, monkeypatch):

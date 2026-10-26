@@ -5,6 +5,7 @@ import 'package:advocate_app/core/router.dart';
 import 'package:advocate_app/core/theme/app_theme.dart';
 import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/api_client.dart';
+import 'package:advocate_app/data/cases.dart';
 import 'package:advocate_app/data/feedback.dart';
 import 'package:advocate_app/data/found_cases.dart';
 import 'package:advocate_app/data/jobs.dart';
@@ -139,9 +140,27 @@ CaseHit _hit(int n, {bool tracked = false}) => CaseHit(
   tracked: tracked,
 );
 
-/// The API every scene talks to: [account], a pending invite, two search hits with more to load, a running search.
+/// The API every scene talks to: [account], a pending invite, two search hits with more to load, a running search,
+/// and two pages found inside documents.
 FakeApi _api(Account account) => FakeApi(account: account)
   ..invites.add(_invite)
+  ..documentHits = const [
+    DocumentHit(
+      documentId: 'd-1',
+      matterId: 'm-1',
+      title: 'Writ petition',
+      page: 2,
+      paras: ['4'],
+      snippet: '…the applicant is released on ज़मानत of Rs. 25,000 with one surety of the like amount…',
+    ),
+    DocumentHit(
+      orderId: 'o-1',
+      matterId: 'm-1',
+      title: 'Order 20-10-2026',
+      page: 3,
+      snippet: 'Interim protection continues. जमानत आवेदन पर अगली तारीख को विचार होगा।',
+    ),
+  ]
   ..searchPages = [
     CaseSearchPage(
       items: [_hit(1), _hit(2, tracked: true)],
@@ -179,8 +198,20 @@ List<Override> _notifications() => [
   ..._services(),
 ];
 
-List<Override> _services() => [
-  ...FakeDocuments(queue: sampleQueue()).overrides,
+/// No documents and nothing waiting to upload: one case with a court order, which search inside still reads.
+List<Override> _noDocuments() => [
+  ...sampleDiary(tomorrow: boardSample()).overrides,
+  ...FakeCases(
+    cases: [caseInfo(1)],
+    orders: {
+      'm-1': [CaseOrder(id: 'o-1', date: DateTime.utc(2026, 10, 20))],
+    },
+  ).caseOverrides,
+  ..._services(queue: false),
+];
+
+List<Override> _services({bool queue = true}) => [
+  ...FakeDocuments(queue: queue ? sampleQueue() : const []).overrides,
   uploadSourcesProvider.overrideWithValue(
     FakeSources(files: [fakeFile('Rejoinder final.pdf')]),
   ),
@@ -732,6 +763,33 @@ final _scenes = <_Scene>[
     location: '/documents',
     open: (t, l) => _tap(t, find.byTooltip(l.docsRemoveUpload)),
     shows: (l) => find.text(l.docsRemoveBody),
+  ),
+  _Scene(
+    'documents, search inside',
+    location: '/documents',
+    open: (t, l) async {
+      await t.enterText(find.byType(TextField).first, 'bail');
+      await t.testTextInput.receiveAction(TextInputAction.search);
+      await t.pumpAndSettle();
+    },
+    shows: (l) => find.textContaining(l.docsInsideTitle),
+  ),
+  _Scene(
+    'documents, none: search inside',
+    location: '/documents',
+    data: _noDocuments,
+    open: (t, l) async {
+      // Only the court order: the org has no documents.
+      final api = container(t).read(apiClientProvider) as FakeApi;
+      api.documentHits = [
+        for (final h in api.documentHits)
+          if (h.orderId != null) h,
+      ];
+      await t.enterText(find.byType(TextField).first, 'bail');
+      await t.testTextInput.receiveAction(TextInputAction.search);
+      await t.pumpAndSettle();
+    },
+    shows: (l) => find.textContaining(l.docsInsideTitle),
   ),
   _Scene(
     'viewer, go to page',

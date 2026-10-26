@@ -26,6 +26,17 @@ services:
     image: redis:8-alpine
     ports: ["6379:6379"]
 
+  # BGE-M3 and the reranker (spec §12.4): about 5 GB of image, so only on request:
+  #   docker compose -f infra/docker/compose.yml --profile embedder up -d embedder
+  # then set EMBEDDER_URL=http://embedder:8001 in .env (http://127.0.0.1:8001 for tests on the host). Without it,
+  # search uses full text alone.
+  embedder:
+    build:
+      context: ../..
+      dockerfile: infra/docker/embedder.Dockerfile
+    profiles: [embedder]
+    ports: ["8001:8001"]
+
   api:
     <<: *python
     command: uvicorn advocate_api.main:app --host 0.0.0.0 --port 8000
@@ -40,6 +51,11 @@ services:
   worker-scheduled:
     <<: *python
     command: celery -A advocate_workers.celery_app worker -Q scheduled --loglevel=INFO
+
+  # Text extraction (OCR can take minutes per scan) on its own worker, one file at a time.
+  worker-text:
+    <<: *python
+    command: celery -A advocate_workers.celery_app worker -Q text --concurrency=1 --loglevel=INFO
 
   beat:
     <<: *python

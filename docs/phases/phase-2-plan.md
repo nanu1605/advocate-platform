@@ -36,7 +36,7 @@ Each row is one or more PRs; CI stays green after each.
 | # | Task | Blocked on |
 |---|---|---|
 | B6 | Spike 11c: India profile IDs and prefix, models per tier, `effort`/thinking support, prices → `config/ai_models.yaml`, credit prices; live `LLMClient` smoke test | AWS account, Bedrock India access |
-| B7 | Spike 11d: Sarvam speech-to-text on 10 voice notes, Document Digitization on scans; data location and retention in `docs/vendors.md` | Sarvam key, 10 voice notes |
+| B7 | Spike 11d: Sarvam speech-to-text on 10 voice notes, Document Digitization on scans; data location and retention in `docs/vendors.md`; the Sarvam OCR client behind the reader's OCR seam (task 4 ships Tesseract only, ADR 0022) | Sarvam key, 10 voice notes |
 | B8 | WhatsApp Cloud API live: utility templates (§13.4) approved, webhook, Cloud API local storage in India (ADR) | Meta Business verification, number |
 | B9 | SES in Mumbai: domain verification, production access | AWS account, domain |
 | B10 | iOS TestFlight with ≥ 10 testers, push (APNs via FCM), VisionKit scanning | Apple account, Codemagic, Firebase |

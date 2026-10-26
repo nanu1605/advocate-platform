@@ -5,6 +5,7 @@ import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/data/cases.dart';
 import 'package:advocate_app/ui/focus_ring.dart';
+import 'package:advocate_app/ui/krutidev_offer.dart';
 import 'package:advocate_app/ui/sheets.dart';
 import 'package:advocate_app/ui/skeleton.dart';
 import 'package:advocate_app/ui/states.dart';
@@ -173,12 +174,14 @@ class _TextSheet extends StatefulWidget {
 
 class _TextSheetState extends State<_TextSheet> {
   late final _text = TextEditingController(text: widget.initial);
+  final _focus = FocusNode();
   late bool _private = widget.private ?? false;
   String? _error;
 
   @override
   void dispose() {
     _text.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
@@ -201,19 +204,27 @@ class _TextSheetState extends State<_TextSheet> {
       title: widget.title,
       onSave: _save,
       children: [
-        TextField(
-          controller: _text,
-          autofocus: true,
-          minLines: 3,
-          maxLines: 8,
-          textCapitalization: TextCapitalization.sentences,
-          style: context.text.bodyLarge,
-          decoration: InputDecoration(
-            labelText: widget.label,
-            alignLabelWithHint: true,
-            errorText: _error,
-            errorMaxLines: 3,
-          ),
+        // One child, so the hidden offer adds no gap under the field.
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _text,
+              focusNode: _focus,
+              autofocus: true,
+              minLines: 3,
+              maxLines: 8,
+              textCapitalization: TextCapitalization.sentences,
+              style: context.text.bodyLarge,
+              decoration: InputDecoration(
+                labelText: widget.label,
+                alignLabelWithHint: true,
+                errorText: _error,
+                errorMaxLines: 3,
+              ),
+            ),
+            KrutidevOffer(_text, focusNode: _focus),
+          ],
         ),
         if (widget.private != null)
           FocusRing(

@@ -23,6 +23,7 @@ import 'package:advocate_app/data/notifications.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/board/board_share.dart';
 import 'package:advocate_app/features/dev_kitchen_sink/kitchen_sink.dart';
+import 'package:advocate_app/features/documents/documents_screen.dart';
 import 'package:advocate_app/features/documents/viewer_screen.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:advocate_app/features/onboarding/consent_screen.dart';
@@ -480,6 +481,19 @@ class FakeApi extends ApiClient {
     () =>
         (tracking: tracking, jobId: tracking == 'auto' ? trackingJobId : null),
   );
+
+  /// What searchDocuments returns.
+  List<DocumentHit> documentHits = const [];
+
+  @override
+  Future<List<DocumentHit>> searchDocuments({
+    required String orgId,
+    required String query,
+    String? matterId,
+  }) => _call('searchDocuments', {
+    'query': query,
+    'matterId': matterId,
+  }, () => documentHits);
 
   @override
   Future<String> documentUrl({
@@ -1038,6 +1052,14 @@ class FakeCases extends CaseWriter {
     ),
     caseOrdersProvider.overrideWith(
       (ref, id) => _watch(() => [...?orders[id]]),
+    ),
+    orderCaseIdsProvider.overrideWith(
+      (ref) => _watch(
+        () => {
+          for (final MapEntry(:key, :value) in orders.entries)
+            if (value.isNotEmpty) key,
+        },
+      ),
     ),
     caseDocumentsProvider.overrideWith(
       (ref, id) => _table('documents', () => _docs(id)),

@@ -11,6 +11,7 @@ import httpx
 import pytest
 from conftest import Factory, FakeProvider, Org, _up, case_record, sql, unavailable
 
+from advocate_shared import tasks
 from advocate_shared.settings import get_settings
 from advocate_workers import celery_app, db, orders, storage
 from advocate_workers.diff import apply_case
@@ -44,7 +45,7 @@ async def order(make: Factory) -> AsyncIterator[tuple[str, str, Org]]:
         await remove_objects(paths)
 
 
-async def test_an_order_pdf_is_fetched_once_and_stored_by_content(order, provider: FakeProvider, r):
+async def test_an_order_pdf_is_fetched_once_and_stored_by_content(order, provider: FakeProvider, r, sent):
     order_id, cnr, _ = order
     pdf = b"%PDF-1.4 order seven"
     provider.pdfs[(cnr, ORDER.provider_ref)] = pdf
@@ -56,6 +57,7 @@ async def test_an_order_pdf_is_fetched_once_and_stored_by_content(order, provide
     ]
     assert await storage.get("court-orders", path) == pdf
     assert await r.get(f"order-pdf:{order_id}") is None  # lock released
+    assert sent == [(tasks.EXTRACT_TEXT, ("court_order", order_id))]  # then its text is read
 
     assert await orders.fetch_order(r, order_id, TODAY) == "skipped"
     assert await asyncio.to_thread(orders.order_pipeline, order_id) == "skipped"  # the Celery task, in its own loop
