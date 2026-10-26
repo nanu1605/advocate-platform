@@ -16,17 +16,22 @@ Future<T?> showAppBottomSheet<T>(
   ),
 );
 
-/// Destructive confirmation. The destructive action is the only filled button.
+/// Destructive confirmation. The destructive action is the only filled button; [cancelLabel] defaults to "Cancel".
 Future<bool> showConfirmDialog(
   BuildContext context, {
   required String title,
   required String body,
   required String confirmLabel,
+  String? cancelLabel,
 }) async =>
     await showDialog<bool>(
       context: context,
-      builder: (_) =>
-          ConfirmDialog(title: title, body: body, confirmLabel: confirmLabel),
+      builder: (_) => ConfirmDialog(
+        title: title,
+        body: body,
+        confirmLabel: confirmLabel,
+        cancelLabel: cancelLabel,
+      ),
     ) ??
     false;
 
@@ -35,12 +40,14 @@ class ConfirmDialog extends StatelessWidget {
     required this.title,
     required this.body,
     required this.confirmLabel,
+    this.cancelLabel,
     super.key,
   });
 
   final String title;
   final String body;
   final String confirmLabel;
+  final String? cancelLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +58,7 @@ class ConfirmDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: Text(context.l10n.cancel),
+          child: Text(cancelLabel ?? context.l10n.cancel),
         ),
         FilledButton(
           style: FilledButton.styleFrom(

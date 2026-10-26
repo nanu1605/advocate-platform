@@ -1,11 +1,14 @@
 """Team endpoints: invites, join codes, member management (spec §10.2 Team, §15.3, §15.7, F16)."""
 
+import json
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
-from advocate_api.db import CurrentOrg
+from advocate_api.db import CurrentOrg, engine
 from advocate_api.main import create_app
 from advocate_api.ratelimit import redis
 from advocate_shared.settings import get_settings
@@ -182,3 +185,78 @@ async def test_accept_is_rate_limited(client, team):
         assert (await accept(client, team, "out", "ZZZZZZZZ")).status_code == 404
     r = await accept(client, team, "out", "ZZZZZZZZ")
     assert r.status_code == 429 and r.json()["error"]["code"] == "RATE_LIMITED"
+
+
+async def test_owner_lists_open_invites(client, team, monkeypatch):
+    path = f"/v1/orgs/{team.org_id}/invites"
+    owner = auth(team.tokens["owner"])
+    assert (await client.get(path, headers=owner)).json() == []
+    first = await invite(client, team, role="clerk", phone="9999900014")
+    monkeypatch.setattr(get_settings(), "app_link_base", "https://pairavi.in")
+    second = await invite(client, team, role="junior")
+    expired = await invite(client, team, role="clerk")
+    accepted = await invite(client, team, role="junior")
+    await sql("update public.invites set expires_at = now() - interval '1 minute' where id = :i", i=expired["id"])
+    assert (await accept(client, team, "out", accepted["code"])).status_code == 200
+
+    r = await client.get(path, headers=owner)
+    assert r.status_code == 200, r.text
+    assert [i["id"] for i in r.json()] == [second["id"], first["id"]]  # open ones, newest first
+    newest = r.json()[0]
+    assert newest["code"] == second["code"] and newest["role"] == "junior" and newest["phone"] is None
+    assert newest["link"] == f"https://pairavi.in/join/{second['code']}"
+    assert r.json()[1]["phone"] == "919999900014"
+
+
+async def test_only_the_owner_sees_and_revokes_invites(client, team):
+    inv = await invite(client, team, role="clerk")
+    path = f"/v1/orgs/{team.org_id}/invites"
+    for who, expected in (("adv", (403, "ROLE_NOT_ALLOWED")), ("out", (404, "NOT_FOUND"))):
+        headers = auth(team.tokens[who])
+        assert error(await client.get(path, headers=headers)) == expected
+        assert error(await client.delete(f"{path}/{inv['id']}", headers=headers)) == expected
+    assert (await sql("select expires_at > now() as open from public.invites where id = :i", i=inv["id"])) == [
+        {"open": True}
+    ]
+
+
+async def test_revoking_an_invite_frees_its_seat(client, team):
+    owner = auth(team.tokens["owner"])
+    path = f"/v1/orgs/{team.org_id}/invites"
+    invites = [await invite(client, team, role="clerk") for _ in range(8)]  # owner + adv + 8 open invites = 10
+    assert error(await client.post(path, json={"role": "clerk"}, headers=owner)) == (409, "TEAM_LIMIT")
+
+    r = await client.delete(f"{path}/{invites[0]['id']}", headers=owner)
+    assert r.status_code == 204, r.text
+    assert error(await accept(client, team, "clerk", invites[0]["code"])) == (404, "INVITE_INVALID")
+    assert [i["id"] for i in (await client.get(path, headers=owner)).json()] == [i["id"] for i in invites[:0:-1]]
+    assert (await client.post(path, json={"role": "clerk"}, headers=owner)).status_code == 201
+
+
+async def test_revoke_is_404_for_accepted_expired_or_unknown_invites(client, team):
+    owner = auth(team.tokens["owner"])
+    path = f"/v1/orgs/{team.org_id}/invites"
+    accepted = await invite(client, team, role="junior")
+    assert (await accept(client, team, "out", accepted["code"])).status_code == 200
+    expired = await invite(client, team, role="clerk")
+    await sql("update public.invites set expires_at = now() - interval '1 minute' where id = :i", i=expired["id"])
+    revoked = await invite(client, team, role="clerk")
+    assert (await client.delete(f"{path}/{revoked['id']}", headers=owner)).status_code == 204
+    for invite_id in (accepted["id"], expired["id"], revoked["id"], "00000000-0000-0000-0000-000000000000"):
+        assert error(await client.delete(f"{path}/{invite_id}", headers=owner)) == (404, "NOT_FOUND"), invite_id
+
+
+async def test_revoke_beats_an_accept_already_under_way(client, team):
+    """An accept whose transaction began before the revoke, so its now() is earlier than the revoke's, still finds
+    the invite expired once the revoke has committed."""
+    inv = await invite(client, team, role="clerk")
+    async with engine().connect() as c:  # the invitee's accept, as user_db runs it; closing rolls it back
+        await c.execute(text("set local role authenticated"))
+        await c.execute(
+            text("select set_config('request.jwt.claims', :c, true)"),
+            {"c": json.dumps({"sub": team.users["clerk"], "role": "authenticated"})},
+        )
+        r = await client.delete(f"/v1/orgs/{team.org_id}/invites/{inv['id']}", headers=auth(team.tokens["owner"]))
+        assert r.status_code == 204, r.text
+        with pytest.raises(DBAPIError, match="INVITE_INVALID"):
+            await c.execute(text("select public.accept_invite(:c)"), {"c": inv["code"]})

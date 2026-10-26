@@ -4,6 +4,7 @@ import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/core/theme/tokens.g.dart';
 import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/auth.dart';
+import 'package:advocate_app/data/team.dart';
 import 'package:advocate_app/features/board/board_screen.dart';
 import 'package:advocate_app/features/calendar/calendar_screen.dart';
 import 'package:advocate_app/features/case_page/case_page.dart';
@@ -12,11 +13,14 @@ import 'package:advocate_app/features/cases/manual_case_screen.dart';
 import 'package:advocate_app/features/cases/search_cases_screen.dart';
 import 'package:advocate_app/features/clients/client_profile.dart';
 import 'package:advocate_app/features/clients/clients_screen.dart';
+import 'package:advocate_app/features/dashboard/dashboard_screen.dart';
 import 'package:advocate_app/features/dev_kitchen_sink/kitchen_sink.dart';
 import 'package:advocate_app/features/documents/documents_screen.dart';
 import 'package:advocate_app/features/documents/viewer_screen.dart';
 import 'package:advocate_app/features/found_cases/found_cases_screen.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
+import 'package:advocate_app/features/notifications/notification_centre.dart';
+import 'package:advocate_app/features/notifications/notification_prefs_screen.dart';
 import 'package:advocate_app/features/onboarding/account_loading_screen.dart';
 import 'package:advocate_app/features/onboarding/consent_screen.dart';
 import 'package:advocate_app/features/onboarding/details_screen.dart';
@@ -31,6 +35,7 @@ import 'package:advocate_app/features/session.dart';
 import 'package:advocate_app/features/settings/settings_screen.dart';
 import 'package:advocate_app/features/shell/home_shell.dart';
 import 'package:advocate_app/features/shell/screens.dart';
+import 'package:advocate_app/features/team/team_screen.dart';
 import 'package:advocate_app/features/today/today_screen.dart';
 import 'package:advocate_app/ui/app_scaffold.dart';
 import 'package:animations/animations.dart';
@@ -55,7 +60,9 @@ const _onboarding = [
 ///
 /// [onboardingDone] is the account's device flag (`AppSettings.onboardingDone`; null = not decided here yet,
 /// then a set-up account counts as done). [stage] is null while the account loads, or failed to load with
-/// nothing cached: /loading shows that rather than guessing a step.
+/// nothing cached: /loading shows that rather than guessing a step. A finished device whose account has loaded in
+/// no team was removed from its only team: it goes back to the role step (join a team by code, or work alone),
+/// never to a Today with no organisation.
 String? onboardingRedirect({
   required String location,
   required bool hasLanguage,
@@ -74,7 +81,8 @@ String? onboardingRedirect({
     target = '/consent';
   } else if (!lockConfigured) {
     target = '/app-lock';
-  } else if (onboardingDone ?? stage?.setUp ?? false) {
+  } else if ((onboardingDone ?? stage?.setUp ?? false) &&
+      stage != AccountStage.noOrg) {
     target = _onboarding.any(location.startsWith) ? '/today' : location;
   } else if (stage == null) {
     target = '/loading';
@@ -157,6 +165,8 @@ Page<void> _step(BuildContext context, GoRouterState state, Widget child) =>
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier(0);
   void bump(Object? _, Object? _) => refresh.value++;
+  // The last team the account was in, to name it if the account turns up in none.
+  String? lastTeam;
   ref
     ..listen(settingsProvider, bump)
     ..listen(signedInProvider, (was, now) {
@@ -169,13 +179,21 @@ final routerProvider = Provider<GoRouter>((ref) {
     })
     ..listen(appLockProvider.select((s) => s.configured), bump)
     // The first time an account loads on this device, decide whether it still needs onboarding here.
+    ..listen(currentOrgProvider.select((m) => m?.orgName), (_, name) {
+      if (name != null) lastTeam = name;
+    }, fireImmediately: true)
     ..listen(accountProvider.select((a) => a.value?.stage), (_, stage) {
-      if (stage != null && ref.read(settingsProvider).onboardingDone == null) {
-        unawaited(
-          ref
-              .read(settingsProvider.notifier)
-              .setOnboardingDone(value: stage.setUp),
-        );
+      final done = ref.read(settingsProvider).onboardingDone;
+      final settings = ref.read(settingsProvider.notifier);
+      final removed = ref.read(removedFromTeamProvider.notifier);
+      if (stage != null && done == null) {
+        unawaited(settings.setOnboardingDone(value: stage.setUp));
+      } else if (stage == AccountStage.noOrg && done == true) {
+        // Removed from their only team: onboarding carries on from the role step, which says why.
+        removed.team = lastTeam ?? '';
+        unawaited(settings.setOnboardingDone(value: false));
+      } else if (stage?.setUp ?? false) {
+        removed.team = null;
       }
       refresh.value++;
     })
@@ -323,6 +341,30 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/settings',
             pageBuilder: (c, s) => _tab(c, s, const SettingsScreen()),
+            routes: [
+              GoRoute(
+                path: 'notifications',
+                pageBuilder: (c, s) =>
+                    _tab(c, s, const NotificationPrefsScreen()),
+              ),
+            ],
+          ),
+          // The bell on Today and More; `?kind=new_order` shows one kind (the dashboard's New orders).
+          GoRoute(
+            path: '/notifications',
+            pageBuilder: (c, s) => _tab(
+              c,
+              s,
+              NotificationCentre(kind: s.uri.queryParameters['kind']),
+            ),
+          ),
+          GoRoute(
+            path: '/team',
+            pageBuilder: (c, s) => _tab(c, s, const TeamScreen()),
+          ),
+          GoRoute(
+            path: '/dashboard',
+            pageBuilder: (c, s) => _tab(c, s, const DashboardScreen()),
           ),
           GoRoute(
             path: '/calendar',

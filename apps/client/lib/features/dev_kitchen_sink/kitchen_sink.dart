@@ -431,6 +431,15 @@ final kitSections = <KitSection>[
         body: context.l10n.confirmDeleteBody,
         confirmLabel: context.l10n.delete,
       ),
+      // With its own cancel label: Settings' sign-out with changes still to upload.
+      ConfirmDialog(
+        title: context.l10n.signOut,
+        body:
+            '${context.l10n.signOutPendingChanges(3)} '
+            '${context.l10n.signOutPendingLost}',
+        confirmLabel: context.l10n.signOutPendingConfirm,
+        cancelLabel: context.l10n.signOutPendingStay,
+      ),
     ]),
   ),
   KitSection(

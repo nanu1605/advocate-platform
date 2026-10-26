@@ -142,6 +142,42 @@ class CaseSearchPage {
   final List<String> ignoredCourtIds;
 }
 
+/// An invite to the team (spec §10.2 Team): its 8-character [code] works for 7 days, for anyone or (with [phone])
+/// only that number. Invites never sync (§9.4): the owner lists them through the API.
+@immutable
+class Invite {
+  const Invite({
+    required this.id,
+    required this.code,
+    required this.role,
+    required this.expiresAt,
+    this.phone,
+    this.link,
+  });
+
+  factory Invite.fromJson(Map<String, dynamic> j) => Invite(
+    id: j['id'] as String,
+    code: j['code'] as String,
+    role: j['role'] as String,
+    phone: j['phone'] as String?,
+    expiresAt: parseInstant(j['expires_at'])!,
+    link: j['link'] as String?,
+  );
+
+  final String id;
+  final String code;
+
+  /// `advocate`, `junior` or `clerk`.
+  final String role;
+
+  /// `91` and the 10 digits, as stored; null = anyone with the code. Never log it.
+  final String? phone;
+  final DateTime expiresAt;
+
+  /// `<app link base>/join/<code>`; null until the app-link domain exists (Track B).
+  final String? link;
+}
+
 /// Typed client for the FastAPI endpoints (spec §7.1 allows "generated or typed").
 ///
 /// Org-scoped calls take the organisation as `orgId` (sent as `X-Org-Id`). Calls that start a job or spend
@@ -224,6 +260,68 @@ class ApiClient {
     );
     return (orgId: r['org_id'] as String, role: r['role'] as String);
   }
+
+  /// Invites someone to the team as [role] (`advocate`, `junior` or `clerk`); with [phone] (10 digits, 6–9 first)
+  /// only that number can use the code. Owner only. Each call makes a new invite (no idempotency key): guard
+  /// double taps. TEAM_LIMIT (details `{limit}`), ROLE_NOT_ALLOWED, VALIDATION_ERROR.
+  Future<Invite> createInvite({
+    required String orgId,
+    required String role,
+    String? phone,
+  }) async => Invite.fromJson(
+    await _send(
+      () => _dio.post(
+        '/v1/orgs/$orgId/invites',
+        data: {'role': role, 'phone': ?phone},
+      ),
+    ),
+  );
+
+  /// The team's open invites (not accepted, not expired), newest first. Owner only.
+  Future<List<Invite>> listInvites(String orgId) async => [
+    for (final i in await _send<List<dynamic>>(
+      () => _dio.get('/v1/orgs/$orgId/invites'),
+    ))
+      Invite.fromJson((i as Map).cast()),
+  ];
+
+  /// Cancels an open invite: its code stops working and its seat is free. NOT_FOUND if it was accepted, expired
+  /// or already revoked. Owner only.
+  Future<void> revokeInvite({
+    required String orgId,
+    required String inviteId,
+  }) => _send(() => _dio.delete('/v1/orgs/$orgId/invites/$inviteId'));
+
+  /// Changes a member's role, status (`active` or `removed`) or display name; only the fields given. Owner only.
+  /// OWNER_LOCKED (the owner's own membership), TEAM_LIMIT (bringing a removed member back to a full team),
+  /// NOT_FOUND.
+  Future<void> updateMember({
+    required String orgId,
+    required String userId,
+    String? role,
+    String? status,
+    String? displayName,
+  }) => _send(
+    () => _dio.patch(
+      '/v1/orgs/$orgId/members/$userId',
+      data: {'role': ?role, 'status': ?status, 'display_name': ?displayName},
+    ),
+  );
+
+  /// In-app feedback (spec §10.2): [note] 1–4000 characters, [screen] a route pattern (never ids or names),
+  /// [orgId] the current organisation if any. RATE_LIMITED (10 an hour), VALIDATION_ERROR.
+  Future<void> sendFeedback({
+    required String note,
+    String? screen,
+    String? appVersion,
+    String? orgId,
+  }) => _send(
+    () => _dio.post(
+      '/v1/feedback',
+      data: {'note': note, 'screen': ?screen, 'app_version': ?appVersion},
+      options: orgId == null ? null : _org(orgId),
+    ),
+  );
 
   /// Starts the "find my cases" search (spec §11.4), or returns the one already running. Returns the job id.
   /// PROFILE_INCOMPLETE, RATE_LIMITED.

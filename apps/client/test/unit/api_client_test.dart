@@ -732,6 +732,131 @@ void main() {
     );
   });
 
+  group('team and feedback', () {
+    const invite = {
+      'id': 'i1',
+      'code': 'ABCD2345',
+      'role': 'clerk',
+      'phone': '919876543210',
+      'expires_at': '2026-11-12T04:30:00+00:00',
+      'link': null,
+    };
+
+    test('createInvite posts the role and phone to the org', () async {
+      final (api, adapter) = _client((_) => (201, invite));
+      final i = await api.createInvite(
+        orgId: 'o1',
+        role: 'clerk',
+        phone: '9876543210',
+      );
+      final r = adapter.requests.single;
+      expect((r.method, r.path), ('POST', '/v1/orgs/o1/invites'));
+      expect(r.data, {'role': 'clerk', 'phone': '9876543210'});
+      expect(r.headers.containsKey('Idempotency-Key'), isFalse);
+      expect(
+        (i.id, i.code, i.role, i.phone),
+        ('i1', 'ABCD2345', 'clerk', '919876543210'),
+      );
+      expect(i.expiresAt, DateTime.utc(2026, 11, 12, 4, 30));
+      expect(i.link, isNull);
+
+      await api.createInvite(orgId: 'o1', role: 'junior');
+      expect(adapter.requests.last.data, {'role': 'junior'});
+    });
+
+    test('a full team is TEAM_LIMIT with the limit', () async {
+      final (api, _) = _client(
+        (_) => (
+          409,
+          {
+            'error': {
+              'code': 'TEAM_LIMIT',
+              'message': 'This team is full',
+              'retryable': false,
+              'details': {'limit': 10},
+            },
+          },
+        ),
+      );
+      await expectLater(
+        api.createInvite(orgId: 'o1', role: 'clerk'),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.code, 'code', 'TEAM_LIMIT')
+              .having((e) => e.details, 'details', {'limit': 10}),
+        ),
+      );
+    });
+
+    test('listInvites and revokeInvite', () async {
+      final (api, adapter) = _client(
+        (r) => r.method == 'GET'
+            ? (
+                200,
+                [
+                  {...invite, 'link': 'https://pairavi.in/join/ABCD2345'},
+                ],
+              )
+            : (204, null),
+      );
+      final list = await api.listInvites('o1');
+      expect(adapter.requests.last.path, '/v1/orgs/o1/invites');
+      expect(list.single.link, 'https://pairavi.in/join/ABCD2345');
+      await api.revokeInvite(orgId: 'o1', inviteId: 'i1');
+      final r = adapter.requests.last;
+      expect((r.method, r.path), ('DELETE', '/v1/orgs/o1/invites/i1'));
+    });
+
+    test('updateMember sends only the fields given', () async {
+      final (api, adapter) = _client(
+        (_) => (
+          200,
+          {
+            'user_id': 'u2',
+            'role': 'junior',
+            'status': 'active',
+            'display_name': null,
+          },
+        ),
+      );
+      await api.updateMember(orgId: 'o1', userId: 'u2', role: 'junior');
+      var r = adapter.requests.last;
+      expect((r.method, r.path), ('PATCH', '/v1/orgs/o1/members/u2'));
+      expect(r.data, {'role': 'junior'});
+      await api.updateMember(orgId: 'o1', userId: 'u2', status: 'removed');
+      expect(adapter.requests.last.data, {'status': 'removed'});
+      await api.updateMember(
+        orgId: 'o1',
+        userId: 'u2',
+        displayName: 'Rakesh Jain',
+      );
+      r = adapter.requests.last;
+      expect(r.data, {'display_name': 'Rakesh Jain'});
+    });
+
+    test('sendFeedback posts the note with the screen and version, org-scoped when in one', () async {
+      final (api, adapter) = _client((_) => (201, {'id': 'fb1'}));
+      await api.sendFeedback(
+        note: 'The board is great',
+        screen: '/board/tomorrow',
+        appVersion: '0.1.0',
+        orgId: 'o1',
+      );
+      var r = adapter.requests.last;
+      expect((r.method, r.path), ('POST', '/v1/feedback'));
+      expect(r.data, {
+        'note': 'The board is great',
+        'screen': '/board/tomorrow',
+        'app_version': '0.1.0',
+      });
+      expect(r.headers['X-Org-Id'], 'o1');
+      await api.sendFeedback(note: 'Hi');
+      r = adapter.requests.last;
+      expect(r.data, {'note': 'Hi'});
+      expect(r.headers.containsKey('X-Org-Id'), isFalse);
+    });
+  });
+
   test('no response at all is NETWORK, retryable', () async {
     final dio = Dio(BaseOptions(baseUrl: 'http://api.test'))
       ..interceptors.add(

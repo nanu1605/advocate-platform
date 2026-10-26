@@ -1,19 +1,21 @@
+import 'dart:async';
+
 import 'package:advocate_app/core/brand/brand.g.dart';
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/core/theme/app_theme.dart';
+import 'package:advocate_app/data/feedback.dart';
+import 'package:advocate_app/data/sync/sync.dart';
+import 'package:advocate_app/features/feedback/feedback_sheet.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:advocate_app/features/session.dart';
+import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/section_header.dart';
 import 'package:advocate_app/ui/sheets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-
-final _versionProvider = FutureProvider<String>(
-  (_) async => (await PackageInfo.fromPlatform()).version,
-);
+import 'package:go_router/go_router.dart';
 
 /// Theme, language, text-size preview, reduce motion, haptics, app lock, sign-out (spec §17 P0 task 5).
 class SettingsScreen extends ConsumerWidget {
@@ -106,14 +108,47 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
           ],
+          // The Windows rail has no More: these live here too.
+          SectionHeader(l.settingsPractice),
+          for (final (icon, label, open) in [
+            (
+              AppIcons.bell,
+              l.navNotificationSettings,
+              () => context.go('/settings/notifications'),
+            ),
+            (AppIcons.usersThree, l.navTeam, () => context.go('/team')),
+            (AppIcons.chartBar, l.navDashboard, () => context.go('/dashboard')),
+            (
+              AppIcons.chatTeardropText,
+              l.navFeedback,
+              () => unawaited(showFeedbackSheet(context)),
+            ),
+          ])
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(icon, color: context.colors.ink2),
+              title: Text(label, style: context.text.bodyLarge),
+              onTap: open,
+            ),
           const SizedBox(height: 16),
           OutlinedButton(
+            // Signing out clears this device's queues (ADR 0013, 0017): say what would be lost.
             onPressed: () async {
+              final p = await ref.read(pendingChangesProvider)();
+              if (!context.mounted) return;
+              final pending = p.changes + p.uploads > 0;
               final ok = await showConfirmDialog(
                 context,
                 title: l.signOut,
-                body: l.signOutConfirm,
-                confirmLabel: l.signOut,
+                body: pending
+                    ? [
+                        if (p.changes > 0) l.signOutPendingChanges(p.changes),
+                        if (p.uploads > 0) l.signOutPendingUploads(p.uploads),
+                        l.signOutPendingLost,
+                      ].join(' ')
+                    : l.signOutConfirm,
+                confirmLabel: pending ? l.signOutPendingConfirm : l.signOut,
+                cancelLabel: pending ? l.signOutPendingStay : null,
               );
               if (ok) await ref.read(sessionProvider).signOut();
             },
@@ -125,7 +160,7 @@ class SettingsScreen extends ConsumerWidget {
             style: context.text.bodyLarge,
           ),
           Text(
-            l.appVersion(ref.watch(_versionProvider).value ?? '…'),
+            l.appVersion(ref.watch(appVersionProvider).value ?? '…'),
             style: context.text.bodySmall?.copyWith(color: context.colors.ink2),
           ),
           const SizedBox(height: 32),

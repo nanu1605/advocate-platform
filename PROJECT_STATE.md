@@ -25,6 +25,14 @@ Last updated: 2026-10-24
   weekly sweep, auto-match, `advocate_watch` behind a flag, Today at 07:30), change detection with per-user event keys,
   fan-out to every tracking organisation, Tomorrow's Board with expected slots and clash groups, order PDF pipeline,
   ClamAV upload scan (fails closed), window flags, stale-job sweeper, §11.8 budgets. 104 worker tests.
+- P1 Team, notifications, dashboard, feedback ([ADR 0017](docs/adr/0017-p1-team-notifications.md)): Team (members
+  with assigned-case counts; owner changes roles and names, removes members, invites by role and optional phone with
+  a code to share, sees and revokes open invites via new `GET`/`DELETE /v1/orgs/{id}/invites`); a removed member goes
+  back to the role/join step; notification centre (unread bell on Today, Today/Yesterday/Earlier, collapse keys, mark
+  read) and per-kind preferences with case titles and quiet hours; local notifications on Android and Windows for
+  newly synced alerts and a finished background search (`flutter_local_notifications`); practice dashboard (four
+  counts plus Today); in-app feedback; sign-out warns when changes or uploads are still waiting; every server error
+  code has its own text (test-enforced).
 - P1 Calendar, Clients, Documents ([ADR 0016](docs/adr/0016-p1-calendar-clients-docs.md)): Calendar (Day, Week,
   Month, Agenda over hearings, deadlines and tasks, type filter, Windows keys); Clients (list with transliterated
   search, profile, edit, WhatsApp opt-in, linked cases, two panes on Windows); Documents (list and filters, upload by
@@ -53,10 +61,9 @@ Last updated: 2026-10-24
   Hindi review, privacy-policy page.
 
 ## Next up
-1. P1 task 11: Team, notifications, dashboard, feedback (local notification when a background find-my-cases
-   finishes; removed-member path).
-2. P1 task 12: phase checks (incl. pdfrx scroll and memory on the low-end Android and a Windows laptop, ADR 0005).
-3. iOS (P2): NSCameraUsageDescription and NSFaceIDUsageDescription in Info.plist.
+1. P1 task 12: phase checks — goldens, accessibility and 200% text for every screen, pseudo-locale, offline tests,
+   `phase-1-report.md` (device checks such as pdfrx on the low-end Android wait for Track B hardware/accounts).
+2. iOS (P2): NSCameraUsageDescription and NSFaceIDUsageDescription in Info.plist.
 
 ## Deviations from spec (with ADR links)
 - Kit: 5 P2-only components deferred to P2 start — [ADR 0001](docs/adr/0001-defer-p2-kit-components.md).
@@ -98,6 +105,9 @@ Last updated: 2026-10-24
 - Documents: `desktop_drop` stays on 0.8.4 until `file_picker`/`share_plus` accept `cross_file` 0.4; `open_filex` hands
   Word files to another app on Android; auto-kept orders are the latest per case on today's and tomorrow's diary —
   [ADR 0016](docs/adr/0016-p1-calendar-clients-docs.md).
+- Team: `GET`/`DELETE /v1/orgs/{id}/invites` added to §10.2 (invites aren't synced and hold a seat for 7 days); no
+  SMS is sent with an invite until messaging (Track B); "urgent alerts may break quiet hours" is a device setting;
+  local notifications stand in for push until FCM (Track B) — [ADR 0017](docs/adr/0017-p1-team-notifications.md).
 - Windows `APPLY_STANDARD_SETTINGS` defines `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`: `local_auth_windows` 2.0.2 builds with `/await`, which MSVC 14.51 rejects (STL1011). Remove when the plugin moves to C++20 `<coroutine>`.
 
 ## Questions for the founder
@@ -110,4 +120,4 @@ FastAPI 0.161.1 · Pydantic 2.14.1 · SQLAlchemy 2.1.6 · asyncpg 0.32.0 · Cele
 ruff 0.17.2 · pyright 1.1.414 · pytest 9.1.1 · flutter_riverpod 3.4.3 · go_router 18.1.1 · supabase_flutter 2.18.3 ·
 dio 5.11.1 · local_auth 3.0.2 · flutter_secure_storage 11.2.0 · animations 3.0.0 · window_manager 0.5.2 · intl 0.20.3 ·
 very_good_analysis 11.0.0 · flutter_quill 11.6.0 (P4) · pdfrx 2.10.1 · share_plus 13.3.1 · cunning_document_scanner 3.0.4 · file_picker 13.2.0 · desktop_drop 0.8.4 ·
-open_filex 5.0.0 · powersync (Flutter SDK) 2.5.0 · PowerSync Service 1.27.1 (local/CI)
+open_filex 5.0.0 · flutter_local_notifications 22.3.2 · powersync (Flutter SDK) 2.5.0 · PowerSync Service 1.27.1 (local/CI)
