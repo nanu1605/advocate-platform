@@ -1879,12 +1879,18 @@ class FakeLocalNotifier implements LocalNotifier {
   void Function(String link)? onTap;
   int cancelled = 0;
 
+  /// The tags passed to [cancel], in order.
+  final cancelledTags = <String>[];
+
   @override
   Future<void> start(void Function(String link) onTap) async =>
       this.onTap = onTap;
 
   @override
   Future<void> show(LocalNotice notice) async => shown.add(notice);
+
+  @override
+  Future<void> cancel(String tag) async => cancelledTags.add(tag);
 
   @override
   Future<void> cancelAll() async => cancelled++;

@@ -424,6 +424,41 @@ void main() {
       expect(store.getStringList('notifications.shown'), isNull);
     });
 
+    test('a notice goes from the tray once its row is deleted, out of the window or read', () async {
+      final a = alerts();
+      final shared = [
+        notification(1, collapseKey: 'tomorrow_board:2026-11-06'),
+        notification(2, collapseKey: 'tomorrow_board:2026-11-06'),
+      ];
+      await rows(a, [notification(3), notification(4), ...shared]);
+      expect(notifier.shown, hasLength(3));
+      // The server deletes row 3 (or it leaves the 90-day window): it no longer syncs.
+      await rows(a, [notification(4), ...shared]);
+      expect(notifier.cancelledTags, ['new_order:m-3']);
+      // Read on another device.
+      await rows(a, [notification(4, read: true), ...shared]);
+      expect(notifier.cancelledTags, ['new_order:m-3', 'new_order:m-4']);
+      // Rows sharing a collapse key share one notice: it stays while one of them is still there and unread.
+      await rows(a, [shared.last]);
+      expect(notifier.cancelledTags, hasLength(2));
+      await rows(a, []);
+      expect(notifier.cancelledTags.last, 'tomorrow_board:2026-11-06');
+      // Each notice is taken back once.
+      await rows(a, []);
+      expect(notifier.cancelledTags, hasLength(3));
+    });
+
+    test('a notice whose row was deleted while the app was closed goes on the next start', () async {
+      await rows(alerts(), [notification(1), notification(2)]);
+      await rows(alerts(testNow.add(const Duration(hours: 2))), [
+        notification(2),
+      ]);
+      expect(notifier.cancelledTags, ['new_order:m-1']);
+      // Sign-out forgets the tray too (and clears it).
+      await LocalAlerts.forget(store);
+      expect(store.getStringList('notifications.tray'), isNull);
+    });
+
     test('a row without a valid link opens the centre', () async {
       await rows(alerts(), [notification(1, link: 'https://x.test')]);
       expect(notifier.shown.single.link, '/notifications');
