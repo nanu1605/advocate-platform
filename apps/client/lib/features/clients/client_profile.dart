@@ -430,13 +430,23 @@ class _ClientSheetState extends ConsumerState<_ClientSheet> {
   late final _email = TextEditingController(text: widget.client?.email);
   late final _address = TextEditingController(text: widget.client?.address);
   late final _notes = TextEditingController(text: widget.client?.notes);
+  final _addressFocus = FocusNode();
+  final _notesFocus = FocusNode();
   late String? _language = widget.client?.language;
   ({ClientFieldError? name, ClientFieldError? phone, ClientFieldError? email})
   _errors = (name: null, phone: null, email: null);
 
   @override
   void dispose() {
-    for (final c in [_name, _phone, _email, _address, _notes]) {
+    for (final c in <ChangeNotifier>[
+      _name,
+      _phone,
+      _email,
+      _address,
+      _notes,
+      _addressFocus,
+      _notesFocus,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -488,18 +498,23 @@ class _ClientSheetState extends ConsumerState<_ClientSheet> {
   String? _error(ClientFieldError? e) =>
       e == null ? null : clientFieldErrorText(context.l10n, e);
 
-  Widget _multiline(TextEditingController controller, String label) => Column(
+  Widget _multiline(
+    TextEditingController controller,
+    FocusNode focus,
+    String label,
+  ) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       TextField(
         controller: controller,
+        focusNode: focus,
         minLines: 2,
         maxLines: 6,
         textCapitalization: TextCapitalization.sentences,
         style: context.text.bodyLarge,
         decoration: InputDecoration(labelText: label, alignLabelWithHint: true),
       ),
-      KrutidevOffer(controller),
+      KrutidevOffer(controller, focusNode: focus),
     ],
   );
 
@@ -533,7 +548,7 @@ class _ClientSheetState extends ConsumerState<_ClientSheet> {
           error: _error(_errors.email),
           keyboardType: TextInputType.emailAddress,
         ),
-        _multiline(_address, l.clientsAddress),
+        _multiline(_address, _addressFocus, l.clientsAddress),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -549,7 +564,7 @@ class _ClientSheetState extends ConsumerState<_ClientSheet> {
               ),
           ],
         ),
-        _multiline(_notes, l.clientsNotes),
+        _multiline(_notes, _notesFocus, l.clientsNotes),
       ],
     );
   }

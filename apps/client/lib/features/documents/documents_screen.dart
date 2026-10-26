@@ -39,6 +39,20 @@ class DocumentFilterController extends Notifier<DocumentFilter> {
   void change(DocumentFilter Function(DocumentFilter) f) => state = f(state);
 }
 
+/// The org's cases that have court orders: the case filter offers them beside the cases with documents, as
+/// search inside reads orders too (F15). Empty without an org or sync.
+final orderCaseIdsProvider = StreamProvider<Set<String>>((ref) {
+  final db = ref.watch(syncDatabaseProvider);
+  final org = ref.watch(currentOrgIdProvider);
+  if (db == null || org == null) return Stream.value(const {});
+  return db
+      .watch(
+        'select distinct matter_id from orders where org_id = ?1 and deleted_at is null',
+        parameters: [org],
+      )
+      .map((rows) => {for (final r in rows) r['matter_id'] as String});
+});
+
 /// Documents (spec §4.3, `/documents`): every document of the org, newest first, after the uploads still waiting
 /// in the queue; search by title (transliterated: "sharma" finds "शर्मा"), filter by type and case. The same words
 /// can be looked for inside the pages, scans and court orders included (F06, F15): online, on a tap or Enter, as
@@ -56,6 +70,7 @@ class DocumentsScreen extends ConsumerStatefulWidget {
 class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   late final TextEditingController _search;
   final _searchFocus = FocusNode();
+  final _scroll = ScrollController();
 
   /// The last search inside documents: what was asked (query, case) and its answer.
   (String, String?)? _asked;
@@ -75,6 +90,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     HardwareKeyboard.instance.removeHandler(_onKey);
     _search.dispose();
     _searchFocus.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -86,7 +102,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
         !mounted ||
         ModalRoute.isCurrentOf(context) == false ||
         ref.read(appLockProvider).locked ||
-        // The search box is there once the list has documents.
+        // The search box is there once the documents have loaded.
         _searchFocus.context == null) {
       return false;
     }
@@ -114,6 +130,8 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       _asked = asked;
       _inside = const AsyncLoading();
     });
+    // Back to the top, where the answer goes: a lazy list never builds (or reads out) a section scrolled past.
+    if (_scroll.hasClients) _scroll.jumpTo(0);
     AsyncValue<List<DocumentHit>> result;
     if (ref.read(syncViewProvider).value?.offline ?? false) {
       result = AsyncError(const ApiException('NETWORK'), StackTrace.current);
@@ -191,7 +209,16 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
       AsyncData(value: final hits) => [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: SectionHeader(l.docsInsideTitle, count: hits.length),
+          // Read out like the other states (spec §5.9), and still a heading.
+          child: MergeSemantics(
+            child: Semantics(
+              header: true,
+              child: AnnouncedText(
+                '${l.docsInsideTitle} (${hits.length})',
+                child: SectionHeader(l.docsInsideTitle, count: hits.length),
+              ),
+            ),
+          ),
         ),
         for (final h in hits) _hit(context, h),
       ],
@@ -221,7 +248,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     ),
   );
 
-  /// The case filter's sheet: "All cases", then the cases that have documents.
+  /// The case filter's sheet: "All cases", then the cases that have documents or court orders.
   Future<void> _pickCase(Map<String, String> cases) async {
     final l = context.l10n;
     final current = ref.read(documentFilterProvider).matterId;
@@ -277,13 +304,6 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
         padding: const EdgeInsets.all(16),
         children: const [SkeletonCaseList()],
       );
-    } else if (docs.isEmpty && uploads.isEmpty) {
-      body = EmptyState(
-        icon: AppIcons.files,
-        message: l.docsEmpty,
-        actionLabel: l.addDocument,
-        onAction: _add,
-      );
     } else {
       body = _list(context, docs, uploads, filter);
     }
@@ -309,10 +329,15 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
     DocumentFilter filter,
   ) {
     final l = context.l10n;
+    final ordered = ref.watch(orderCaseIdsProvider).value ?? const {};
     final cases = <String, String>{
       for (final d in docs) ?d.matterId: d.caseLabel ?? '',
       for (final q in uploads) ?q.matterId: q.caseLabel ?? '',
+      for (final c in ref.watch(casesProvider).value ?? const <CaseInfo>[])
+        if (ordered.contains(c.id)) c.id: c.caseLabel,
     }..removeWhere((_, label) => label.isEmpty);
+    // No documents: the empty state goes under search, which still finds words inside court orders.
+    final empty = docs.isEmpty && uploads.isEmpty;
     final shownUploads = filterUploads(uploads, filter);
     final shown = filterDocuments(docs, filter);
     final none = shownUploads.isEmpty && shown.isEmpty;
@@ -329,34 +354,52 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
             onSubmitted: (_) => unawaited(_searchInside()),
           ),
         ),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Row(
-            children: [
-              if (cases.isNotEmpty) ...[
-                ActionChip(
-                  avatar: const Icon(AppIcons.funnel),
-                  label: Text(cases[filter.matterId] ?? l.docsAllCases),
-                  onPressed: () => unawaited(_pickCase(cases)),
-                ),
-                const SizedBox(width: 16),
-              ],
-              for (final kind in [null, ...documentKinds]) ...[
-                ChoiceChip(
-                  label: Text(
-                    kind == null ? l.docsAllTypes : documentKindLabel(l, kind),
+        if (!empty || cases.isNotEmpty)
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Row(
+              children: [
+                if (cases.isNotEmpty) ...[
+                  ActionChip(
+                    avatar: const Icon(AppIcons.funnel),
+                    label: Text(cases[filter.matterId] ?? l.docsAllCases),
+                    onPressed: () => unawaited(_pickCase(cases)),
                   ),
-                  selected: filter.kind == kind,
-                  onSelected: (_) => _change((f) => f.copyWith(kind: kind)),
-                ),
-                const SizedBox(width: 8),
+                  const SizedBox(width: 16),
+                ],
+                if (!empty)
+                  for (final kind in [null, ...documentKinds]) ...[
+                    ChoiceChip(
+                      label: Text(
+                        kind == null
+                            ? l.docsAllTypes
+                            : documentKindLabel(l, kind),
+                      ),
+                      selected: filter.kind == kind,
+                      onSelected: (_) => _change((f) => f.copyWith(kind: kind)),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
               ],
-            ],
+            ),
           ),
-        ),
+        // What search inside found goes first, with or without documents: it was asked for, and so it's built in the
+        // lazy list, in view, and read out at 200% text.
         Expanded(
-          child: none
+          child: empty
+              ? ListView(
+                  children: [
+                    ..._insideSection(context, filter),
+                    EmptyState(
+                      icon: AppIcons.files,
+                      message: l.docsEmpty,
+                      actionLabel: l.addDocument,
+                      onAction: _add,
+                    ),
+                  ],
+                )
+              : none
               ? ListView(
                   padding: const EdgeInsets.symmetric(vertical: 24),
                   children: [
@@ -383,12 +426,13 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                 )
               // ponytail: rows appear without spec §5.5's stagger; add it with the kit's motion helpers.
               : ListView(
+                  controller: _scroll,
                   padding: const EdgeInsets.only(bottom: 24),
                   children: [
+                    ..._insideSection(context, filter),
                     for (final q in shownUploads)
                       UploadRow(q, key: ValueKey('up-${q.id}')),
                     for (final d in shown) DocumentRow(d, key: ValueKey(d.id)),
-                    ..._insideSection(context, filter),
                   ],
                 ),
         ),
