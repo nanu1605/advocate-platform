@@ -42,6 +42,7 @@ class AnnouncedText extends StatefulWidget {
     this.style,
     this.textAlign,
     this.child,
+    this.onShow = true,
     super.key,
   });
 
@@ -52,6 +53,9 @@ class AnnouncedText extends StatefulWidget {
   /// Shown instead of [text], which is then only its spoken label (a skeleton, say).
   final Widget? child;
 
+  /// Read out when it first shows too, not only when it changes.
+  final bool onShow;
+
   @override
   State<AnnouncedText> createState() => _AnnouncedTextState();
 }
@@ -60,7 +64,7 @@ class _AnnouncedTextState extends State<AnnouncedText> {
   @override
   void initState() {
     super.initState();
-    _say();
+    if (widget.onShow) _say();
   }
 
   @override
@@ -79,9 +83,9 @@ class _AnnouncedTextState extends State<AnnouncedText> {
     container: true,
     liveRegion: !MediaQuery.supportsAnnounceOf(context),
     label: widget.child == null ? null : widget.text,
-    child:
-        widget.child ??
-        Text(widget.text, style: widget.style, textAlign: widget.textAlign),
+    child: widget.child == null
+        ? Text(widget.text, style: widget.style, textAlign: widget.textAlign)
+        : ExcludeSemantics(child: widget.child),
   );
 }
 

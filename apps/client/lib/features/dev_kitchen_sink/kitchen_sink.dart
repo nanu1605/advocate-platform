@@ -1,6 +1,7 @@
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/data/documents.dart';
+import 'package:advocate_app/ui/ai_answer_card.dart';
 import 'package:advocate_app/ui/app_scaffold.dart';
 import 'package:advocate_app/ui/board_table.dart';
 import 'package:advocate_app/ui/case_card.dart';
@@ -9,14 +10,18 @@ import 'package:advocate_app/ui/court_badge.dart';
 import 'package:advocate_app/ui/fields.dart';
 import 'package:advocate_app/ui/hearing_chip.dart';
 import 'package:advocate_app/ui/icons.dart';
+import 'package:advocate_app/ui/item_tracker.dart';
+import 'package:advocate_app/ui/mic_button.dart';
 import 'package:advocate_app/ui/pdf_viewer.dart';
 import 'package:advocate_app/ui/section_header.dart';
 import 'package:advocate_app/ui/selectable_row.dart';
 import 'package:advocate_app/ui/sheets.dart';
 import 'package:advocate_app/ui/skeleton.dart';
+import 'package:advocate_app/ui/source_chip.dart';
 import 'package:advocate_app/ui/states.dart';
 import 'package:advocate_app/ui/status_pill.dart';
 import 'package:advocate_app/ui/tiles.dart';
+import 'package:advocate_app/ui/voice_confirm_sheet.dart';
 import 'package:flutter/material.dart';
 
 /// Fixed "today" so goldens are stable: matters dated 5 Nov read as "Tomorrow".
@@ -58,7 +63,7 @@ final _hero = CaseCardData(
   state: CaseCardState.listed,
 );
 
-/// Every P0 kit component (ADR 0001), in the shapes the screens use.
+/// Every kit component (spec §5.11), in the shapes the screens use.
 final kitSections = <KitSection>[
   KitSection(
     'pills',
@@ -419,6 +424,156 @@ final kitSections = <KitSection>[
       ),
     ]),
   ),
+  // AI and voice (P2, ADR 0001).
+  KitSection(
+    'ai_answer',
+    (context) => _col([
+      const AIAnswerCard(
+        title: 'Order dated 28-10-2026',
+        lines: [
+          AnswerLine(
+            'Respondent No. 1 to file a reply within four weeks.',
+            sources: [
+              SourceChip('Order', page: 2, paragraph: '3', onTap: _noop),
+            ],
+          ),
+          AnswerLine(
+            'Interim order to continue till the next date.',
+            sources: [SourceChip('Order', page: 3, onTap: _noop)],
+          ),
+        ],
+        onCopy: _noop,
+        onInsert: _noop,
+        onUndo: _noop,
+        onReport: _noop,
+      ),
+      const AIAnswerCard(
+        lines: [AnswerLine("I couldn't find this in the case files.")],
+        onReport: _noop,
+      ),
+    ]),
+  ),
+  KitSection(
+    'sources',
+    (context) => const Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        SourceChip('Writ petition', page: 12, paragraph: '4.1', onTap: _noop),
+        SourceChip(
+          '(2019) 5 SCC 123',
+          check: CitationCheck.verified,
+          onTap: _noop,
+        ),
+        SourceChip(
+          '(2021) 3 MPLJ 45, para 12',
+          check: CitationCheck.needsReview,
+          onTap: _noop,
+        ),
+        SourceChip(
+          '(2020) 9 SCC 999',
+          check: CitationCheck.notFound,
+          onTap: _noop,
+        ),
+        SourceChip(
+          '2023 SCC OnLine MP 1021',
+          check: CitationCheck.checkManually,
+          onTap: _noop,
+        ),
+      ],
+    ),
+  ),
+  KitSection(
+    'mic',
+    (context) => const Wrap(
+      spacing: 16,
+      runSpacing: 16,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        MicButton(state: MicState.idle, onTap: _noop),
+        MicButton(
+          state: MicState.recording,
+          levels: [0.1, 0.4, 0.8, 0.5, 0.9, 0.3, 0.6, 0.2],
+          elapsed: Duration(seconds: 12),
+          onTap: _noop,
+        ),
+        MicButton(state: MicState.processing, onTap: _noop),
+        MicButton(state: MicState.error, onTap: _noop),
+      ],
+    ),
+  ),
+  KitSection(
+    'voice_confirm',
+    (context) => VoiceConfirmSheet(
+      draft: VoiceDraft(
+        transcript:
+            'Sharma wale case mein next date bees November, reply file karna '
+            'hai aur certified copy leni hai.',
+        matter: 'wp',
+        matterUnsure: true,
+        nextDate: DateTime(2026, 11, 20),
+        nextDateUnsure: true,
+        purpose: 'Reply',
+        outcome: 'Adjourned',
+        tasks: [
+          (title: 'File reply', due: DateTime(2026, 11, 18)),
+          (title: 'Get certified copy', due: null),
+        ],
+      ),
+      matters: const {
+        'wp': 'WP 1234/2024 · Sharma v. State',
+        'cra': 'CRA 455/2023 · Mohan Lal v. State',
+      },
+      onSave: (_) {},
+      onCancel: _noop,
+    ),
+  ),
+  KitSection('item_tracker', (context) {
+    final now = DateTime(2026, 11, 4, 11);
+    DateTime clock() => now;
+    CourtUpdate at(String item, int minutesAgo, {String? by = 'Priya'}) =>
+        CourtUpdate(
+          item: item,
+          at: now.subtract(Duration(minutes: minutesAgo)),
+          by: by,
+        );
+    return _col([
+      ItemTracker(
+        court: 'Court 12',
+        mine: '23',
+        update: at('18', 3),
+        clock: clock,
+        onUpdate: _noop,
+      ),
+      ItemTracker(
+        court: 'Court 12',
+        mine: '23',
+        update: at('23', 0),
+        clock: clock,
+      ),
+      ItemTracker(
+        court: 'Court 7',
+        mine: '41',
+        update: at('44', 1),
+        clock: clock,
+      ),
+      // Old, on a supplementary list.
+      ItemTracker(
+        court: 'Court 5',
+        mine: 'S-8',
+        update: at('S-2', 25),
+        clock: clock,
+      ),
+      // Another list: no count. From a member who has left.
+      ItemTracker(
+        court: 'Court 9',
+        mine: '12',
+        update: at('S-3', 4, by: null),
+        clock: clock,
+      ),
+      const ItemTracker(court: 'Court 5', mine: '8', onUpdate: _noop),
+    ]);
+  }),
   KitSection('board_phone', (context) => BoardTable(_board(context))),
   KitSection(
     'board_desktop',
