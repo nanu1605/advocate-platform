@@ -303,6 +303,16 @@ max_frequency = "60s"
 919999900029 = "123456"
 919999900030 = "123456"
 919999900031 = "123456"
+# 32-40: phase checks (team join flow, onboarding import and offline sync end to end).
+919999900032 = "123456"
+919999900033 = "123456"
+919999900034 = "123456"
+919999900035 = "123456"
+919999900036 = "123456"
+919999900037 = "123456"
+919999900038 = "123456"
+919999900039 = "123456"
+919999900040 = "123456"
 
 # OTP delivery goes through our API (WhatsApp authentication template, DLT SMS fallback).
 # Test numbers above skip delivery. Secret comes from supabase/.env (local) or the dashboard (hosted).
