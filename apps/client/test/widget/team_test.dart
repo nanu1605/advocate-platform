@@ -11,6 +11,7 @@ import 'package:advocate_app/data/diary.dart';
 import 'package:advocate_app/features/board/board_share.dart';
 import 'package:advocate_app/features/team/team_screen.dart';
 import 'package:advocate_app/ui/icons.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -67,6 +68,7 @@ Future<FakeApi> _open(
   List<OrgMember> members = testMembers,
   List<Override> overrides = const [],
   bool offline = false,
+  Size size = const Size(400, 860),
 }) async {
   final api = FakeApi(account: account);
   api.invites.addAll(invites);
@@ -79,9 +81,11 @@ Future<FakeApi> _open(
     api: api,
     locale: locale,
     textScale: scale,
+    size: size,
     onboardingDone: true,
     overrides: [
       ...FakeCases(cases: _cases, members: members).overrides,
+      if (offline) ...syncedData(offline: true),
       ...overrides,
     ],
   );
@@ -197,6 +201,7 @@ void main() {
         testWidgets(
           'invite: role and number, then the code to share or copy; it joins the pending list',
           (tester) async {
+            final announced = captureAnnouncements(tester);
             final shared = <ShareParams>[];
             String? copied;
             tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -227,7 +232,10 @@ void main() {
               find.widgetWithText(TextField, l.teamInvitePhone),
               '9876543210',
             );
+            announced.clear();
             await _tap(tester, find.text(l.teamInviteCreate));
+            // The standing "not sent" note is read with the page, not over "Invite ready".
+            expect(announced, [l.teamInviteReady]);
             expect(api.calls.last.args, {
               'role': 'clerk',
               'phone': '9876543210',
@@ -263,10 +271,12 @@ void main() {
         testWidgets(
           'invite: a bad number is caught before sending; a full team says how to make room and keeps the input',
           (tester) async {
+            final announced = captureAnnouncements(tester);
             final api = await _open(tester, locale: locale, scale: scale);
             await _tap(tester, find.text(l.teamInvite));
             final phone = find.widgetWithText(TextField, l.teamInvitePhone);
             await tester.enterText(phone, '12345');
+            announced.clear();
             await _tap(tester, find.text(l.teamInviteCreate));
             expect(find.text(l.phoneInvalid), findsOneWidget);
             expect(api.callNames, isNot(contains('createInvite')));
@@ -278,6 +288,7 @@ void main() {
             await tester.enterText(phone, '9876543210');
             await _tap(tester, find.text(l.teamInviteCreate));
             expect(find.text(l.teamLimit(10)), findsOneWidget);
+            expect(announced, [l.phoneInvalid, l.teamLimit(10)]);
             expect(find.text('9876543210'), findsOneWidget);
             expect(find.text(l.teamInviteCreate), findsOneWidget);
             expect(tester.takeException(), isNull);
@@ -293,6 +304,9 @@ void main() {
               scale: scale,
               offline: true,
             );
+            // The members come from the device, under the banner; invites need the API.
+            expect(find.byType(OfflineBanner), findsOneWidget);
+            await _show(tester, find.text('Neha Verma'));
             await _show(tester, find.text(l.errorNeedsNetwork));
             await _show(tester, find.text(l.retry));
             expect(find.text(l.retry), findsOneWidget);
@@ -355,6 +369,7 @@ void main() {
         testWidgets(
           'edit name: kept in the dialog when it fails, saved when it can',
           (tester) async {
+            final announced = captureAnnouncements(tester);
             final api = await _open(tester, locale: locale, scale: scale);
             await _tap(
               tester,
@@ -362,6 +377,11 @@ void main() {
             );
             await _tap(tester, find.text(l.teamEditName));
             final field = find.widgetWithText(TextField, l.teamNameLabel);
+            await tester.enterText(field, '  ');
+            announced.clear();
+            await _tap(tester, find.text(l.casePageSave));
+            expect(find.text(l.teamNameEmpty), findsOneWidget);
+            expect(announced, [l.teamNameEmpty]);
             await tester.enterText(field, 'Neha V.');
             api.offline = true;
             await _tap(tester, find.text(l.casePageSave));
@@ -432,6 +452,26 @@ void main() {
   }
 
   final en = lookupAppLocalizations(const Locale('en'));
+
+  testWidgets(
+    "edit name: as wide as a phone allows, a dialog's width on a desktop",
+    (tester) async {
+      for (final (size, width) in [
+        (const Size(400, 860), 400 - 32.0),
+        (const Size(1280, 800), 560.0),
+      ]) {
+        await _open(tester, size: size);
+        await _tap(tester, find.byTooltip(en.boardMoreActions('Neha Verma')));
+        await _tap(tester, find.text(en.teamEditName));
+        final dialog = find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(Material),
+        );
+        expect(tester.getSize(dialog.first).width, width, reason: '$size');
+        await _tap(tester, find.text(en.cancel));
+      }
+    },
+  );
 
   testWidgets('an owner on their own is asked to invite someone', (
     tester,

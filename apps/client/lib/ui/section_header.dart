@@ -1,5 +1,6 @@
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:flutter/material.dart';
 
@@ -42,19 +43,21 @@ class SectionHeader extends StatelessWidget {
             message: expanded
                 ? l.groupHide(title)
                 : l.groupShow(title, count ?? 0),
-            child: InkWell(
-              onTap: toggle,
-              borderRadius: BorderRadius.circular(8),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 48),
-                child: Row(
-                  children: [
-                    Expanded(child: label),
-                    Icon(
-                      expanded ? AppIcons.caretUp : AppIcons.caretDown,
-                      color: context.colors.ink2,
-                    ),
-                  ],
+            child: FocusRing(
+              child: InkWell(
+                onTap: toggle,
+                borderRadius: BorderRadius.circular(8),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  child: Row(
+                    children: [
+                      Expanded(child: label),
+                      Icon(
+                        expanded ? AppIcons.caretUp : AppIcons.caretDown,
+                        color: context.colors.ink2,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

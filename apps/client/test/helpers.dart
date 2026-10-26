@@ -8,6 +8,7 @@ import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 export 'fakes.dart';
@@ -24,6 +25,29 @@ Future<void> loadAppFonts() async {
     }
     await loader.load();
   }
+}
+
+/// Turns announcements on (as on Windows and iOS) and collects what the app reads out with `announce`.
+List<String> captureAnnouncements(WidgetTester tester) {
+  tester.platformDispatcher.accessibilityFeaturesTestValue =
+      const FakeAccessibilityFeatures(supportsAnnounce: true);
+  addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+  final announced = <String>[];
+  final messenger = tester.binding.defaultBinaryMessenger
+    ..setMockDecodedMessageHandler<Object?>(SystemChannels.accessibility, (
+      m,
+    ) async {
+      final data = (m! as Map)['data'] as Map?;
+      if (data?['message'] case final String message) announced.add(message);
+      return null;
+    });
+  addTearDown(
+    () => messenger.setMockDecodedMessageHandler<Object?>(
+      SystemChannels.accessibility,
+      null,
+    ),
+  );
+  return announced;
 }
 
 const Map<String, AppThemeMode> themes = {

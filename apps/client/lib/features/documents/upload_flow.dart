@@ -12,10 +12,11 @@ import 'package:advocate_app/data/documents.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/case_page/links.dart';
 import 'package:advocate_app/features/case_page/sheet_form.dart';
-import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
 import 'package:advocate_app/ui/fields.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/sheets.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:cunning_document_scanner/cunning_document_scanner.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
@@ -190,19 +191,23 @@ Future<bool?> _chooseSource(BuildContext context) {
           child: Text(l.addDocument, style: sheet.text.titleLarge),
         ),
         const SizedBox(height: 8),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(AppIcons.camera),
-          title: Text(l.docsScan),
-          subtitle: Text(l.docsScanHint),
-          onTap: () => Navigator.pop(sheet, true),
+        FocusRing(
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(AppIcons.camera),
+            title: Text(l.docsScan),
+            subtitle: Text(l.docsScanHint),
+            onTap: () => Navigator.pop(sheet, true),
+          ),
         ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(AppIcons.folderSimple),
-          title: Text(l.docsChooseFiles),
-          subtitle: Text(l.docsChooseFilesHint),
-          onTap: () => Navigator.pop(sheet, false),
+        FocusRing(
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(AppIcons.folderSimple),
+            title: Text(l.docsChooseFiles),
+            subtitle: Text(l.docsChooseFilesHint),
+            onTap: () => Navigator.pop(sheet, false),
+          ),
         ),
       ],
     ),

@@ -174,7 +174,33 @@ void main() {
   testWidgets('Found for you is hidden at zero', (tester) async {
     await pumpCases(tester);
     expect(find.textContaining(en.casesFoundForYou), findsNothing);
+    expect(find.byType(Badge), findsNothing);
   });
+
+  // Spec §4.1 auto-match: newly found cases appear in Found for you "with a badge".
+  for (final locale in ['en', 'hi']) {
+    final l = lookupAppLocalizations(Locale(locale));
+    for (final (device, size) in [('phone', _tall), ('Windows', _wide)]) {
+      testWidgets('$device, $locale: found cases to review badge the Cases '
+          'tab, read with it', (tester) async {
+        final semantics = tester.ensureSemantics();
+        await pumpCases(tester, size: size, locale: locale, pendingFound: 3);
+        final badge = find.byType(Badge);
+        expect(badge, findsOneWidget);
+        expect(
+          find.descendant(of: badge, matching: find.text('3')),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .getSemantics(find.bySemanticsLabel(RegExp(l.navCasesFound(3))))
+              .label,
+          contains(l.navCases),
+        );
+        semantics.dispose();
+      });
+    }
+  }
 
   testWidgets('a section header collapses and opens its rows', (tester) async {
     await pumpCases(tester);

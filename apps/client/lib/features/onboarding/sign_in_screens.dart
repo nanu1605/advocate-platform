@@ -7,6 +7,7 @@ import 'package:advocate_app/data/auth.dart';
 import 'package:advocate_app/data/device.dart';
 import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
 import 'package:advocate_app/ui/fields.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -39,10 +40,16 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
     super.dispose();
   }
 
+  /// Shown under the field and read out (spec §5.9).
+  void _fail(String message) {
+    setState(() => _error = message);
+    announce(context, message);
+  }
+
   Future<void> _send() async {
     final phone = _phone.text;
     if (!isValidIndianMobile(phone)) {
-      setState(() => _error = context.l10n.phoneInvalid);
+      _fail(context.l10n.phoneInvalid);
       return;
     }
     setState(() {
@@ -53,7 +60,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
       await ref.read(authRepositoryProvider).sendOtp(phone);
       if (mounted) unawaited(context.push('/sign-in/otp', extra: phone));
     } on Object catch (e) {
-      if (mounted) setState(() => _error = authErrorText(context, e));
+      if (mounted) _fail(authErrorText(context, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -110,7 +117,11 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     _timer?.cancel();
     _wait = _resendAfter;
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (_wait <= 1) t.cancel();
+      if (_wait <= 1) {
+        t.cancel();
+        // The one timed control (spec §5.9): say it's ready, as a screen reader can't see the button change.
+        announce(context, context.l10n.resend);
+      }
       setState(() => _wait--);
     });
   }
@@ -124,10 +135,16 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   bool get _locked => _wrong >= _maxWrong;
 
+  /// Shown under the field and read out (spec §5.9).
+  void _fail(String message) {
+    setState(() => _error = message);
+    announce(context, message);
+  }
+
   Future<void> _verify() async {
     if (_locked) return;
     if (_code.text.length != 6) {
-      setState(() => _error = context.l10n.otpInvalid);
+      _fail(context.l10n.otpInvalid);
       return;
     }
     setState(() {
@@ -149,11 +166,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       // The router moves on to consent when the session appears.
     } on Object catch (e) {
       if (mounted) {
-        setState(() {
-          if (classifyAuthError(e) == AuthFailure.invalidCode) _wrong++;
-          _error = _locked ? context.l10n.otpLocked : authErrorText(context, e);
-          if (_locked) _code.clear();
-        });
+        if (classifyAuthError(e) == AuthFailure.invalidCode) _wrong++;
+        if (_locked) _code.clear();
+        _fail(_locked ? context.l10n.otpLocked : authErrorText(context, e));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -169,7 +184,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         _startTimer();
       });
     } on Object catch (e) {
-      if (mounted) setState(() => _error = authErrorText(context, e));
+      if (mounted) _fail(authErrorText(context, e));
     }
   }
 

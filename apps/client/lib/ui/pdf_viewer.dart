@@ -4,6 +4,7 @@ import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/ui/fields.dart';
 import 'package:advocate_app/ui/icons.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdfrx/pdfrx.dart' as pdfrx;
@@ -296,9 +297,12 @@ class _AppPdfViewerState extends State<AppPdfViewer> {
             Row(
               children: [
                 Expanded(
-                  child: Semantics(
-                    liveRegion: true,
-                    child: Text(count, style: context.text.bodySmall),
+                  // Read out once the search settles: each page searched would change the count.
+                  child: AnnouncedText(
+                    pages.searching ? '' : count,
+                    child: ExcludeSemantics(
+                      child: Text(count, style: context.text.bodySmall),
+                    ),
                   ),
                 ),
                 IconButton(
@@ -397,7 +401,9 @@ class _JumpDialogState extends State<_JumpDialog> {
   void _go() {
     final page = int.tryParse(_page.text.trim());
     if (page == null || page < 1 || page > widget.count) {
-      setState(() => _error = context.l10n.docsPageInvalid(widget.count));
+      final error = context.l10n.docsPageInvalid(widget.count);
+      setState(() => _error = error);
+      announce(context, error);
       return;
     }
     Navigator.pop(context, page);

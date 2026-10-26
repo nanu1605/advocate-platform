@@ -11,12 +11,14 @@ import 'package:flutter_test/flutter_test.dart';
 import '../helpers.dart';
 import '../widget/documents_test.dart'
     show FakeSources, fakeFile, sampleDocCases, sampleQueue;
+import 'scene_goldens.dart';
 
 /// Documents goldens (spec §4.3) on a phone: the list (uploads waiting, failed and sending; documents ready, kept
-/// offline, being checked and blocked) and the upload sheet × light/dark/sunlight × en/hi × text scale 1.0/2.0.
-/// Reference images are rendered on Windows; CI runs this file on windows-latest.
+/// offline, being checked and blocked), the upload sheet and the viewer × light/dark/sunlight × en/hi × text scale
+/// 1.0/2.0. Reference images are rendered on Windows; CI runs this file on windows-latest.
 void main() {
   setUpAll(loadAppFonts);
+  sceneGoldens('documents', {'document viewer': 'viewer'});
 
   for (final screen in ['list', 'upload']) {
     for (final MapEntry(key: name, value: theme) in themes.entries) {

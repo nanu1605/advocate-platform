@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/ui/icons.dart';
@@ -24,15 +26,21 @@ class CodePointLimit extends TextInputFormatter {
         (newValue.composing.isValid && !newValue.composing.isCollapsed)) {
       return newValue;
     }
-    // An edit inside a full field changes nothing.
-    if (oldValue.text.runes.length == max) return oldValue;
+    // Typing inside a full field changes nothing; a paste over a selection is cut, as Flutter's limit does.
+    if (oldValue.text.runes.length == max && oldValue.selection.isCollapsed) {
+      return oldValue;
+    }
     var runes = 0;
     final kept = newValue.text.characters
         .takeWhile((c) => (runes += c.runes.length) <= max)
         .string;
+    final s = newValue.selection;
     return TextEditingValue(
       text: kept,
-      selection: TextSelection.collapsed(offset: kept.length),
+      selection: s.copyWith(
+        baseOffset: min(s.baseOffset, kept.length),
+        extentOffset: min(s.extentOffset, kept.length),
+      ),
     );
   }
 }
@@ -91,6 +99,8 @@ class AppTextField extends StatelessWidget {
     decoration: InputDecoration(
       labelText: label,
       hintText: hint,
+      // Hints carry examples ("e.g. ABCD2345"): they wrap rather than cut off at 200% text (spec §5.9).
+      hintMaxLines: 2,
       errorText: error,
       errorMaxLines: 3,
       prefixText: prefixText,

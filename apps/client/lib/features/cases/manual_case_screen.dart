@@ -7,6 +7,7 @@ import 'package:advocate_app/data/courts.dart';
 import 'package:advocate_app/features/cases/add_case.dart';
 import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
 import 'package:advocate_app/ui/fields.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -110,8 +111,7 @@ class _ManualCaseScreenState extends ConsumerState<ManualCaseScreen> {
                 : DateTime.utc(next.year, next.month, next.day),
           );
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l.addCaseAdded)));
+      showSnack(ScaffoldMessenger.of(context), l.addCaseAdded);
       openAddedCase(context, id);
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -127,10 +127,7 @@ class _ManualCaseScreenState extends ConsumerState<ManualCaseScreen> {
     }
   }
 
-  void _fail(String message) {
-    setState(() => _error = message);
-    announce(context, message);
-  }
+  void _fail(String message) => setState(() => _error = message);
 
   /// A field; [max] is the API's length limit (`ManualIn`), so a long entry can't fail the request.
   Widget _field(

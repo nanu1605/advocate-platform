@@ -98,10 +98,13 @@ void main() {
   }
 
   testWidgets('an empty note asks for one and sends nothing', (tester) async {
+    final announced = captureAnnouncements(tester);
     final api = await _open(tester);
     await tester.enterText(find.byType(TextField), '   ');
+    announced.clear();
     await _send(tester, en.feedbackSend);
     expect(find.text(en.feedbackEmpty), findsOneWidget);
+    expect(announced, [en.feedbackEmpty]);
     expect(_sent(api), isEmpty);
   });
 

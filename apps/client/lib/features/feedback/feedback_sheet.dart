@@ -6,9 +6,9 @@ import 'package:advocate_app/data/api_client.dart';
 import 'package:advocate_app/data/feedback.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/case_page/sheet_form.dart';
-import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
 import 'package:advocate_app/ui/fields.dart';
 import 'package:advocate_app/ui/sheets.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -89,7 +89,7 @@ class _FeedbackSheetState extends ConsumerState<_FeedbackSheet> {
     draft.text = '';
     // The sheet may have been swiped away while the note was sending.
     if (mounted) navigator.pop();
-    messenger.showSnackBar(SnackBar(content: Text(l.feedbackThanks)));
+    showSnack(messenger, l.feedbackThanks);
   }
 
   @override

@@ -212,7 +212,9 @@ void main() {
     testWidgets('add client: checked inline, then saved and opened', (
       tester,
     ) async {
+      final announced = captureAnnouncements(tester);
       final cases = await pump(tester);
+      announced.clear();
       await tester.tap(find.text(en.clientsAdd));
       await tester.pumpAndSettle();
       await tester.enterText(_field(en.phoneLabel), '12345');
@@ -222,6 +224,7 @@ void main() {
       expect(find.text(en.clientsDataNameRequired), findsOneWidget);
       expect(find.text(en.clientsDataPhoneInvalid), findsOneWidget);
       expect(find.text(en.clientsDataEmailInvalid), findsOneWidget);
+      expect(announced, [en.clientsDataNameRequired]);
       expect(cases.writes, isEmpty);
 
       await tester.enterText(_field(en.casePageClientName), ' Anita Joshi ');
@@ -280,6 +283,26 @@ void main() {
   });
 
   group('profile', () {
+    testWidgets('offline: the profile shows under the banner; an edit still '
+        'saves on the device', (tester) async {
+      final cases = await pump(
+        tester,
+        location: '/clients/cl-1',
+        offline: true,
+      );
+      expect(find.byType(OfflineBanner), findsOneWidget);
+      expect(find.text('Suresh Patel'), findsOneWidget);
+      expect(find.text('${en.clientsCases} (2)'), findsOneWidget);
+      await tester.tap(find.byTooltip(en.clientsEdit));
+      await tester.pumpAndSettle();
+      await tester.enterText(_field(en.casePageClientName), 'Suresh K. Patel');
+      await tester.tap(_inSheet(find.text(en.casePageSave)));
+      await tester.pumpAndSettle();
+      expect(cases.writes.single.name, 'updateClient');
+      expect(find.text('Suresh K. Patel'), findsOneWidget);
+      expect(find.text(en.errorNeedsNetwork), findsNothing);
+    });
+
     testWidgets('details: call, email, address, language, notes and cases', (
       tester,
     ) async {

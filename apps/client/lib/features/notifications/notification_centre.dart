@@ -7,6 +7,7 @@ import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/data/notifications.dart';
 import 'package:advocate_app/features/case_page/links.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/section_header.dart';
 import 'package:advocate_app/ui/skeleton.dart';
@@ -235,54 +236,59 @@ class _NotificationTile extends StatelessWidget {
         if (earlier) f.shortDate(at) else f.time(at),
       if (n.earlier.isNotEmpty) l.notifCentreFolded(n.earlier.length),
     ].join(' · ');
-    final tile = ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(_icon(n.kind), color: n.unread ? c.primary : c.ink2),
-      title: Text(
-        title,
-        style: context.text.bodyLarge?.copyWith(
-          fontWeight: n.unread ? FontWeight.w700 : null,
+    final tile = FocusRing(
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(_icon(n.kind), color: n.unread ? c.primary : c.ink2),
+        title: Text(
+          title,
+          style: context.text.bodyLarge?.copyWith(
+            fontWeight: n.unread ? FontWeight.w700 : null,
+          ),
         ),
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (n.body case final body?)
-            Text(body, style: context.text.bodyMedium),
-          if (meta.isNotEmpty)
-            Text(meta, style: context.text.bodySmall?.copyWith(color: c.ink2)),
-        ],
-      ),
-      trailing: n.unread
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Semantics(
-                  label: l.notifCentreUnread,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: c.primary,
-                      shape: BoxShape.circle,
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (n.body case final body?)
+              Text(body, style: context.text.bodyMedium),
+            if (meta.isNotEmpty)
+              Text(
+                meta,
+                style: context.text.bodySmall?.copyWith(color: c.ink2),
+              ),
+          ],
+        ),
+        trailing: n.unread
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Semantics(
+                    label: l.notifCentreUnread,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: c.primary,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
-                ),
-                PopupMenuButton<bool>(
-                  tooltip: l.notifCentreMoreActions(title),
-                  icon: const Icon(AppIcons.dotsThreeVertical),
-                  onSelected: (_) => onMarkRead(),
-                  itemBuilder: (_) => [
-                    PopupMenuItem(
-                      value: true,
-                      child: Text(l.notifCentreMarkRead),
-                    ),
-                  ],
-                ),
-              ],
-            )
-          : null,
-      onTap: onTap,
+                  PopupMenuButton<bool>(
+                    tooltip: l.notifCentreMoreActions(title),
+                    icon: const Icon(AppIcons.dotsThreeVertical),
+                    onSelected: (_) => onMarkRead(),
+                    itemBuilder: (_) => [
+                      PopupMenuItem(
+                        value: true,
+                        child: Text(l.notifCentreMarkRead),
+                      ),
+                    ],
+                  ),
+                ],
+              )
+            : null,
+        onTap: onTap,
+      ),
     );
     if (!n.unread) return tile;
     // A swipe marks it read and the row stays (it only loses its dot).

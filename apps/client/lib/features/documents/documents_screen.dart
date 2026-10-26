@@ -11,6 +11,7 @@ import 'package:advocate_app/features/documents/document_row.dart';
 import 'package:advocate_app/features/documents/upload_flow.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:advocate_app/ui/fields.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/sheets.dart';
 import 'package:advocate_app/ui/skeleton.dart';
@@ -94,12 +95,14 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
   Future<void> _pickCase(Map<String, String> cases) async {
     final l = context.l10n;
     final current = ref.read(documentFilterProvider).matterId;
-    Widget option(BuildContext sheet, String? id, String label) => ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(label),
-      selected: id == current,
-      trailing: id == current ? const Icon(AppIcons.checkCircleFill) : null,
-      onTap: () => Navigator.pop(sheet, (id: id)),
+    Widget option(BuildContext sheet, String? id, String label) => FocusRing(
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        title: Text(label),
+        selected: id == current,
+        trailing: id == current ? const Icon(AppIcons.checkCircleFill) : null,
+        onTap: () => Navigator.pop(sheet, (id: id)),
+      ),
     );
     final picked = await showAppBottomSheet<({String? id})>(
       context,

@@ -9,6 +9,7 @@ import 'package:advocate_app/data/case_text.dart';
 import 'package:advocate_app/data/cases.dart';
 import 'package:advocate_app/data/diary_text.dart';
 import 'package:advocate_app/ui/court_badge.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/sheets.dart';
 import 'package:advocate_app/ui/tiles.dart';
@@ -349,22 +350,24 @@ class CalendarItemRow extends ConsumerWidget {
       label: spoken,
       excludeSemantics: true,
       onTap: open,
-      child: ListTile(
-        contentPadding: EdgeInsets.zero,
-        minVerticalPadding: 8,
-        leading: Icon(
-          AppIcons.gavel,
-          color: calendarTypeColor(context.colors, CalendarType.hearing),
+      child: FocusRing(
+        child: ListTile(
+          contentPadding: EdgeInsets.zero,
+          minVerticalPadding: 8,
+          leading: Icon(
+            AppIcons.gavel,
+            color: calendarTypeColor(context.colors, CalendarType.hearing),
+          ),
+          title: Text(e.caseLabel, style: context.text.titleSmall),
+          subtitle: Text(
+            [
+              CourtBadge.text(context, court, e.courtNo, e.itemNo),
+              ?e.purpose,
+            ].join(' · '),
+            style: context.text.bodySmall,
+          ),
+          onTap: open,
         ),
-        title: Text(e.caseLabel, style: context.text.titleSmall),
-        subtitle: Text(
-          [
-            CourtBadge.text(context, court, e.courtNo, e.itemNo),
-            ?e.purpose,
-          ].join(' · '),
-          style: context.text.bodySmall,
-        ),
-        onTap: open,
       ),
     );
   }
@@ -392,22 +395,24 @@ class CalendarItemRow extends ConsumerWidget {
       ].map((s) => '$s$stop').join(' '),
       excludeSemantics: true,
       onTap: open,
-      child: ListTile(
-        contentPadding: EdgeInsets.zero,
-        minVerticalPadding: 8,
-        leading: Icon(
-          AppIcons.clock,
-          color: calendarTypeColor(c, CalendarType.deadline),
-        ),
-        title: Text(
-          kind,
-          style: context.text.titleSmall?.copyWith(
-            decoration: d.done ? TextDecoration.lineThrough : null,
-            color: d.done ? c.ink3 : null,
+      child: FocusRing(
+        child: ListTile(
+          contentPadding: EdgeInsets.zero,
+          minVerticalPadding: 8,
+          leading: Icon(
+            AppIcons.clock,
+            color: calendarTypeColor(c, CalendarType.deadline),
           ),
+          title: Text(
+            kind,
+            style: context.text.titleSmall?.copyWith(
+              decoration: d.done ? TextDecoration.lineThrough : null,
+              color: d.done ? c.ink3 : null,
+            ),
+          ),
+          subtitle: Text(line.join(' · '), style: context.text.bodySmall),
+          onTap: open,
         ),
-        subtitle: Text(line.join(' · '), style: context.text.bodySmall),
-        onTap: open,
       ),
     );
   }

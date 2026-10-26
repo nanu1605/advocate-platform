@@ -134,8 +134,7 @@ class _FoundCasesScreenState extends ConsumerState<FoundCasesScreen> {
 
   /// A short success check (none under reduce motion), then onward. The snackbar carries the count.
   Future<void> _celebrate(int added) async {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(context.l10n.foundAdded(added))));
+    showSnack(ScaffoldMessenger.of(context), context.l10n.foundAdded(added));
     if (!Motion.of(context).reduced) {
       setState(() => _added = true);
       await Future<void>.delayed(const Duration(milliseconds: 800));
@@ -210,7 +209,7 @@ class _FoundCasesScreenState extends ConsumerState<FoundCasesScreen> {
         await api.decideFoundCase(orgId: org, id: c.id, decision: decision);
         return true;
       } on ApiException catch (e) {
-        messenger.showSnackBar(SnackBar(content: Text(errorText(l, e))));
+        showSnack(messenger, errorText(l, e));
         return false;
       }
     }
@@ -673,13 +672,10 @@ class _BottomBar extends StatelessWidget {
                   if (notice != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: Semantics(
-                        liveRegion: true,
-                        child: Text(
-                          notice!,
-                          style: context.text.bodyMedium?.copyWith(
-                            color: c.of(StatusKind.urgent).fg,
-                          ),
+                      child: AnnouncedText(
+                        notice!,
+                        style: context.text.bodyMedium?.copyWith(
+                          color: c.of(StatusKind.urgent).fg,
                         ),
                       ),
                     ),

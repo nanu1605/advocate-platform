@@ -10,6 +10,7 @@ import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/feedback/feedback_sheet.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:advocate_app/features/session.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/section_header.dart';
 import 'package:advocate_app/ui/sheets.dart';
@@ -39,19 +40,20 @@ class SettingsScreen extends ConsumerWidget {
           SegmentedButton<AppThemeMode>(
             showSelectedIcon: false,
             segments: [
-              ButtonSegment(
-                value: AppThemeMode.system,
-                label: Text(l.themeSystem),
-              ),
-              ButtonSegment(
-                value: AppThemeMode.light,
-                label: Text(l.themeLight),
-              ),
-              ButtonSegment(value: AppThemeMode.dark, label: Text(l.themeDark)),
-              ButtonSegment(
-                value: AppThemeMode.sunlight,
-                label: Text(l.themeSunlight),
-              ),
+              for (final (mode, label) in [
+                (AppThemeMode.system, l.themeSystem),
+                (AppThemeMode.light, l.themeLight),
+                (AppThemeMode.dark, l.themeDark),
+                (AppThemeMode.sunlight, l.themeSunlight),
+              ])
+                ButtonSegment(
+                  value: mode,
+                  // One line, shrunk if it must: four segments share a 360 dp phone at 200%.
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(label, softWrap: false),
+                  ),
+                ),
             ],
             selected: {s.theme},
             onSelectionChanged: (v) => ctl.setTheme(v.first),
@@ -78,17 +80,21 @@ class SettingsScreen extends ConsumerWidget {
             child: Text(l.textSizeHint, style: context.text.bodySmall),
           ),
           const SizedBox(height: 8),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(l.settingsReduceMotion),
-            value: s.reduceMotion,
-            onChanged: (v) => ctl.setReduceMotion(value: v),
+          FocusRing(
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(l.settingsReduceMotion),
+              value: s.reduceMotion,
+              onChanged: (v) => ctl.setReduceMotion(value: v),
+            ),
           ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(l.settingsHaptics),
-            value: s.haptics,
-            onChanged: (v) => ctl.setHaptics(value: v),
+          FocusRing(
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(l.settingsHaptics),
+              value: s.haptics,
+              onChanged: (v) => ctl.setHaptics(value: v),
+            ),
           ),
           if (lock.enforced) ...[
             SectionHeader(l.settingsAppLock),
@@ -124,11 +130,13 @@ class SettingsScreen extends ConsumerWidget {
               () => unawaited(showFeedbackSheet(context)),
             ),
           ])
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(icon, color: context.colors.ink2),
-              title: Text(label, style: context.text.bodyLarge),
-              onTap: open,
+            FocusRing(
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(icon, color: context.colors.ink2),
+                title: Text(label, style: context.text.bodyLarge),
+                onTap: open,
+              ),
             ),
           const SizedBox(height: 16),
           OutlinedButton(

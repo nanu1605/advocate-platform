@@ -31,6 +31,9 @@ def checks(tokens: dict) -> list[tuple[str, str, str, str, float]]:
         for fg in ("outline", "primaryFill"):
             for bg in backgrounds:
                 rows.append((theme, f"{fg} on {bg}", c[fg], c[bg], 3.0))
+        # The 2 dp focus ring sits on the page or, round a row, inside a hero or selected card (spec §5.9).
+        for bg in (*backgrounds, "primarySoft"):
+            rows.append((theme, f"focus on {bg}", c["focus"], c[bg], 7.0 if theme == "sunlight" else 3.0))
         rows.append((theme, "onPrimary on primaryFill", c["onPrimary"], c["primaryFill"], 4.5))
         for fg in ("ink", "ink2", "ink3", "primary"):  # hero case card sits on primarySoft
             rows.append((theme, f"{fg} on primarySoft", c[fg], c["primarySoft"], 4.5))

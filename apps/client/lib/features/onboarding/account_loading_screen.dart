@@ -27,7 +27,7 @@ class AccountLoadingScreen extends ConsumerWidget {
       body: SafeArea(
         child: Column(
           children: [
-            if (offline) const OfflineBanner(),
+            if (offline) const OfflineBanner(steps: true),
             Expanded(
               child: error != null
                   ? ErrorState(
@@ -36,9 +36,8 @@ class AccountLoadingScreen extends ConsumerWidget {
                           : errorText(l, error),
                       onRetry: retry,
                     )
-                  : Semantics(
-                      label: l.accountLoading,
-                      liveRegion: true,
+                  : AnnouncedText(
+                      l.accountLoading,
                       child: const Padding(
                         padding: EdgeInsets.fromLTRB(16, 24, 16, 16),
                         child: Column(

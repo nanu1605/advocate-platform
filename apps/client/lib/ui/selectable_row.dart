@@ -1,5 +1,6 @@
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:flutter/material.dart';
 
@@ -38,57 +39,59 @@ class SelectableRow extends StatelessWidget {
       label: '${selected ? l.selected : l.notSelected}. $spoken',
       excludeSemantics: true,
       onTap: () => onChanged(!selected),
-      child: InkWell(
-        onTap: () => onChanged(!selected),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // The row is the keyboard stop (Space toggles it); a second stop on the checkbox would repeat it.
-              ExcludeFocus(
-                child: Checkbox(
-                  value: selected,
-                  onChanged: (v) => onChanged(v ?? false),
-                ),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: context.text.titleSmall),
-                      if (subtitle != null)
-                        Text(subtitle!, style: context.text.bodySmall),
-                      if (warning != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Row(
-                            children: [
-                              Icon(
-                                AppIcons.warningCircle,
-                                size: inlineIconSize(context, 16),
-                                color: c.of(StatusKind.adjourned).fg,
-                              ),
-                              const SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  warning!,
-                                  style: context.text.bodySmall?.copyWith(
-                                    color: c.of(StatusKind.adjourned).fg,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
+      child: FocusRing(
+        child: InkWell(
+          onTap: () => onChanged(!selected),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // The row is the keyboard stop (Space toggles it); a second stop on the checkbox would repeat it.
+                ExcludeFocus(
+                  child: Checkbox(
+                    value: selected,
+                    onChanged: (v) => onChanged(v ?? false),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title, style: context.text.titleSmall),
+                        if (subtitle != null)
+                          Text(subtitle!, style: context.text.bodySmall),
+                        if (warning != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  AppIcons.warningCircle,
+                                  size: inlineIconSize(context, 16),
+                                  color: c.of(StatusKind.adjourned).fg,
+                                ),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    warning!,
+                                    style: context.text.bodySmall?.copyWith(
+                                      color: c.of(StatusKind.adjourned).fg,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -128,11 +131,14 @@ class GroupHeader extends StatelessWidget {
       header: true,
       child: Row(
         children: [
-          Checkbox(
-            tristate: true,
-            value: value,
-            semanticLabel: '$title. ${l.groupSelection(selectedCount, total)}',
-            onChanged: (_) => onSelectAll(value != true),
+          FocusRing(
+            child: Checkbox(
+              tristate: true,
+              value: value,
+              semanticLabel:
+                  '$title. ${l.groupSelection(selectedCount, total)}',
+              onChanged: (_) => onSelectAll(value != true),
+            ),
           ),
           Expanded(
             child: Text('$title ($total)', style: context.text.titleMedium),

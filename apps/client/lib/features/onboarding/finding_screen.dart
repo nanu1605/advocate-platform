@@ -41,11 +41,7 @@ class _FindingScreenState extends ConsumerState<FindingScreen> {
     try {
       await action();
     } on ApiException catch (e) {
-      if (mounted) {
-        final message = errorText(context.l10n, e);
-        setState(() => _error = message);
-        announce(context, message);
-      }
+      if (mounted) setState(() => _error = errorText(context.l10n, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

@@ -1,6 +1,7 @@
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/core/theme/tokens.g.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/status_pill.dart';
 import 'package:flutter/material.dart';
@@ -37,6 +38,8 @@ class Avatar extends StatelessWidget {
         width: size,
         height: size,
         alignment: Alignment.center,
+        // Initials stay inside the circle, shrunk if they must (200% text; the name is beside them).
+        padding: EdgeInsets.symmetric(horizontal: size * 0.1),
         decoration: BoxDecoration(
           color: s.bg,
           shape: BoxShape.circle,
@@ -44,9 +47,12 @@ class Avatar extends StatelessWidget {
               ? Border.all(color: s.fg, width: context.colors.borderWidth)
               : null,
         ),
-        child: Text(
-          initials(name),
-          style: context.text.titleSmall?.copyWith(color: s.fg),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            initials(name),
+            style: context.text.titleSmall?.copyWith(color: s.fg),
+          ),
         ),
       ),
     );
@@ -82,27 +88,31 @@ class ClientTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final tile = ListTile(
-      onTap: onTap,
-      autofocus: autofocus,
+    final tile = FocusRing(
+      radius: Radii.card,
       selected: selected,
-      selectedTileColor: c.isSunlight ? null : c.primarySoft,
-      shape: selected
-          ? RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(Radii.card),
-              side: BorderSide(color: c.primary, width: 2),
-            )
-          : null,
-      minVerticalPadding: 12,
-      // Grows with the text so large initials stay inside the circle (spec §5.9): 40 dp at 100%.
-      leading: Avatar(
-        name,
-        size: 24 + MediaQuery.textScalerOf(context).scale(16),
-      ),
-      title: Text(name, style: context.text.titleSmall),
-      subtitle: Text(
-        [?phone, context.l10n.linkedCases(caseCount)].join(' · '),
-        style: context.text.bodySmall,
+      child: ListTile(
+        onTap: onTap,
+        autofocus: autofocus,
+        selected: selected,
+        selectedTileColor: c.isSunlight ? null : c.primarySoft,
+        shape: selected
+            ? RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(Radii.card),
+                side: BorderSide(color: c.primary, width: 2),
+              )
+            : null,
+        minVerticalPadding: 12,
+        // Grows with the text so large initials stay inside the circle (spec §5.9): 40 dp at 100%.
+        leading: Avatar(
+          name,
+          size: 24 + MediaQuery.textScalerOf(context).scale(16),
+        ),
+        title: Text(name, style: context.text.titleSmall),
+        subtitle: Text(
+          [?phone, context.l10n.linkedCases(caseCount)].join(' · '),
+          style: context.text.bodySmall,
+        ),
       ),
     );
     final spoken = semanticsLabel;
@@ -141,36 +151,38 @@ class TaskItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return CheckboxListTile(
-      value: done,
-      onChanged: (v) => onChanged(v ?? false),
-      controlAffinity: ListTileControlAffinity.leading,
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        title,
-        style: context.text.bodyLarge?.copyWith(
-          decoration: done ? TextDecoration.lineThrough : null,
-          color: done ? c.ink3 : c.ink,
+    return FocusRing(
+      child: CheckboxListTile(
+        value: done,
+        onChanged: (v) => onChanged(v ?? false),
+        controlAffinity: ListTileControlAffinity.leading,
+        contentPadding: EdgeInsets.zero,
+        title: Text(
+          title,
+          style: context.text.bodyLarge?.copyWith(
+            decoration: done ? TextDecoration.lineThrough : null,
+            color: done ? c.ink3 : c.ink,
+          ),
         ),
-      ),
-      subtitle: due == null && assignee == null
-          ? null
-          : Wrap(
-              spacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                if (due != null)
-                  Text(
-                    context.l10n.taskDue(due!),
-                    style: context.text.bodySmall?.copyWith(
-                      color: overdue ? c.of(StatusKind.urgent).fg : null,
+        subtitle: due == null && assignee == null
+            ? null
+            : Wrap(
+                spacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (due != null)
+                    Text(
+                      context.l10n.taskDue(due!),
+                      style: context.text.bodySmall?.copyWith(
+                        color: overdue ? c.of(StatusKind.urgent).fg : null,
+                      ),
                     ),
-                  ),
-                if (overdue) const StatusPill(PillKind.overdue),
-                if (assignee != null)
-                  Text(assignee!, style: context.text.bodySmall),
-              ],
-            ),
+                  if (overdue) const StatusPill(PillKind.overdue),
+                  if (assignee != null)
+                    Text(assignee!, style: context.text.bodySmall),
+                ],
+              ),
+      ),
     );
   }
 }
@@ -252,7 +264,7 @@ class DocumentTile extends StatelessWidget {
       null => null,
     };
     final small = context.text.bodySmall;
-    return ListTile(
+    final tile = ListTile(
       onTap: onTap,
       minVerticalPadding: 12,
       leading: Icon(
@@ -312,6 +324,7 @@ class DocumentTile extends StatelessWidget {
       ),
       trailing: trailing,
     );
+    return FocusRing(child: tile);
   }
 }
 

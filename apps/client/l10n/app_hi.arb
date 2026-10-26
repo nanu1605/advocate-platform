@@ -54,6 +54,7 @@
   "navToday": "आज",
   "navCases": "केस",
   "navAdd": "जोड़ें",
+  "navCasesFound": "{count, plural, =1{आपके लिए {count} केस मिला, देखें} other{आपके लिए {count} केस मिले, देखें}}",
   "navMore": "अन्य",
   "navCalendar": "कैलेंडर",
   "navClients": "क्लाइंट",
@@ -90,6 +91,7 @@
   "sunlightToggle": "धूप मोड",
 
   "offlineBanner": "ऑफ़लाइन — सहेजा हुआ डेटा दिख रहा है",
+  "offlineBannerSteps": "ऑफ़लाइन — आगे बढ़ने के लिए इंटरनेट चाहिए",
   "syncing": "सिंक हो रहा है",
   "synced": "अपडेटेड",
   "syncFailed": "सिंक रुका है",
@@ -359,6 +361,7 @@
   "addCaseAdvocate": "वकील का नाम",
   "addCaseJudge": "जज का नाम",
   "addCaseWords": "कोई और शब्द",
+  "addCaseWordsHint": "केस नंबर भी यहीं लिखें, जैसे 1234",
   "addCaseCourts": "कोर्ट",
   "addCaseCourtsHint": "कोई कोर्ट न चुनें, तो हमारे सभी कोर्ट में खोजेंगे।",
   "addCaseCaseType": "केस का प्रकार",

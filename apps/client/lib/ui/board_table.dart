@@ -1,5 +1,6 @@
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/status_pill.dart';
 import 'package:flutter/material.dart';
@@ -88,11 +89,13 @@ class BoardTable extends StatelessWidget {
                 label: r.semanticsLabel,
                 excludeSemantics: r.semanticsLabel != null,
                 onTap: r.onTap,
-                child: InkWell(
-                  onTap: r.onTap,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 48),
-                    child: content,
+                child: FocusRing(
+                  child: InkWell(
+                    onTap: r.onTap,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 48),
+                      child: content,
+                    ),
                   ),
                 ),
               ),

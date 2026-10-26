@@ -394,12 +394,15 @@ final localAlertsProvider = Provider<void>((ref) {
     ref.read(settingsProvider).locale ?? const Locale('hi'),
   );
   void rows() {
-    final (rows, prefs) = (
-      ref.read(notificationRowsProvider).value,
+    final (state, prefs) = (
+      ref.read(notificationRowsProvider),
       ref.read(notificationPrefsProvider).value,
     );
-    // Without an org (the account still loading, an offline start) the rows read empty: that says nothing about the tray.
-    if (rows == null ||
+    final rows = state.value;
+    // Without an org (the account still loading, an offline start) the rows read empty: that says nothing about the
+    // tray. Nor do they while reloading for the org that just arrived, as they still hold that empty list.
+    if (state.isLoading ||
+        rows == null ||
         prefs == null ||
         ref.read(currentOrgIdProvider) == null) {
       return;

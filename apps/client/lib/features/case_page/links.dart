@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/ui/app_scaffold.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -24,11 +25,9 @@ void openInSection(BuildContext context, String path) {
   }
 }
 
-/// Shows [message] in a snackbar, replacing the one showing.
+/// Shows [message] in a snackbar, replacing the one showing ([showSnack]).
 void showMessage(BuildContext context, String message) =>
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showSnack(ScaffoldMessenger.of(context), message);
 
 /// Opens [uri] outside the app, or says it couldn't.
 Future<void> openExternal(BuildContext context, WidgetRef ref, Uri uri) async {

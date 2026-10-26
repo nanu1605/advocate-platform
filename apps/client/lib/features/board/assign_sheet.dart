@@ -2,6 +2,7 @@ import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/diary.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/sheets.dart';
 import 'package:flutter/material.dart';
@@ -51,12 +52,14 @@ class _AssignSheet extends ConsumerWidget {
     ];
     Widget option(String title, OrgMember? m) {
       final current = m?.userId == currentId;
-      return ListTile(
-        contentPadding: EdgeInsets.zero,
-        title: Text(title),
-        selected: current,
-        trailing: current ? const Icon(AppIcons.checkCircleFill) : null,
-        onTap: () => Navigator.pop(context, (member: m)),
+      return FocusRing(
+        child: ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(title),
+          selected: current,
+          trailing: current ? const Icon(AppIcons.checkCircleFill) : null,
+          onTap: () => Navigator.pop(context, (member: m)),
+        ),
       );
     }
 

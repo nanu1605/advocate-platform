@@ -1,6 +1,7 @@
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/core/theme/tokens.g.dart';
 import 'package:advocate_app/ui/court_badge.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/hearing_chip.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/status_pill.dart';
@@ -167,23 +168,27 @@ class CaseCard extends StatelessWidget {
       ],
     ];
 
-    final card = Card(
-      color: (hero || selected) && !c.isSunlight ? c.primarySoft : null,
-      shape: selected
-          ? RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(Radii.card),
-              side: BorderSide(color: c.primary, width: 2),
-            )
-          : null,
-      child: InkWell(
-        onTap: onTap,
-        autofocus: autofocus,
-        borderRadius: BorderRadius.circular(Radii.card),
-        child: Padding(
-          padding: EdgeInsets.all(compact ? 12 : 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: body,
+    final card = FocusRing(
+      radius: Radii.card,
+      selected: selected,
+      child: Card(
+        color: (hero || selected) && !c.isSunlight ? c.primarySoft : null,
+        shape: selected
+            ? RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(Radii.card),
+                side: BorderSide(color: c.primary, width: 2),
+              )
+            : null,
+        child: InkWell(
+          onTap: onTap,
+          autofocus: autofocus,
+          borderRadius: BorderRadius.circular(Radii.card),
+          child: Padding(
+            padding: EdgeInsets.all(compact ? 12 : 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: body,
+            ),
           ),
         ),
       ),

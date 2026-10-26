@@ -223,6 +223,36 @@ void main() {
     }
   }
 
+  for (final locale in ['en', 'hi']) {
+    testWidgets('a screen reader goes hero, courts, then tasks ($locale)', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      final l = lookupAppLocalizations(Locale(locale));
+      // Tall enough that every section is built.
+      await _open(
+        tester,
+        sampleDiary(),
+        locale: locale,
+        size: const Size(400, 3000),
+      );
+      final day = orderDiary(withClashes(todaySample(), 'user-1'));
+      final court = day.first.court!.label(Locale(locale));
+      final inCourt = day.where((e) => e.court == day.first.court).length;
+      final read = [
+        for (final n in tester.semantics.simulatedAccessibilityTraversal())
+          n.label,
+      ];
+      final hero = read.indexWhere((s) => s.contains(day.first.caseLabel));
+      final firstCourt = read.indexOf('$court ($inCourt)');
+      final tasks = read.indexOf('${l.todayTasksDue} (2)');
+      expect(hero, isNonNegative);
+      expect(firstCourt, greaterThan(hero));
+      expect(tasks, greaterThan(firstCourt));
+      handle.dispose();
+    });
+  }
+
   testWidgets('the hero is the next matter whose window has not ended', (
     tester,
   ) async {

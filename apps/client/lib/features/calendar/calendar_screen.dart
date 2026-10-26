@@ -8,6 +8,7 @@ import 'package:advocate_app/data/calendar.dart';
 import 'package:advocate_app/features/calendar/calendar_widgets.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:advocate_app/ui/app_scaffold.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/section_header.dart';
 import 'package:advocate_app/ui/skeleton.dart';
@@ -464,13 +465,10 @@ class _Controls extends ConsumerWidget {
               ),
               Expanded(
                 // Says the new period when previous, next, Today or a key changes it.
-                child: Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: context.text.titleMedium,
-                  ),
+                child: AnnouncedText(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: context.text.titleMedium,
                 ),
               ),
               IconButton(
@@ -510,7 +508,9 @@ class _Scroll extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
-      final side = math.max(16, (box.maxWidth - maxWidth) / 2).toDouble();
+      // Below 368 dp (a 360 dp phone) the gutters narrow to 12 dp, so Month's seven days stay 48 dp wide (§5.9).
+      final gutter = box.maxWidth < 7 * 48 + 2 * 16 ? 12 : 16;
+      final side = math.max(gutter, (box.maxWidth - maxWidth) / 2).toDouble();
       return SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(side, 8, side, 24),
         child: Column(
@@ -562,24 +562,26 @@ class _DayHeading extends StatelessWidget {
         selected: selected ? true : null,
         child: tap == null
             ? text
-            : InkWell(
-                onTap: tap,
-                focusNode: focusNode,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  constraints: const BoxConstraints(minHeight: 48),
-                  alignment: AlignmentDirectional.centerStart,
-                  padding: const EdgeInsetsDirectional.only(start: 8),
-                  // The selected day has a bar as well as its colour.
-                  decoration: BoxDecoration(
-                    border: BorderDirectional(
-                      start: BorderSide(
-                        color: selected ? c.primary : Colors.transparent,
-                        width: 4,
+            : FocusRing(
+                child: InkWell(
+                  onTap: tap,
+                  focusNode: focusNode,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    alignment: AlignmentDirectional.centerStart,
+                    padding: const EdgeInsetsDirectional.only(start: 8),
+                    // The selected day has a bar as well as its colour.
+                    decoration: BoxDecoration(
+                      border: BorderDirectional(
+                        start: BorderSide(
+                          color: selected ? c.primary : Colors.transparent,
+                          width: 4,
+                        ),
                       ),
                     ),
+                    child: text,
                   ),
-                  child: text,
                 ),
               ),
       ),

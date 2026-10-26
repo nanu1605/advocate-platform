@@ -187,6 +187,17 @@ void main() {
       find.ancestor(of: find.text(title), matching: find.byType(ListTile));
 
   group('list', () {
+    testWidgets('offline: uploads and saved documents show under the banner', (
+      tester,
+    ) async {
+      await open(tester, overrides: syncedData(offline: true));
+      expect(find.byType(OfflineBanner), findsOneWidget);
+      expect(find.text('Vakalatnama'), findsOneWidget);
+      expect(find.text('Writ petition'), findsOneWidget);
+      expect(find.text('Bar council letter'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('uploads first, then documents newest first, with type, size, '
         'case and state', (tester) async {
       await open(tester);
@@ -303,6 +314,7 @@ void main() {
     });
 
     testWidgets('edit details and delete with Undo', (tester) async {
+      final announced = captureAnnouncements(tester);
       await open(tester);
       await tester.tap(
         find.descendant(
@@ -314,9 +326,11 @@ void main() {
       await tester.tap(find.text(en.docsEditDetails));
       await tester.pumpAndSettle();
       await tester.enterText(inSheet(find.byType(TextField)), ' ');
+      announced.clear();
       await tester.tap(find.text(en.casePageSave));
       await tester.pumpAndSettle();
       expect(find.text(en.docsTitleRequired), findsOneWidget);
+      expect(announced, [en.docsTitleRequired]);
       await tester.enterText(
         inSheet(find.byType(TextField)),
         'Letter to the Bar Council',
@@ -617,6 +631,7 @@ void main() {
     testWidgets('a PDF opens with pages, find, jump to page and zoom', (
       tester,
     ) async {
+      final announced = captureAnnouncements(tester);
       await open(tester);
       await tester.tap(find.text('Writ petition'));
       await tester.pumpAndSettle();
@@ -645,13 +660,25 @@ void main() {
       await tester.tap(find.byTooltip(en.docsFindClose));
       await tester.pumpAndSettle();
       expect(find.byType(TextField), findsNothing);
+      // Each count is read out as it changes.
+      expect(
+        announced,
+        containsAllInOrder([
+          en.docsFindCount(1, 2),
+          en.docsFindCount(2, 2),
+          en.docsFindCount(1, 2),
+          en.docsFindNone,
+        ]),
+      );
 
       await tester.tap(find.text(en.docsPage(2, 3)));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), '7');
+      announced.clear();
       await tester.tap(find.text(en.docsGo));
       await tester.pump();
       expect(find.text(en.docsPageInvalid(3)), findsOneWidget);
+      expect(announced, [en.docsPageInvalid(3)]);
       await tester.enterText(find.byType(TextField), '3');
       await tester.tap(find.text(en.docsGo));
       await tester.pumpAndSettle();
@@ -691,6 +718,32 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
       await tester.pump();
       expect(pagesOf(tester).zoomed, 1);
+    });
+
+    testWidgets('find reads the count out once, when the search settles', (
+      tester,
+    ) async {
+      final announced = captureAnnouncements(tester);
+      final pages = _SearchingPages();
+      await tester.pumpWidget(host(AppPdfViewer(pages), height: 800));
+      await tester.tap(find.byTooltip(en.docsFind));
+      await tester.pumpAndSettle();
+      // pdfrx reports each page's matches as it goes: the count shows them, unread.
+      pages.busy = true;
+      await tester.enterText(find.byType(TextField), 'four');
+      await tester.pump();
+      await tester.pump();
+      expect(find.text(en.docsFindCount(1, 2)), findsOneWidget);
+      expect(announced, isEmpty);
+      pages.finish();
+      await tester.pump();
+      await tester.pump();
+      expect(announced, [en.docsFindCount(1, 2)]);
+      // Next and Previous still say where they went.
+      await tester.tap(find.byTooltip(en.docsFindNext));
+      await tester.pump();
+      await tester.pump();
+      expect(announced.last, en.docsFindCount(2, 2));
     });
 
     testWidgets('AC (spec §4.3): a document kept offline opens with the '
@@ -820,6 +873,19 @@ void main() {
         semantics.dispose();
       });
     }
+  }
+}
+
+/// Sample pages whose search a test ends ([finish]), as pdfrx's runs page by page.
+class _SearchingPages extends SamplePdfPages {
+  bool busy = false;
+
+  @override
+  bool get searching => busy;
+
+  void finish() {
+    busy = false;
+    notifyListeners();
   }
 }
 

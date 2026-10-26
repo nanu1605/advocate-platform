@@ -14,6 +14,7 @@ import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
 import 'package:advocate_app/ui/fields.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/sheets.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -92,9 +93,7 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
       announce(context, l.teamInviteReady);
     } on Object catch (e) {
       if (!mounted) return;
-      final message = inviteErrorText(l, e);
-      setState(() => _error = message);
-      announce(context, message);
+      setState(() => _error = inviteErrorText(l, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -125,7 +124,8 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
         ),
       );
     } on Object catch (e) {
-      if (mounted) setState(() => _error = errorText(l, e));
+      if (!mounted) return;
+      setState(() => _error = errorText(l, e));
     }
   }
 
@@ -250,7 +250,11 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
           style: context.text.bodyMedium,
         ),
       ],
-      StepNotice(l.teamInviteNotSent, kind: StatusKind.listed),
+      StepNotice(
+        l.teamInviteNotSent,
+        kind: StatusKind.listed,
+        announced: false,
+      ),
       const SizedBox(height: 8),
       TextButton(onPressed: () => Navigator.pop(context), child: Text(l.close)),
     ];

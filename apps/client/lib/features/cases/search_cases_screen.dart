@@ -105,8 +105,9 @@ class _SearchCasesScreenState extends ConsumerState<SearchCasesScreen> {
       _yearError = caseYearError(l, _year.text);
       _error = terms ? null : l.errorSearchTerms;
     });
-    final invalid = _error ?? _yearError;
-    if (invalid != null) return announce(context, invalid);
+    // The notice reads out its own error; the year field's is read out here.
+    if (_error != null) return;
+    if (_yearError case final error?) return announce(context, error);
     final q = (
       party: _party.text,
       advocate: _advocate.text,
@@ -187,7 +188,6 @@ class _SearchCasesScreenState extends ConsumerState<SearchCasesScreen> {
     if (!mounted) return null;
     if (page == 1) {
       setState(() => _error = message);
-      announce(context, message);
     } else {
       _say(message);
     }
@@ -215,13 +215,7 @@ class _SearchCasesScreenState extends ConsumerState<SearchCasesScreen> {
           .read(apiClientProvider)
           .addByCnr(orgId: org, idempotencyKey: key, cnr: hit.cnr);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            added.created ? l.foundCnrAdded : l.errorFoundCaseAdded,
-          ),
-        ),
-      );
+      _say(added.created ? l.foundCnrAdded : l.errorFoundCaseAdded);
       openAddedCase(context, added.matterId);
     } on ApiException catch (e) {
       if (mounted) _say(trackErrorText(l, e));
@@ -230,12 +224,8 @@ class _SearchCasesScreenState extends ConsumerState<SearchCasesScreen> {
     }
   }
 
-  void _say(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-    announce(context, message);
-  }
+  void _say(String message) =>
+      showSnack(ScaffoldMessenger.of(context), message);
 
   /// "12 cases found" (the hits loaded so far when case type or year narrowed the pages), or null for none.
   String? _heading(AppLocalizations l) {
@@ -360,7 +350,8 @@ class _SearchCasesScreenState extends ConsumerState<SearchCasesScreen> {
                 _field(_party, l.addCaseParty, autofocus: true),
                 _field(_advocate, l.addCaseAdvocate),
                 _field(_judge, l.addCaseJudge),
-                _field(_text, l.addCaseWords),
+                // The search has no case-number field: a number is searched as words, so the hint says so.
+                _field(_text, l.addCaseWords, hint: l.addCaseWordsHint),
                 // ponytail: every synced court as a chip (five in the MP beta); a searchable picker when P7
                 // seeds other states.
                 if (courts.isNotEmpty) ...[

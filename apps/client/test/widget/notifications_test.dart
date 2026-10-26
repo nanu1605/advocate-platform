@@ -6,6 +6,7 @@ import 'package:advocate_app/data/notifications.dart';
 import 'package:advocate_app/features/case_page/case_page.dart';
 import 'package:advocate_app/features/notifications/notification_centre.dart';
 import 'package:advocate_app/features/notifications/notification_prefs_screen.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -102,6 +103,7 @@ void main() {
     double scale = 1,
     Size size = _tall,
     FakePermission? permission,
+    bool offline = false,
   }) async {
     final notifications = fake ?? sampleNotifications(hi: locale == 'hi');
     await pumpApp(
@@ -114,6 +116,7 @@ void main() {
         clockProvider.overrideWithValue(() => testNow),
         ...notifications.overrides,
         (permission ?? FakePermission()).asOverride,
+        if (offline) ...syncedData(offline: true),
       ],
     );
     return notifications;
@@ -327,6 +330,28 @@ void main() {
     _wrote(fake, 'markRead', ['n-9'], only: true);
     expect(find.byType(CasePage), findsNothing);
     expect(_at(tester), '/notifications');
+  });
+
+  // Spec §16.6: both read and write the synced database, so they work offline.
+  testWidgets('offline: the centre and preferences show under the banner; '
+      'marking read and a preference still save on the device', (tester) async {
+    final fake = await pump(tester, offline: true);
+    expect(find.byType(OfflineBanner), findsOneWidget);
+    expect(find.text('New order'), findsOneWidget);
+    await tester.tap(find.byTooltip(en.notifCentreMarkAll));
+    await tester.pumpAndSettle();
+    _wrote(fake, 'markAllRead', null, only: true);
+
+    container(tester).read(routerProvider).go('/settings/notifications');
+    await tester.pumpAndSettle();
+    expect(find.byType(OfflineBanner), findsOneWidget);
+    await tester.tap(find.text(en.notifDataKindTomorrowBoard));
+    await tester.pumpAndSettle();
+    _wrote(fake, 'setKindEnabled', {
+      'kind': 'tomorrow_board',
+      'enabled': false,
+    });
+    expect(find.text(en.errorNeedsNetwork), findsNothing);
   });
 
   testWidgets('the menu and a swipe mark one row read', (tester) async {

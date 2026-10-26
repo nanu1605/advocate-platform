@@ -1,17 +1,41 @@
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 @immutable
 class NavDest {
-  const NavDest(this.path, this.icon, this.selectedIcon, this.label);
+  const NavDest(
+    this.path,
+    this.icon,
+    this.selectedIcon,
+    this.label, {
+    this.badge = 0,
+    this.badgeLabel,
+  });
 
   final String path;
   final IconData icon;
   final IconData selectedIcon;
   final String label;
+
+  /// A count on the icon when above zero (e.g. found cases to review), read out as [badgeLabel].
+  final int badge;
+  final String? badgeLabel;
+
+  /// [icon] with the [badge], if any.
+  Widget iconWith(IconData icon, {Color? color}) {
+    final glyph = Icon(icon, color: color);
+    if (badge <= 0) return glyph;
+    return Semantics(
+      label: badgeLabel,
+      child: ExcludeSemantics(
+        child: Badge.count(count: badge, child: glyph),
+      ),
+    );
+  }
 }
 
 /// Window-size classes (spec §5.2).
@@ -121,8 +145,8 @@ class AppScaffold extends StatelessWidget {
               )
             else
               NavigationDestination(
-                icon: Icon(d.icon),
-                selectedIcon: Icon(d.selectedIcon, color: c.primary),
+                icon: d.iconWith(d.icon),
+                selectedIcon: d.iconWith(d.selectedIcon, color: c.primary),
                 label: d.label,
               ),
         ],
@@ -169,8 +193,11 @@ class AppScaffold extends StatelessWidget {
                   destinations: [
                     for (final d in railDestinations)
                       NavigationRailDestination(
-                        icon: Icon(d.icon),
-                        selectedIcon: Icon(d.selectedIcon),
+                        icon: d.iconWith(d.icon),
+                        selectedIcon: d.iconWith(
+                          d.selectedIcon,
+                          color: context.colors.primary,
+                        ),
                         label: Text(d.label),
                       ),
                   ],
@@ -204,36 +231,42 @@ class _CommandBar extends StatelessWidget {
     final c = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
+      // A field-like button: 48 dp, an outline that meets 3:1, and its own node with a tap action screen readers can
+      // use (spec §5.9); without `container` its label and tap merged into the page around it.
       child: Semantics(
+        container: true,
         button: true,
         label: '${context.l10n.commandPaletteHint} (Ctrl+K)',
         excludeSemantics: true,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: c.surface,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: c.line, width: c.borderWidth),
-            ),
-            child: Row(
-              children: [
-                Icon(AppIcons.magnifyingGlass, color: c.ink2, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    context.l10n.commandPaletteHint,
-                    style: context.text.bodyMedium?.copyWith(color: c.ink3),
+        onTap: onTap,
+        child: FocusRing(
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 48),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: c.surface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: c.outline, width: c.borderWidth),
+              ),
+              child: Row(
+                children: [
+                  Icon(AppIcons.magnifyingGlass, color: c.ink2, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      context.l10n.commandPaletteHint,
+                      style: context.text.bodyMedium?.copyWith(color: c.ink3),
+                    ),
                   ),
-                ),
-                Text(
-                  'Ctrl+K',
-                  style: context.text.labelMedium?.copyWith(color: c.ink2),
-                ),
-              ],
+                  Text(
+                    'Ctrl+K',
+                    style: context.text.labelMedium?.copyWith(color: c.ink2),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

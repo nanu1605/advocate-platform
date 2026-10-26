@@ -7,6 +7,7 @@ import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/api_client.dart';
 import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
 import 'package:advocate_app/ui/fields.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,17 +63,14 @@ class _JoinScreenState extends ConsumerState<JoinScreen> {
       final org = account?.memberships
           .where((m) => m.orgId == joined?.orgId)
           .firstOrNull;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            org == null
-                ? l.errorAlreadyMember
-                : org.orgId == account?.org?.orgId
-                ? l.onboardingJoinDone(org.orgName)
-                // ponytail: the app works in the first team only; switching teams comes with multi-org.
-                : l.onboardingJoinDoneLater(org.orgName),
-          ),
-        ),
+      showSnack(
+        ScaffoldMessenger.of(context),
+        org == null
+            ? l.errorAlreadyMember
+            : org.orgId == account?.org?.orgId
+            ? l.onboardingJoinDone(org.orgName)
+            // ponytail: the app works in the first team only; switching teams comes with multi-org.
+            : l.onboardingJoinDoneLater(org.orgName),
       );
       context.go('/today');
     } on ApiException catch (e) {

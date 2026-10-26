@@ -7,6 +7,7 @@ import 'package:advocate_app/data/auth.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:advocate_app/features/session.dart';
 import 'package:advocate_app/ui/icons.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -101,7 +102,9 @@ class _LockScreenState extends ConsumerState<LockScreen> {
       case PinResult.wrong:
         _pin.clear();
         final left = maxPinFailures - ref.read(appLockProvider).failures;
-        setState(() => _error = context.l10n.unlockWrongPin(left));
+        final error = context.l10n.unlockWrongPin(left);
+        setState(() => _error = error);
+        announce(context, error);
       case PinResult.tooMany:
         // Too many wrong PINs: sign out. Data stays safe on the server; OTP sign-in restores access.
         await ref.read(sessionProvider).signOut();
@@ -158,6 +161,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                       decoration: InputDecoration(
                         labelText: l.pinLabel,
                         errorText: _error,
+                        errorMaxLines: 2,
                       ),
                       onChanged: (v) {
                         if (v.length == 4) unawaited(_checkPin(v));

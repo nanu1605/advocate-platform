@@ -12,9 +12,9 @@ import 'package:advocate_app/features/case_page/client_tab.dart';
 import 'package:advocate_app/features/case_page/links.dart';
 import 'package:advocate_app/features/case_page/sheet_form.dart';
 import 'package:advocate_app/features/cases/cases_screen.dart';
-import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
 import 'package:advocate_app/ui/case_card.dart';
 import 'package:advocate_app/ui/fields.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/section_header.dart';
 import 'package:advocate_app/ui/sheets.dart';
@@ -100,14 +100,16 @@ class ClientProfile extends ConsumerWidget {
     final notes = c.notes;
     final agreedAt = c.whatsappOptInAt;
     Widget detail(IconData icon, String value, String label, {Uri? open}) =>
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(icon, color: context.colors.ink2),
-          title: Text(value, style: context.text.bodyLarge),
-          subtitle: Text(label, style: context.text.bodySmall),
-          onTap: open == null
-              ? null
-              : () => unawaited(openExternal(context, ref, open)),
+        FocusRing(
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(icon, color: context.colors.ink2),
+            title: Text(value, style: context.text.bodyLarge),
+            subtitle: Text(label, style: context.text.bodySmall),
+            onTap: open == null
+                ? null
+                : () => unawaited(openExternal(context, ref, open)),
+          ),
         );
 
     return Scaffold(
@@ -168,29 +170,34 @@ class ClientProfile extends ConsumerWidget {
               open: telUri(phone),
             ),
           // For P2's case updates; a number is needed to turn it on, and it can always be turned off.
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            secondary: Icon(AppIcons.whatsappLogo, color: context.colors.ink2),
-            title: Text(l.clientsWhatsapp, style: context.text.bodyLarge),
-            subtitle: Text(
-              [
-                if (phone == null && !c.whatsappOptIn)
-                  l.clientsWhatsappNeedsPhone
-                else
-                  l.clientsWhatsappHint,
-                if (c.whatsappOptIn && agreedAt != null)
-                  l.clientsWhatsappAgreed(f.date(istDay(istOf(agreedAt)))),
-              ].join('\n'),
-              style: context.text.bodySmall,
+          FocusRing(
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: Icon(
+                AppIcons.whatsappLogo,
+                color: context.colors.ink2,
+              ),
+              title: Text(l.clientsWhatsapp, style: context.text.bodyLarge),
+              subtitle: Text(
+                [
+                  if (phone == null && !c.whatsappOptIn)
+                    l.clientsWhatsappNeedsPhone
+                  else
+                    l.clientsWhatsappHint,
+                  if (c.whatsappOptIn && agreedAt != null)
+                    l.clientsWhatsappAgreed(f.date(istDay(istOf(agreedAt)))),
+                ].join('\n'),
+                style: context.text.bodySmall,
+              ),
+              value: c.whatsappOptIn,
+              onChanged: phone == null && !c.whatsappOptIn
+                  ? null
+                  : (on) => unawaited(
+                      ref
+                          .read(caseWriterProvider)
+                          .setClientWhatsapp(c.id, optIn: on),
+                    ),
             ),
-            value: c.whatsappOptIn,
-            onChanged: phone == null && !c.whatsappOptIn
-                ? null
-                : (on) => unawaited(
-                    ref
-                        .read(caseWriterProvider)
-                        .setClientWhatsapp(c.id, optIn: on),
-                  ),
           ),
           if (email != null)
             detail(
@@ -362,16 +369,22 @@ class _LinkCaseSheetState extends ConsumerState<_LinkCaseSheet> {
         const SizedBox(height: 8),
         // ponytail: the first 30 matches; typing narrows it.
         for (final c in matches.take(30))
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(
-              c.caseLabel,
-              semanticsLabel: spokenCaseLabel(l, c.caseLabel),
+          FocusRing(
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                c.caseLabel,
+                semanticsLabel: spokenCaseLabel(l, c.caseLabel),
+              ),
+              subtitle: c.title == null || c.title == c.caseLabel
+                  ? null
+                  : Text(
+                      c.title!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+              onTap: () => unawaited(_link(c.id)),
             ),
-            subtitle: c.title == null || c.title == c.caseLabel
-                ? null
-                : Text(c.title!, maxLines: 2, overflow: TextOverflow.ellipsis),
-            onTap: () => unawaited(_link(c.id)),
           ),
         if (matches.isEmpty)
           Padding(
