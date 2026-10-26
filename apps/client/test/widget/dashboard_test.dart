@@ -283,6 +283,23 @@ void main() {
     expect(find.text(en.dashActiveCases), findsNothing);
   });
 
+  // Spec §16.6: the dashboard reads the synced database, so it works offline.
+  testWidgets('offline: the counts and Today show under the banner', (
+    tester,
+  ) async {
+    await pumpApp(
+      tester,
+      location: '/dashboard',
+      account: chamberOwner,
+      overrides: [...sampleDashboard(), ...syncedData(offline: true)],
+    );
+    expect(find.byType(OfflineBanner), findsOneWidget);
+    expect(find.text(en.dashActiveCases), findsOneWidget);
+    expect(find.text('4'), findsOneWidget);
+    expect(find.text('${en.navToday} (2)'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Windows: the four counts in one row, Today below', (
     tester,
   ) async {

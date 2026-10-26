@@ -3,6 +3,7 @@ import 'package:advocate_app/core/router.dart';
 import 'package:advocate_app/data/api_client.dart';
 import 'package:advocate_app/data/courts.dart';
 import 'package:advocate_app/data/found_cases.dart';
+import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/selectable_row.dart';
 import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
@@ -146,7 +147,13 @@ void main() {
   ) async {
     final api = await _open(tester);
     api.addResult = (added: 2, alreadyTracked: 0, matterIds: ['m-1', 'm-2']);
+    final check = find.byIcon(AppIcons.checkCircleFill);
+    expect(check, findsNothing);
     await tester.tap(find.text(en.foundAddCount(2)));
+    // With motion on, a short success check plays before onboarding moves on (spec §4.1, §5.5).
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(check, findsOneWidget);
     await _settleAdd(tester);
     final call = api.calls.singleWhere((c) => c.name == 'addFoundCases');
     expect((call.args! as Map)['ids'], ['fc-1', 'fc-3']);
@@ -335,30 +342,10 @@ void main() {
   testWidgets(
     'Add by CNR: a CNR already tracked says so; errors are read out; Enter twice sends once',
     (tester) async {
-      tester.platformDispatcher.accessibilityFeaturesTestValue =
-          const FakeAccessibilityFeatures(supportsAnnounce: true);
-      addTearDown(
-        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
-      );
-      final announced = <String>[];
-      final messenger = tester.binding.defaultBinaryMessenger
-        ..setMockDecodedMessageHandler<Object?>(SystemChannels.accessibility, (
-          m,
-        ) async {
-          final data = (m! as Map)['data'] as Map?;
-          if (data?['message'] case final String message) {
-            announced.add(message);
-          }
-          return null;
-        });
-      addTearDown(
-        () => messenger.setMockDecodedMessageHandler<Object?>(
-          SystemChannels.accessibility,
-          null,
-        ),
-      );
+      final announced = captureAnnouncements(tester);
       final api = _AlreadyTrackedApi();
       await _open(tester, found: [], api: api);
+      announced.clear(); // "Loading your account" on the way in
       await tester.tap(find.text(en.foundAddByCnr));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'ABC');

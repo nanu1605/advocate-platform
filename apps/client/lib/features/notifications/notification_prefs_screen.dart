@@ -7,6 +7,7 @@ import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/data/notifications.dart';
 import 'package:advocate_app/features/onboarding/notifications_screen.dart';
 import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/section_header.dart';
 import 'package:advocate_app/ui/skeleton.dart';
 import 'package:advocate_app/ui/states.dart';
@@ -91,20 +92,24 @@ class NotificationPrefsScreen extends ConsumerWidget {
           SectionHeader(l.notifPrefsKinds),
           hint(l.notifPrefsKindsHint),
           for (final kind in notificationKinds)
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(notificationKindLabel(l, kind)),
-              value: p.enabled(kind),
-              onChanged: (v) =>
-                  unawaited(writer.setKindEnabled(kind, enabled: v)),
+            FocusRing(
+              child: SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(notificationKindLabel(l, kind)),
+                value: p.enabled(kind),
+                onChanged: (v) =>
+                    unawaited(writer.setKindEnabled(kind, enabled: v)),
+              ),
             ),
           SectionHeader(l.notifPrefsPrivacy),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(l.notifPrefsTitles),
-            subtitle: Text(l.notifPrefsTitlesHint),
-            value: p.includeTitles,
-            onChanged: (v) => unawaited(writer.setIncludeTitles(include: v)),
+          FocusRing(
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(l.notifPrefsTitles),
+              subtitle: Text(l.notifPrefsTitlesHint),
+              value: p.includeTitles,
+              onChanged: (v) => unawaited(writer.setIncludeTitles(include: v)),
+            ),
           ),
           SectionHeader(l.notifPrefsQuiet),
           hint(l.notifPrefsQuietHint),
@@ -112,21 +117,25 @@ class NotificationPrefsScreen extends ConsumerWidget {
             (true, l.notifPrefsQuietStart, p.quietStart),
             (false, l.notifPrefsQuietEnd, p.quietEnd),
           ])
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(label),
-              subtitle: Text(time(value)),
-              onTap: () => unawaited(_pick(context, ref, start: start)),
+            FocusRing(
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(label),
+                subtitle: Text(time(value)),
+                onTap: () => unawaited(_pick(context, ref, start: start)),
+              ),
             ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(l.notifPrefsUrgent),
-            subtitle: Text(l.notifPrefsUrgentHint),
-            value: urgent,
-            onChanged: (v) => unawaited(
-              ref
-                  .read(settingsProvider.notifier)
-                  .setUrgentBreaksQuiet(value: v),
+          FocusRing(
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(l.notifPrefsUrgent),
+              subtitle: Text(l.notifPrefsUrgentHint),
+              value: urgent,
+              onChanged: (v) => unawaited(
+                ref
+                    .read(settingsProvider.notifier)
+                    .setUrgentBreaksQuiet(value: v),
+              ),
             ),
           ),
         ],

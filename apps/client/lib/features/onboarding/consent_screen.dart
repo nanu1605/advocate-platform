@@ -4,6 +4,7 @@ import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/data/api_client.dart';
 import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,11 +50,10 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
           .setConsentVersion(consentNoticeVersion);
     } on ApiException catch (e) {
       if (mounted) {
-        setState(
-          () => _error = e.code == 'NETWORK'
-              ? context.l10n.errorNetwork
-              : context.l10n.errorGeneric,
-        );
+        final error = e.code == 'NETWORK'
+            ? context.l10n.errorNetwork
+            : context.l10n.errorGeneric;
+        setState(() => _error = error);
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -85,6 +85,8 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
     return OnboardingLayout(
       title: l.consentTitle,
       subtitle: l.consentIntro,
+      // Pinned above the button, so it is seen without scrolling past the notice.
+      notice: _error,
       primary: BusyButton(
         label: l.agreeContinue,
         busy: _busy,
@@ -106,35 +108,31 @@ class _ConsentScreenState extends ConsumerState<ConsentScreen> {
           ),
         ),
         const Divider(),
-        CheckboxListTile(
-          value: _required,
-          onChanged: (v) => setState(() => _required = v ?? false),
-          controlAffinity: ListTileControlAffinity.leading,
-          contentPadding: EdgeInsets.zero,
-          title: Text(l.consentRequired),
-        ),
-        SwitchListTile(
-          value: _whatsapp,
-          onChanged: (v) => setState(() => _whatsapp = v),
-          contentPadding: EdgeInsets.zero,
-          title: Text(l.consentWhatsapp),
-        ),
-        SwitchListTile(
-          value: _analytics,
-          onChanged: (v) => setState(() => _analytics = v),
-          contentPadding: EdgeInsets.zero,
-          title: Text(l.consentAnalytics),
-        ),
-        if (_error != null)
-          Semantics(
-            liveRegion: true,
-            child: Text(
-              _error!,
-              style: context.text.bodyLarge?.copyWith(
-                color: context.colors.of(StatusKind.urgent).fg,
-              ),
-            ),
+        FocusRing(
+          child: CheckboxListTile(
+            value: _required,
+            onChanged: (v) => setState(() => _required = v ?? false),
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+            title: Text(l.consentRequired),
           ),
+        ),
+        FocusRing(
+          child: SwitchListTile(
+            value: _whatsapp,
+            onChanged: (v) => setState(() => _whatsapp = v),
+            contentPadding: EdgeInsets.zero,
+            title: Text(l.consentWhatsapp),
+          ),
+        ),
+        FocusRing(
+          child: SwitchListTile(
+            value: _analytics,
+            onChanged: (v) => setState(() => _analytics = v),
+            contentPadding: EdgeInsets.zero,
+            title: Text(l.consentAnalytics),
+          ),
+        ),
       ],
     );
   }

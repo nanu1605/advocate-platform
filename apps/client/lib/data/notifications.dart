@@ -34,11 +34,13 @@ String notificationKindLabel(AppLocalizations l, String kind) => switch (kind) {
   _ => l.notifDataKindOther,
 };
 
-/// [link] when it is one of the routes notifications open (`data.link`: /today, /board/tomorrow, /cases/{id},
-/// /found), else null: anything else is only marked read.
+/// [link] when it is one of the routes notifications open (`data.link`: /today, /board/tomorrow, /cases/{id} with
+/// an optional `?tab=` of the case page, /found), else null: anything else is only marked read.
 String? appLink(Object? link) =>
     link is String &&
-        RegExp(r'^/(today|board/tomorrow|found|cases/[\w-]+)$').hasMatch(link)
+        RegExp(
+          r'^/(today|board/tomorrow|found|cases/[\w-]+(\?tab=(timeline|documents|notes|client))?)$',
+        ).hasMatch(link)
     ? link
     : null;
 

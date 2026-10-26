@@ -62,6 +62,9 @@ abstract interface class LocalNotifier {
 
   Future<void> show(LocalNotice notice);
 
+  /// Takes the notice shown with [tag] out of the tray, if it is still there.
+  Future<void> cancel(String tag);
+
   /// Clears the app's notifications from the tray (sign-out). Unpackaged Windows builds can't (ADR 0017).
   Future<void> cancelAll();
 }
@@ -142,6 +145,17 @@ class PluginNotifier implements LocalNotifier {
       );
     } on Object catch (e) {
       debugPrint('Local notification not shown: ${e.runtimeType}');
+    }
+  }
+
+  /// Best effort, like [show]. Android tells notices apart by tag and id together.
+  @override
+  Future<void> cancel(String tag) async {
+    if (!_started) return;
+    try {
+      await _plugin.cancel(id: _fnv(tag), tag: tag);
+    } on Object catch (e) {
+      debugPrint('Local notification not cancelled: ${e.runtimeType}');
     }
   }
 
@@ -234,6 +248,7 @@ class LocalAlerts {
   final String Function() location;
 
   static const _shownKey = 'notifications.shown';
+  static const _trayKey = 'notifications.tray';
   static const _keep = 200;
 
   /// Rows this much older than the service's start still count as new (they arrived while it started).
@@ -247,12 +262,17 @@ class LocalAlerts {
   final DateTime _since;
   late final Set<String> _shown = {...?store.getStringList(_shownKey)};
 
+  /// The collapse keys of row notices that may still be in the tray, kept across restarts: the tray outlives the app.
+  late final Set<String> _tray = {...?store.getStringList(_trayKey)};
+
   /// Find jobs seen unfinished while running.
   final _running = <String>{};
 
   /// Forgets the shown rows (sign-out).
-  static Future<void> forget(SharedPreferences store) =>
-      store.remove(_shownKey);
+  static Future<void> forget(SharedPreferences store) async {
+    await store.remove(_shownKey);
+    await store.remove(_trayKey);
+  }
 
   void _remember(Iterable<String> ids) {
     _shown.addAll(ids);
@@ -260,13 +280,27 @@ class LocalAlerts {
     unawaited(store.setStringList(_shownKey, keep));
   }
 
-  /// New synced rows: shows those [alertsToShow] picks, titled and worded exactly as the row.
+  /// New synced rows: shows those [alertsToShow] picks, titled and worded exactly as the row, and takes back notices
+  /// no unread row holds any more: deleted on the server, out of the 90-day window or read on any device. Rows that
+  /// share a collapse key share one notice, so it stays while any of them is unread.
   Future<void> onRows(
     List<AppNotification> rows, {
     required NotificationPrefs prefs,
     required bool urgentBreaksQuiet,
     required AppLocalizations l,
   }) async {
+    final unread = {
+      for (final r in rows)
+        if (r.readAt == null) r.collapseKey,
+    };
+    final gone = _tray.difference(unread);
+    if (gone.isNotEmpty) {
+      _tray.removeAll(gone);
+      unawaited(store.setStringList(_trayKey, _tray.toList()));
+      for (final tag in gone) {
+        await notifier.cancel(tag);
+      }
+    }
     if (rows.isEmpty) return;
     final at = clock();
     final cutoff = at.subtract(stale);
@@ -282,6 +316,10 @@ class LocalAlerts {
     );
     if (d.seen.isEmpty) return;
     _remember(d.seen);
+    if (d.show.isNotEmpty) {
+      _tray.addAll(d.show.map((n) => n.collapseKey));
+      unawaited(store.setStringList(_trayKey, _tray.toList()));
+    }
     for (final n in d.show) {
       final urgent = isUrgent(n, istDay(now));
       await notifier.show(
@@ -356,11 +394,19 @@ final localAlertsProvider = Provider<void>((ref) {
     ref.read(settingsProvider).locale ?? const Locale('hi'),
   );
   void rows() {
-    final (rows, prefs) = (
-      ref.read(notificationRowsProvider).value,
+    final (state, prefs) = (
+      ref.read(notificationRowsProvider),
       ref.read(notificationPrefsProvider).value,
     );
-    if (rows == null || prefs == null) return;
+    final rows = state.value;
+    // Without an org (the account still loading, an offline start) the rows read empty: that says nothing about the
+    // tray. Nor do they while reloading for the org that just arrived, as they still hold that empty list.
+    if (state.isLoading ||
+        rows == null ||
+        prefs == null ||
+        ref.read(currentOrgIdProvider) == null) {
+      return;
+    }
     unawaited(
       alerts.onRows(
         rows,

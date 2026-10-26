@@ -14,6 +14,7 @@ import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:advocate_app/ui/app_scaffold.dart';
 import 'package:advocate_app/ui/case_card.dart';
 import 'package:advocate_app/ui/fields.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/section_header.dart';
 import 'package:advocate_app/ui/sheets.dart';
@@ -408,15 +409,17 @@ class _FoundForYou extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 16),
       child: Card(
-        child: ListTile(
-          leading: const Icon(AppIcons.tray),
-          title: Text(
-            '${l.casesFoundForYou} ($count)',
-            style: context.text.titleMedium,
+        child: FocusRing(
+          child: ListTile(
+            leading: const Icon(AppIcons.tray),
+            title: Text(
+              '${l.casesFoundForYou} ($count)',
+              style: context.text.titleMedium,
+            ),
+            subtitle: Text(l.casesListFoundHint),
+            trailing: const Icon(AppIcons.caretRight),
+            onTap: () => unawaited(context.push('/found')),
           ),
-          subtitle: Text(l.casesListFoundHint),
-          trailing: const Icon(AppIcons.caretRight),
-          onTap: () => unawaited(context.push('/found')),
         ),
       ),
     );

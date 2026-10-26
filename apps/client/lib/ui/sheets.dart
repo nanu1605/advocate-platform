@@ -1,8 +1,10 @@
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
 
-/// Bottom sheet with the app's shape, drag handle and scroll-safe height.
+/// Bottom sheet with the app's shape, drag handle and scroll-safe height. With reduce motion on (the OS setting or
+/// the app's, spec §5.5) it appears and goes at once instead of sliding.
 Future<T?> showAppBottomSheet<T>(
   BuildContext context, {
   required WidgetBuilder builder,
@@ -10,6 +12,9 @@ Future<T?> showAppBottomSheet<T>(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
+  sheetAnimationStyle: MediaQuery.disableAnimationsOf(context)
+      ? AnimationStyle.noAnimation
+      : null,
   builder: (ctx) => SingleChildScrollView(
     padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
     child: builder(ctx),
@@ -82,6 +87,7 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showUndoSnackbar(
   required VoidCallback onUndo,
 }) {
   final messenger = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
+  announceSnack(context, message);
   return messenger.showSnackBar(
     SnackBar(
       content: Text(message),

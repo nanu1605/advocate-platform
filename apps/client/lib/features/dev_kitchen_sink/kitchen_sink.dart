@@ -288,6 +288,8 @@ final kitSections = <KitSection>[
       ),
     ]),
   ),
+  // Keyboard focus on Windows (spec §5.9): the 2 dp ring round buttons and rows.
+  const KitSection('focus', _focused),
   KitSection(
     'tiles',
     (context) => _col([
@@ -530,6 +532,95 @@ List<BoardRow> _board(BuildContext context) {
       menu: menu,
     ),
   ];
+}
+
+Widget _focused(BuildContext context) => const _Focused();
+
+/// The buttons are drawn focused and the case card takes the keyboard focus. Keyboard highlighting is on while the
+/// section shows: a phone starts in touch mode, which hides every ring.
+class _Focused extends StatefulWidget {
+  const _Focused();
+
+  @override
+  State<_Focused> createState() => _FocusedState();
+}
+
+class _FocusedState extends State<_Focused> {
+  final FocusHighlightStrategy _was = FocusManager.instance.highlightStrategy;
+  final List<WidgetStatesController> _states = [
+    for (var i = 0; i < 4; i++) WidgetStatesController({WidgetState.focused}),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    // After the frame: a mode change rebuilds every ink well, which can't happen mid-build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      setState(() {}); // the buttons read the mode when they build
+    });
+  }
+
+  @override
+  void dispose() {
+    for (final s in _states) {
+      s.dispose();
+    }
+    final was = _was;
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => FocusManager.instance.highlightStrategy = was,
+    );
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return _col([
+      Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          FilledButton(
+            statesController: _states[0],
+            onPressed: _noop,
+            child: Text(l.continueButton),
+          ),
+          OutlinedButton(
+            statesController: _states[1],
+            onPressed: _noop,
+            child: Text(l.cancel),
+          ),
+          TextButton(
+            statesController: _states[2],
+            onPressed: _noop,
+            child: Text(l.retry),
+          ),
+          IconButton(
+            statesController: _states[3],
+            tooltip: l.sunlightToggle,
+            icon: const Icon(AppIcons.sun),
+            onPressed: _noop,
+          ),
+        ],
+      ),
+      CaseCard(
+        CaseCardData(
+          caseNumber: 'CRA 455/2023',
+          title: 'Mohan Lal v. State of MP',
+          court: 'MPHC Indore',
+          courtNo: '7',
+          nextDate: _nov5,
+        ),
+        variant: CaseCardVariant.compact,
+        today: kitToday,
+        onTap: _noop,
+        autofocus: true,
+      ),
+    ]);
+  }
 }
 
 /// The shell picks its layout from MediaQuery, so size it to the section box.

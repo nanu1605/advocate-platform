@@ -609,6 +609,8 @@ List<Override> syncedData({
 /// [location] through the real router (which may redirect it). [onboardingDone] is the device flag; null lets
 /// the router decide from [account]. Synced reads are empty unless [overrides] include [syncedData].
 /// OS notifications go to [notifier] (a fresh [FakeLocalNotifier] unless given).
+/// Phase 0's first run: without [languageChosen] the app follows the OS language ([locale]) on the welcome screen;
+/// [signedIn] and [consented] may be false, and a [lock] with no method asks to set one up.
 /// Returns the [FakeApi] for assertions; read the router with `container(tester).read(routerProvider)`.
 Future<FakeApi> pumpApp(
   WidgetTester tester, {
@@ -622,16 +624,24 @@ Future<FakeApi> pumpApp(
   List<Override> overrides = const [],
   FakeApi? api,
   FakeLocalNotifier? notifier,
+  bool languageChosen = true,
+  bool signedIn = true,
+  bool consented = true,
+  AppLockState lock = const AppLockState(method: LockMethod.none),
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   tester.platformDispatcher.textScaleFactorTestValue = textScale;
   addTearDown(tester.view.reset);
   addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+  if (!languageChosen) {
+    tester.platformDispatcher.localesTestValue = [Locale(locale)];
+    addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+  }
   SharedPreferences.setMockInitialValues({
-    'settings.locale': locale,
+    if (languageChosen) 'settings.locale': locale,
     'settings.theme': theme.name,
-    'settings.consent_version': consentNoticeVersion,
+    if (consented) 'settings.consent_version': consentNoticeVersion,
     'settings.onboarding_done': ?onboardingDone,
   });
   final prefs = await SharedPreferences.getInstance();
@@ -640,14 +650,12 @@ Future<FakeApi> pumpApp(
     ProviderScope(
       overrides: [
         prefsProvider.overrideWithValue(prefs),
-        authRepositoryProvider.overrideWithValue(FakeAuth(signedIn: true)),
+        authRepositoryProvider.overrideWithValue(FakeAuth(signedIn: signedIn)),
         apiClientProvider.overrideWithValue(fake),
         deviceRegistrarProvider.overrideWithValue(FakeRegistrar()),
         lockStoreProvider.overrideWithValue(MemoryLockStore()),
         deviceAuthProvider.overrideWithValue(FakeDeviceAuth()),
-        initialLockProvider.overrideWithValue(
-          const AppLockState(method: LockMethod.none),
-        ),
+        initialLockProvider.overrideWithValue(lock),
         testShareDir(),
         localNotifierProvider.overrideWithValue(
           notifier ?? FakeLocalNotifier(),
@@ -1879,12 +1887,18 @@ class FakeLocalNotifier implements LocalNotifier {
   void Function(String link)? onTap;
   int cancelled = 0;
 
+  /// The tags passed to [cancel], in order.
+  final cancelledTags = <String>[];
+
   @override
   Future<void> start(void Function(String link) onTap) async =>
       this.onTap = onTap;
 
   @override
   Future<void> show(LocalNotice notice) async => shown.add(notice);
+
+  @override
+  Future<void> cancel(String tag) async => cancelledTags.add(tag);
 
   @override
   Future<void> cancelAll() async => cancelled++;

@@ -208,19 +208,23 @@ void main() {
 
   group('Search the courts', () {
     testWidgets('needs a name or words, and a year it can use', (tester) async {
+      final announced = captureAnnouncements(tester);
       final api = await pumpApp(
         tester,
         location: '/cases/search',
         overrides: _overrides(),
       );
+      announced.clear();
       await tapOn(tester, find.text(en.addCaseSearchAction));
       expect(find.text(en.errorSearchTerms), findsOneWidget);
+      expect(announced, [en.errorSearchTerms]);
 
       await tester.enterText(field(en.addCaseYear), '1800');
       await tester.enterText(field(en.addCaseJudge), 'Mehta');
       await tapOn(tester, find.text(en.addCaseSearchAction));
       expect(find.text(en.errorSearchTerms), findsNothing);
       expect(find.text(en.addCaseYearInvalid), findsOneWidget);
+      expect(announced, [en.errorSearchTerms, en.addCaseYearInvalid]);
       expect(api.callNames, isNot(contains('searchCases')));
     });
 
@@ -424,6 +428,29 @@ void main() {
       expect(find.text('WP 1003/2024'), findsNothing);
     });
 
+    testWidgets('a case number goes in "Any other words", as its hint says, '
+        'and is sent as the search text', (tester) async {
+      final api = await pumpApp(
+        tester,
+        location: '/cases/search',
+        overrides: _overrides(),
+      );
+      final words = field(en.addCaseWords);
+      expect(
+        tester.widget<TextField>(words).decoration?.hintText,
+        en.addCaseWordsHint,
+      );
+      await tester.enterText(words, '1234');
+      await tester.enterText(field(en.addCaseCaseType), 'WP');
+      await tester.enterText(field(en.addCaseYear), '2024');
+      await tapOn(tester, find.text(en.addCaseSearchAction));
+      expect(api.calls.last.name, 'searchCases');
+      final args = api.calls.last.args! as Map<String, Object?>;
+      expect(args['text'], '1234');
+      expect(args['caseType'], 'WP');
+      expect(args['year'], 2024);
+    });
+
     testWidgets('no results says so', (tester) async {
       await pumpApp(tester, location: '/cases/search', overrides: _overrides());
       await tester.enterText(field(en.addCaseParty), 'Nobody');
@@ -439,6 +466,7 @@ void main() {
       ('NETWORK', en.errorNeedsNetwork),
     ]) {
       testWidgets('$code is explained and the form is kept', (tester) async {
+        final announced = captureAnnouncements(tester);
         final api = await pumpApp(
           tester,
           location: '/cases/search',
@@ -448,6 +476,8 @@ void main() {
         await tester.enterText(field(en.addCaseParty), 'Sharma');
         await tapOn(tester, find.text(en.addCaseSearchAction));
         expect(find.text(text), findsOneWidget);
+        // Read out once, by the notice; the screen doesn't say it as well.
+        expect(announced.where((m) => m == text), hasLength(1));
         expect(find.text(code), findsNothing);
         expect(find.text('Sharma'), findsOneWidget);
       });
@@ -504,14 +534,17 @@ void main() {
 
   group('Add by hand', () {
     testWidgets('errors are inline and nothing is sent', (tester) async {
+      final announced = captureAnnouncements(tester);
       final api = await pumpApp(
         tester,
         location: '/cases/manual',
         overrides: _overrides(),
       );
+      announced.clear();
       final add = find.widgetWithText(FilledButton, en.addCase);
       await tapOn(tester, add);
       expect(find.text(en.addCasePartiesRequired), findsOneWidget);
+      expect(announced, [en.addCasePartiesRequired]);
       expect(find.text(en.errorCourtRequired), findsOneWidget);
 
       await tester.enterText(field(en.addCaseParties), 'Sharma v. State');
@@ -590,6 +623,7 @@ void main() {
     testWidgets('Other court takes a typed name; offline keeps the form', (
       tester,
     ) async {
+      final announced = captureAnnouncements(tester);
       final api = await pumpApp(
         tester,
         location: '/cases/manual',
@@ -607,6 +641,8 @@ void main() {
       api.offline = true;
       await tapOn(tester, add);
       expect(find.text(en.errorNeedsNetwork), findsOneWidget);
+      // Read out once, by the notice; the screen doesn't say it as well.
+      expect(announced.where((m) => m == en.errorNeedsNetwork), hasLength(1));
       expect(find.text('Sharma v. Sharma'), findsOneWidget);
       expect(find.byType(ManualCaseScreen), findsOneWidget);
 

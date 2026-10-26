@@ -43,7 +43,8 @@ services:
 
   beat:
     <<: *python
-    command: celery -A advocate_workers.celery_app beat --loglevel=INFO
+    # The app directory isn't writable by the container user: the schedule file goes to /tmp.
+    command: celery -A advocate_workers.celery_app beat --loglevel=INFO --schedule=/tmp/celerybeat-schedule
 
   # Upload malware scan (spec §4.3): clamd, a separate process the worker streams files to (INSTREAM on 3310).
   # First start downloads the signatures (a few minutes, ~1 GB RAM once loaded); until then uploads stay pending.

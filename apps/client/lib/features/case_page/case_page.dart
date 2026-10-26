@@ -129,9 +129,7 @@ class _CasePageState extends ConsumerState<CasePage>
     }
     // Another case took this page's place (wide window) or the user left it: the outcome isn't theirs to read.
     if (!mounted) return;
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(refreshSummary(l, outcome))));
+    showSnack(messenger, refreshSummary(l, outcome));
   }
 
   /// Runs an API [call] for this case, saying what went wrong (offline, the allowance…) in a snackbar.
@@ -146,9 +144,7 @@ class _CasePageState extends ConsumerState<CasePage>
       await call(ref.read(apiClientProvider), org);
       return true;
     } on ApiException catch (e) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(trackErrorText(l, e))));
+      showSnack(messenger, trackErrorText(l, e));
       return false;
     }
   }
@@ -209,15 +205,10 @@ class _CasePageState extends ConsumerState<CasePage>
         tracking: on ? 'auto' : 'off',
       ),
     )) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              on ? l.casePageTrackingOnDone : l.casePageTrackingOffDone,
-            ),
-          ),
-        );
+      showSnack(
+        messenger,
+        on ? l.casePageTrackingOnDone : l.casePageTrackingOffDone,
+      );
     }
   }
 
@@ -252,9 +243,7 @@ class _CasePageState extends ConsumerState<CasePage>
     if (await _api(
       (api, org) => api.deleteMatter(orgId: org, matterId: c.id),
     )) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(l.casePageDeleted)));
+      showSnack(messenger, l.casePageDeleted);
       router.go('/cases');
     }
   }
@@ -538,10 +527,7 @@ class _Header extends ConsumerWidget {
         if (refreshing)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Semantics(
-              liveRegion: true,
-              child: Text(l.todayRefreshing, style: small),
-            ),
+            child: AnnouncedText(l.todayRefreshing, style: small),
           ),
         const SizedBox(height: 4),
         Wrap(

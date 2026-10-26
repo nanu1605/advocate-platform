@@ -1,9 +1,16 @@
 # PROJECT_STATE
-Current phase: 1 — Court diary MVP (status: building; started 24 Oct 2026 with the Phase 0 gate open, Track B on hold)
-Last updated: 2026-10-24
+Current phase: 1 — Court diary MVP (status: Track A done, at the gate; Track B on hold)
+Last updated: 2026-10-26
 
 ## Done (this phase)
-- Plan: [phase-1-plan.md](docs/phases/phase-1-plan.md) (Track A local, Track B on hold).
+- Plan: [phase-1-plan.md](docs/phases/phase-1-plan.md) (Track A local, Track B on hold). Report:
+  [phase-1-report.md](docs/phases/phase-1-report.md).
+- P1 phase checks ([ADR 0018](docs/adr/0018-p1-phase-checks.md)): one sweep over all 80 screens, sheets and dialogs
+  (en/hi, 360 dp phone and 1024 × 640 window, 100% and 200% text, tap-target and label guidelines, offline, a route
+  guard); 960 goldens; 2 dp keyboard focus ring; announcements that reach Windows Narrator, sync completion said once,
+  form errors announced; reduce motion and haptics off honoured; `deadline_due` reminders (3/1/0 days); end-to-end
+  tests on the local stack for offline notes/tasks/hearings, onboarding → import → Today and the clerk join flow;
+  tray notices cleared when their alert goes; text limits in code points like the API; Found-for-you badge on Cases.
 - Schema for the 26 P1 tables with RLS, write-path triggers and the beta tracked-case allowance; five reference courts;
   709 new pgTAP assertions (5 actors × CRUD + every trigger), 1009 in all ([ADR 0009](docs/adr/0009-p1-schema-additions.md)).
 - `court_data` package: provider interface and models, eCourtsIndia provider (from their public docs), router with
@@ -61,8 +68,8 @@ Last updated: 2026-10-24
   Hindi review, privacy-policy page.
 
 ## Next up
-1. P1 task 12: phase checks — goldens, accessibility and 200% text for every screen, pseudo-locale, offline tests,
-   `phase-1-report.md` (device checks such as pdfrx on the low-end Android wait for Track B hardware/accounts).
+1. Phase 1 gate review with the founder on [phase-1-report.md](docs/phases/phase-1-report.md): Track A is done; the
+   gate needs Track B, and the founder decides the listed gate exceptions.
 2. iOS (P2): NSCameraUsageDescription and NSFaceIDUsageDescription in Info.plist.
 
 ## Deviations from spec (with ADR links)
@@ -108,6 +115,10 @@ Last updated: 2026-10-24
 - Team: `GET`/`DELETE /v1/orgs/{id}/invites` added to §10.2 (invites aren't synced and hold a seat for 7 days); no
   SMS is sent with an invite until messaging (Track B); "urgent alerts may break quiet hours" is a device setting;
   local notifications stand in for push until FCM (Track B) — [ADR 0017](docs/adr/0017-p1-team-notifications.md).
+- Phase checks: the 2 dp focus ring isn't on Material's own destinations (rail, bar, tabs, menus, segments); reduce
+  motion shows sheets without animation rather than §5.5's 100 ms cross-fade; the Devanagari digits setting, the
+  Found counter flight and Windows keep-running-in-tray are deferred; end-to-end tests run locally on Windows, not in
+  CI — [ADR 0018](docs/adr/0018-p1-phase-checks.md).
 - Windows `APPLY_STANDARD_SETTINGS` defines `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`: `local_auth_windows` 2.0.2 builds with `/await`, which MSVC 14.51 rejects (STL1011). Remove when the plugin moves to C++20 `<coroutine>`.
 
 ## Questions for the founder

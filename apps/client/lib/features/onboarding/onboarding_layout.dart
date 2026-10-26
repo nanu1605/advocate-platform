@@ -1,11 +1,8 @@
-import 'dart:async';
-
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -45,7 +42,7 @@ class OnboardingLayout extends StatelessWidget {
           Consumer(
             builder: (_, ref, _) =>
                 offline || (ref.watch(syncViewProvider).value?.offline ?? false)
-                ? const OfflineBanner()
+                ? const OfflineBanner(steps: true)
                 : const SizedBox.shrink(),
           ),
           Expanded(
@@ -130,55 +127,48 @@ class BusyButton extends StatelessWidget {
   );
 }
 
-/// A message under a form or step, read out when it appears: icon + text in the status colour.
+/// A message under a form or step, read out when it appears and when it changes ([AnnouncedText]), so its callers
+/// don't [announce] it too: icon + text in the status colour.
 class StepNotice extends StatelessWidget {
-  const StepNotice(this.message, {this.kind = StatusKind.urgent, super.key});
+  const StepNotice(
+    this.message, {
+    this.kind = StatusKind.urgent,
+    this.announced = true,
+    super.key,
+  });
 
   final String message;
   final StatusKind kind;
 
+  /// False for a standing note that is part of the page, read with it rather than on its own.
+  final bool announced;
+
   @override
   Widget build(BuildContext context) {
     final fg = context.colors.of(kind).fg;
-    return Semantics(
-      liveRegion: true,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              kind == StatusKind.success
-                  ? AppIcons.checkCircleFill
-                  : AppIcons.warningCircle,
-              size: inlineIconSize(context, 22),
-              color: fg,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                message,
-                style: context.text.bodyLarge?.copyWith(color: fg),
-              ),
-            ),
-          ],
-        ),
+    final style = context.text.bodyLarge?.copyWith(color: fg);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            kind == StatusKind.success
+                ? AppIcons.checkCircleFill
+                : AppIcons.warningCircle,
+            size: inlineIconSize(context, 22),
+            color: fg,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: announced
+                ? AnnouncedText(message, style: style)
+                : Text(message, style: style),
+          ),
+        ],
       ),
     );
   }
-}
-
-/// Reads [message] out where the platform takes announcements (Windows, iOS). Elsewhere a field's error text
-/// and [StepNotice] are live regions already (spec §5.9: form errors are announced).
-void announce(BuildContext context, String message) {
-  if (!MediaQuery.supportsAnnounceOf(context)) return;
-  unawaited(
-    SemanticsService.sendAnnouncement(
-      View.of(context),
-      message,
-      Directionality.of(context),
-    ),
-  );
 }
 
 /// Supabase Auth errors → our error-template codes.

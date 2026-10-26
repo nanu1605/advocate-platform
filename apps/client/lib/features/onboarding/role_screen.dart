@@ -4,6 +4,7 @@ import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/data/team.dart';
 import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,16 +25,18 @@ class RoleScreen extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: Card(
         clipBehavior: Clip.antiAlias,
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 8,
+        child: FocusRing(
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
+            leading: Icon(icon, color: context.colors.primary),
+            title: Text(title, style: context.text.titleMedium),
+            subtitle: Text(hint, style: context.text.bodyMedium),
+            trailing: const Icon(AppIcons.caretRight),
+            onTap: () => unawaited(context.push(to)),
           ),
-          leading: Icon(icon, color: context.colors.primary),
-          title: Text(title, style: context.text.titleMedium),
-          subtitle: Text(hint, style: context.text.bodyMedium),
-          trailing: const Icon(AppIcons.caretRight),
-          onTap: () => unawaited(context.push(to)),
         ),
       ),
     );

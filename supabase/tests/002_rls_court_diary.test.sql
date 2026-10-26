@@ -1,5 +1,6 @@
 -- RLS and trigger matrix for Phase 1 tables (spec §9.3): five actors × read / insert / update / delete, plus every
--- trigger. Fixture CNRs starting with TEST are synthetic.
+-- trigger. Fixture CNRs are synthetic and start with PGTP, not TEST: the court_data stand-in's CNRs start with TEST,
+-- and a local end-to-end run leaves those in the database.
 -- Ids: chamber A 0000000a…, solo B 0000000b…; A's matters aa…01 (auto), aa…02 (manual), aa…03 (auto, deleted);
 -- B's matters bb…01 (same CNR as aa…01), bb…02. Per-org rows use aa…/bb… with c1 client, d1 document, e1 order.
 begin;
@@ -7,28 +8,28 @@ begin;
 
 -- ---------------------------------------------------------------- P1 fixture (as postgres)
 insert into public.court_cases (cnr, court_id, title, status) values
-  ('TEST010000012024', 'c0000000-0000-0000-0000-000000000003', 'Tracked by A and B', 'pending'),
-  ('TEST010000022024', 'c0000000-0000-0000-0000-000000000003', 'Deleted in A', 'pending'),
-  ('TEST010000032024', 'c0000000-0000-0000-0000-000000000005', 'Tracked by B', 'pending');
+  ('PGTP010000012024', 'c0000000-0000-0000-0000-000000000003', 'Tracked by A and B', 'pending'),
+  ('PGTP010000022024', 'c0000000-0000-0000-0000-000000000003', 'Deleted in A', 'pending'),
+  ('PGTP010000032024', 'c0000000-0000-0000-0000-000000000005', 'Tracked by B', 'pending');
 insert into public.court_hearings (cnr, hearing_date, purpose)
-  select cnr, '2026-10-20', 'Admission' from public.court_cases where cnr like 'TEST%';
+  select cnr, '2026-10-20', 'Admission' from public.court_cases where cnr like 'PGTP%';
 insert into public.court_orders (cnr, order_date, provider_ref)
-  select cnr, '2026-10-20', 'ord-' || cnr from public.court_cases where cnr like 'TEST%';
+  select cnr, '2026-10-20', 'ord-' || cnr from public.court_cases where cnr like 'PGTP%';
 insert into public.cause_list_entries (court_id, list_date, cnr, court_no, item_no)
-  select court_id, '2026-10-26', cnr, '12', '23' from public.court_cases where cnr like 'TEST%';
+  select court_id, '2026-10-26', cnr, '12', '23' from public.court_cases where cnr like 'PGTP%';
 insert into public.court_holidays (court_id, date, kind, note) values
   ('c0000000-0000-0000-0000-000000000003', '2026-11-14', 'holiday', 'fixture');
 
 insert into public.matters (id, org_id, cnr, court_id, source, tracking, deleted_at) values
-  ('aa000000-0000-0000-0000-000000000001', '0000000a-0000-0000-0000-000000000000', 'TEST010000012024',
+  ('aa000000-0000-0000-0000-000000000001', '0000000a-0000-0000-0000-000000000000', 'PGTP010000012024',
    'c0000000-0000-0000-0000-000000000003', 'cnr', 'auto', null),
   ('aa000000-0000-0000-0000-000000000002', '0000000a-0000-0000-0000-000000000000', null,
    'c0000000-0000-0000-0000-000000000005', 'manual', 'manual', null),
-  ('aa000000-0000-0000-0000-000000000003', '0000000a-0000-0000-0000-000000000000', 'TEST010000022024',
+  ('aa000000-0000-0000-0000-000000000003', '0000000a-0000-0000-0000-000000000000', 'PGTP010000022024',
    'c0000000-0000-0000-0000-000000000003', 'cnr', 'auto', now()),
-  ('bb000000-0000-0000-0000-000000000001', '0000000b-0000-0000-0000-000000000000', 'TEST010000012024',
+  ('bb000000-0000-0000-0000-000000000001', '0000000b-0000-0000-0000-000000000000', 'PGTP010000012024',
    'c0000000-0000-0000-0000-000000000003', 'cnr', 'auto', null),
-  ('bb000000-0000-0000-0000-000000000002', '0000000b-0000-0000-0000-000000000000', 'TEST010000032024',
+  ('bb000000-0000-0000-0000-000000000002', '0000000b-0000-0000-0000-000000000000', 'PGTP010000032024',
    'c0000000-0000-0000-0000-000000000005', 'cnr', 'auto', null);
 
 insert into public.hearings (org_id, matter_id, date, source, purpose) values
@@ -58,9 +59,9 @@ insert into public.board_entries (org_id, board_date, matter_id, court_no, item_
   ('0000000a-0000-0000-0000-000000000000', '2026-10-26', 'aa000000-0000-0000-0000-000000000001', '12', '23'),
   ('0000000b-0000-0000-0000-000000000000', '2026-10-26', 'bb000000-0000-0000-0000-000000000001', '12', '23');
 insert into public.found_cases (org_id, user_id, cnr, confidence, match_reason, source) values
-  ('0000000a-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a1', 'TEST010000042024', 'high',
+  ('0000000a-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000a1', 'PGTP010000042024', 'high',
    'exact_name_practice_court', 'onboarding'),
-  ('0000000b-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000b1', 'TEST010000042024', 'high',
+  ('0000000b-0000-0000-0000-000000000000', '00000000-0000-0000-0000-0000000000b1', 'PGTP010000042024', 'high',
    'exact_name_practice_court', 'onboarding');
 
 insert into public.clients (id, org_id, name) values
@@ -123,26 +124,26 @@ select tests.matrix('court_holidays delete', 'delete from public.court_holidays'
 
 -- ---------------------------------------------------------------- shared court data: only CNRs your organisation tracks
 select tests.matrix('court_cases read', 'select 1 from public.court_cases', false, '{1,1,1,1,2}');
-select tests.matrix('court_cases insert', $$insert into public.court_cases (cnr) values ('TEST010000092024')$$, true, '{-1,-1,-1,-1,-1}');
+select tests.matrix('court_cases insert', $$insert into public.court_cases (cnr) values ('PGTP010000092024')$$, true, '{-1,-1,-1,-1,-1}');
 select tests.matrix('court_cases update', $$update public.court_cases set title = 'x'$$, true, '{0,0,0,0,0}');
 select tests.matrix('court_cases delete', 'delete from public.court_cases', true, '{0,0,0,0,0}');
 select tests.matrix('court_hearings read', 'select 1 from public.court_hearings', false, '{1,1,1,1,2}');
-select tests.matrix('court_hearings insert', $$insert into public.court_hearings (cnr, hearing_date) values ('TEST010000012024', '2026-10-30')$$, true, '{-1,-1,-1,-1,-1}');
+select tests.matrix('court_hearings insert', $$insert into public.court_hearings (cnr, hearing_date) values ('PGTP010000012024', '2026-10-30')$$, true, '{-1,-1,-1,-1,-1}');
 select tests.matrix('court_hearings update', $$update public.court_hearings set purpose = 'x'$$, true, '{0,0,0,0,0}');
 select tests.matrix('court_hearings delete', 'delete from public.court_hearings', true, '{0,0,0,0,0}');
 select tests.matrix('court_orders read', 'select 1 from public.court_orders', false, '{1,1,1,1,2}');
-select tests.matrix('court_orders insert', $$insert into public.court_orders (cnr, provider_ref) values ('TEST010000012024', 'x')$$, true, '{-1,-1,-1,-1,-1}');
+select tests.matrix('court_orders insert', $$insert into public.court_orders (cnr, provider_ref) values ('PGTP010000012024', 'x')$$, true, '{-1,-1,-1,-1,-1}');
 select tests.matrix('court_orders update', $$update public.court_orders set pages = 1$$, true, '{0,0,0,0,0}');
 select tests.matrix('court_orders delete', 'delete from public.court_orders', true, '{0,0,0,0,0}');
 select tests.matrix('cause_list_entries read', 'select 1 from public.cause_list_entries', false, '{1,1,1,1,2}');
-select tests.matrix('cause_list_entries insert', $$insert into public.cause_list_entries (list_date, cnr) values ('2026-10-27', 'TEST010000012024')$$, true, '{-1,-1,-1,-1,-1}');
+select tests.matrix('cause_list_entries insert', $$insert into public.cause_list_entries (list_date, cnr) values ('2026-10-27', 'PGTP010000012024')$$, true, '{-1,-1,-1,-1,-1}');
 select tests.matrix('cause_list_entries update', $$update public.cause_list_entries set item_no = '1'$$, true, '{0,0,0,0,0}');
 select tests.matrix('cause_list_entries delete', 'delete from public.cause_list_entries', true, '{0,0,0,0,0}');
 
 -- ---------------------------------------------------------------- matters
 select tests.matrix('matters read', 'select 1 from public.matters', false, '{3,3,3,3,2}');
-select tests.matrix('matters insert (device)', $$insert into public.matters (org_id, cnr, source) values ('0000000a-0000-0000-0000-000000000000', 'TEST010000092024', 'cnr')$$, false, '{-1,-1,-1,-1,-1}');
-select tests.matrix('matters insert in A', $$insert into public.matters (org_id, cnr, source) values ('0000000a-0000-0000-0000-000000000000', 'TEST010000092024', 'cnr')$$, true, '{1,1,1,1,-1}');
+select tests.matrix('matters insert (device)', $$insert into public.matters (org_id, cnr, source) values ('0000000a-0000-0000-0000-000000000000', 'PGTP010000092024', 'cnr')$$, false, '{-1,-1,-1,-1,-1}');
+select tests.matrix('matters insert in A', $$insert into public.matters (org_id, cnr, source) values ('0000000a-0000-0000-0000-000000000000', 'PGTP010000092024', 'cnr')$$, true, '{1,1,1,1,-1}');
 select tests.matrix('matters tags (device)', $$update public.matters set tags = '{urgent}', file_no = 'F-1', our_side = 'petitioner', status = 'archived' where id = 'aa000000-0000-0000-0000-000000000001'$$, false, '{1,1,1,1,0}');
 select tests.matrix('matters assign (device)', $$update public.matters set assigned_to = '00000000-0000-0000-0000-0000000000a3' where id = 'aa000000-0000-0000-0000-000000000001'$$, false, '{1,1,1,1,0}');
 select tests.matrix('matters tracking (device)', $$update public.matters set tracking = 'manual' where id = 'aa000000-0000-0000-0000-000000000001'$$, false, '{-1,-1,-1,-1,0}');
@@ -150,7 +151,7 @@ select tests.matrix('matters tracking', $$update public.matters set tracking = '
 select tests.matrix('matters soft delete (device)', $$update public.matters set deleted_at = now() where id = 'aa000000-0000-0000-0000-000000000001'$$, false, '{-1,-1,-1,-1,0}');
 select tests.matrix('matters soft delete', $$update public.matters set deleted_at = now() where id = 'aa000000-0000-0000-0000-000000000001'$$, true, '{1,1,1,1,0}');
 select tests.matrix('matters court field', $$update public.matters set next_hearing_date = '2026-11-05' where id = 'aa000000-0000-0000-0000-000000000001'$$, true, '{-1,-1,-1,-1,0}');
-select tests.matrix('matters cnr', $$update public.matters set cnr = 'TEST010000092024' where id = 'aa000000-0000-0000-0000-000000000001'$$, true, '{-1,-1,-1,-1,0}');
+select tests.matrix('matters cnr', $$update public.matters set cnr = 'PGTP010000092024' where id = 'aa000000-0000-0000-0000-000000000001'$$, true, '{-1,-1,-1,-1,0}');
 select tests.matrix('matters move org', $$update public.matters set org_id = '0000000b-0000-0000-0000-000000000000' where id = 'aa000000-0000-0000-0000-000000000001'$$, true, '{-1,-1,-1,-1,0}');
 select tests.matrix('matters delete', 'delete from public.matters', true, '{0,0,0,0,0}');
 select is(tests.state('00000000-0000-0000-0000-0000000000a1', false,
@@ -159,7 +160,7 @@ select is(tests.state('00000000-0000-0000-0000-0000000000a1', false,
 
 update public.app_config set value = '1' where key = 'beta_tracked_case_allowance';
 select is(tests.state('00000000-0000-0000-0000-0000000000a1', true,
-  $$insert into public.matters (org_id, cnr, source) values ('0000000a-0000-0000-0000-000000000000', 'TEST010000092024', 'cnr')$$),
+  $$insert into public.matters (org_id, cnr, source) values ('0000000a-0000-0000-0000-000000000000', 'PGTP010000092024', 'cnr')$$),
   'P0001', 'allowance blocks a new auto-tracked case');
 select is(tests.state('00000000-0000-0000-0000-0000000000a1', true,
   $$insert into public.matters (org_id, source, tracking) values ('0000000a-0000-0000-0000-000000000000', 'manual', 'manual')$$),
@@ -171,7 +172,7 @@ select is(tests.state('00000000-0000-0000-0000-0000000000a1', true,
   $$update public.matters set deleted_at = null where id = 'aa000000-0000-0000-0000-000000000003'$$),
   'P0001', 'allowance blocks restoring a deleted auto case');
 select is(tests.state('00000000-0000-0000-0000-0000000000b1', true,
-  $$insert into public.matters (org_id, cnr, source) values ('0000000b-0000-0000-0000-000000000000', 'TEST010000092024', 'cnr')$$),
+  $$insert into public.matters (org_id, cnr, source) values ('0000000b-0000-0000-0000-000000000000', 'PGTP010000092024', 'cnr')$$),
   'P0001', 'allowance counts per organisation');
 update public.app_config set value = '100' where key = 'beta_tracked_case_allowance';
 
@@ -217,8 +218,8 @@ select tests.matrix('board_entries delete', 'delete from public.board_entries', 
 select tests.matrix('found_cases read', 'select 1 from public.found_cases', false, '{1,1,1,1,1}');
 select tests.matrix('found_cases decision (device)', $$update public.found_cases set decision = 'added' where org_id = '0000000a-0000-0000-0000-000000000000'$$, false, '{0,0,0,0,0}');
 select tests.matrix('found_cases decision', $$update public.found_cases set decision = 'not_mine' where org_id = '0000000a-0000-0000-0000-000000000000'$$, true, '{1,1,1,1,0}');
-select tests.matrix('found_cases cnr', $$update public.found_cases set cnr = 'TEST010000092024' where org_id = '0000000a-0000-0000-0000-000000000000'$$, true, '{-1,-1,-1,-1,0}');
-select tests.matrix('found_cases insert', $$insert into public.found_cases (org_id, user_id, cnr, confidence, match_reason, source) values ('0000000a-0000-0000-0000-000000000000', auth.uid(), 'TEST010000092024', 'low', 'partial_name', 'auto_match')$$, true, '{-1,-1,-1,-1,-1}');
+select tests.matrix('found_cases cnr', $$update public.found_cases set cnr = 'PGTP010000092024' where org_id = '0000000a-0000-0000-0000-000000000000'$$, true, '{-1,-1,-1,-1,0}');
+select tests.matrix('found_cases insert', $$insert into public.found_cases (org_id, user_id, cnr, confidence, match_reason, source) values ('0000000a-0000-0000-0000-000000000000', auth.uid(), 'PGTP010000092024', 'low', 'partial_name', 'auto_match')$$, true, '{-1,-1,-1,-1,-1}');
 select tests.matrix('found_cases delete', 'delete from public.found_cases', true, '{0,0,0,0,0}');
 
 -- ---------------------------------------------------------------- clients

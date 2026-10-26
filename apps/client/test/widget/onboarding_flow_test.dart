@@ -108,6 +108,7 @@ void main() {
         tester,
       ) async {
         final handle = tester.ensureSemantics();
+        final announced = captureAnnouncements(tester);
         final api = await pumpApp(
           tester,
           account: newAccount,
@@ -132,8 +133,10 @@ void main() {
         // Empty details: inline errors, nothing sent.
         await tap(tester, l.onboardingRoleChamber);
         expect(find.text(l.onboardingDetailsChamber), findsOneWidget);
+        announced.clear();
         await tap(tester, l.onboardingDetailsSubmit);
         expect(find.text(l.onboardingDetailsNameError), findsOneWidget);
+        expect(announced, [l.onboardingDetailsNameError]);
         await tester.scrollUntilVisible(
           find.text(l.onboardingDetailsEnrolmentError),
           100,
@@ -237,6 +240,7 @@ void main() {
       'a clerk joins with a code and skips to notifications (Windows: nothing to ask)',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        final announced = captureAnnouncements(tester);
         final permission = FakePermission();
         final api =
             await pumpApp(
@@ -247,11 +251,14 @@ void main() {
               ..inviteRole = 'clerk';
         await tap(tester, l.onboardingRoleClerk);
         expect(find.text(l.joinTitle), findsOneWidget);
+        expect(find.text(l.onboardingJoinSubtitle), findsOneWidget);
         expect(find.text(l.onboardingJoinOnMyOwn), findsNothing);
 
-        // Empty: an inline hint, nothing sent.
+        // Empty: an inline hint, read out, nothing sent.
+        announced.clear();
         await tap(tester, l.onboardingJoinSubmit);
         expect(find.text(l.onboardingJoinCodeEmpty), findsOneWidget);
+        expect(announced, [l.onboardingJoinCodeEmpty]);
         expect(api.callNames, isNot(contains('acceptInvite')));
 
         await tester.enterText(field(l.onboardingJoinCode), ' abcd-2345 ');
@@ -279,13 +286,16 @@ void main() {
     });
 
     testWidgets('join errors are explained and keep the code', (tester) async {
+      final announced = captureAnnouncements(tester);
       final api = await pumpApp(tester, account: newAccount);
       await tap(tester, l.onboardingRoleClerk);
       await tester.enterText(field(l.onboardingJoinCode), 'ABCD2345');
 
       api.fail['acceptInvite'] = const ApiException('INVITE_INVALID');
+      announced.clear();
       await tap(tester, l.onboardingJoinSubmit);
       expect(find.text(l.errorInviteInvalid), findsOneWidget);
+      expect(announced, [l.errorInviteInvalid]);
 
       api.fail['acceptInvite'] = const ApiException(
         'TEAM_LIMIT',
@@ -415,6 +425,7 @@ void main() {
     });
 
     testWidgets('offline: says so, keeps what was typed', (tester) async {
+      final announced = captureAnnouncements(tester);
       final api = await pumpApp(
         tester,
         account: newAccount,
@@ -427,6 +438,8 @@ void main() {
       api.offline = true;
       await tap(tester, l.onboardingDetailsSubmit);
       expect(find.text(l.errorNeedsNetwork), findsOneWidget);
+      // Read out once, by the notice; the screen doesn't say it as well.
+      expect(announced.where((m) => m == l.errorNeedsNetwork), hasLength(1));
       expect(find.text('Ramesh Sharma'), findsOneWidget);
       expect(find.text(l.detailsTitle), findsOneWidget);
     });
@@ -498,6 +511,23 @@ void main() {
       expect(find.byType(FoundCasesScreen), findsOneWidget);
     });
 
+    testWidgets('a stop that fails says why, read out once', (tester) async {
+      final announced = captureAnnouncements(tester);
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(
+            disableAnimations: true,
+            supportsAnnounce: true,
+          );
+      final api = await _pumpFinding(tester, _job(JobStatus.running));
+      api.fail['cancelJob'] = const ApiException('RATE_LIMITED');
+      announced.clear();
+      await tap(tester, l.findingStop);
+      expect(find.text(l.errorTooMany), findsOneWidget);
+      expect(find.byType(FoundCasesScreen), findsNothing);
+      // By the notice alone, not by the screen as well.
+      expect(announced, [l.errorTooMany]);
+    });
+
     testWidgets('continue in the background opens Found cases', (tester) async {
       reduceMotion(tester);
       final api = await _pumpFinding(tester, _job(JobStatus.running));
@@ -545,13 +575,22 @@ void main() {
     testWidgets('offline: progress so far, the offline banner and a note', (
       tester,
     ) async {
-      reduceMotion(tester);
+      final announced = captureAnnouncements(tester);
+      // Both at once: they share the test's accessibility features.
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(
+            disableAnimations: true,
+            supportsAnnounce: true,
+          );
       final api = await _pumpFinding(tester, _job(JobStatus.running));
+      announced.clear();
       api.offline = true;
       await tester.pump(const Duration(seconds: 2));
       await tester.pumpAndSettle();
       expect(find.byType(OfflineBanner), findsOneWidget);
       expect(find.text(l.findingOffline), findsOneWidget);
+      // Read out on Windows too, and once: the step's banner leaves it to the note.
+      expect(announced, [l.findingOffline]);
       expect(find.text(l.findingGroupFound(12)), findsOneWidget);
 
       api.offline = false;

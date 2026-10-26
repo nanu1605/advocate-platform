@@ -118,6 +118,13 @@ through. A unit test reads the API, worker and court-data source and fails on a 
 - Android's small icon is the launcher icon (drawn as a silhouette) until the brand work adds a monochrome one.
 - A notification row arriving while the shell isn't up (e.g. on Found cases) is shown when the shell returns, if it
   is still new by the rules above.
+- Notices go from the tray once no unread row holds their collapse key: the row was deleted on the server, left the
+  90-day window or was read on any device (task 12). The keys of notices shown are kept across restarts, so a row
+  deleted while the app was closed clears on the next start. Nothing is cancelled while the org or its rows are still
+  loading (an offline start reads no rows). Unpackaged Windows builds can't take a toast back, as for sign-out.
+- The feedback note's 4000 is counted in code points on the device too (`CodePointLimit`, task 12), as the API counts:
+  a Hindi letter like "कि" is two, so the old character count let a long Hindi note through to a 422. The manual
+  case fields and the team name use the same limit.
 - All new Hindi strings wait for the native-speaker review.
 
 ## Screens: dashboard, feedback, sign-out
@@ -129,7 +136,7 @@ through. A unit test reads the API, worker and court-data source and fails on a 
   the current text size (Windows), else two or one. Today's matters are Today's own list (`TodayMatters`). The empty
   state ("Add your first case") is for an org with no cases; one whose cases are all closed sees the tiles at zero.
   The owner's Team row is read-only: its count (cases with a hearing this week) isn't a filter the Cases list has.
-- **Feedback** is a sheet over the current screen. The note (1–4000 characters, with a counter), the screen pattern
+- **Feedback** is a sheet over the current screen. The note (1–4000 code points, with a counter), the screen pattern
   and the version are shown to the user before sending ("We'll include the screen you were on (/cases/:id)…"). It
   checks for a connection first (sync's offline state), then sends; `RATE_LIMITED` (10 an hour) has its own text.
   Nothing is retried in the background: feedback isn't a device write.

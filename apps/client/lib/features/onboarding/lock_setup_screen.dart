@@ -5,6 +5,7 @@ import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/features/lock/app_lock.dart';
 import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
 import 'package:advocate_app/ui/icons.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -65,10 +66,12 @@ class _LockSetupScreenState extends ConsumerState<LockSetupScreen> {
       await ref.read(appLockProvider.notifier).usePin(pin);
       return;
     }
+    final error = context.l10n.lockPinMismatch;
     setState(() {
       _firstPin = null;
-      _error = context.l10n.lockPinMismatch;
+      _error = error;
     });
+    announce(context, error);
     _pin.clear();
   }
 

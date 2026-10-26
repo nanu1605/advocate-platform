@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/ui/icons.dart';
@@ -6,6 +8,42 @@ import 'package:flutter/services.dart';
 
 /// Indian mobile: 10 digits starting 6–9.
 bool isValidIndianMobile(String s) => RegExp(r'^[6-9]\d{9}$').hasMatch(s);
+
+/// Caps a field at [max] Unicode code points, the way the API counts (`max_length`). Flutter's own limit counts what
+/// a reader sees as one character: "कि" is one of those but two code points, so a Hindi text it allows can be refused.
+/// Cuts at a character boundary; waits while an input method is composing, like Flutter's.
+class CodePointLimit extends TextInputFormatter {
+  const CodePointLimit(this.max);
+
+  final int max;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.runes.length <= max ||
+        (newValue.composing.isValid && !newValue.composing.isCollapsed)) {
+      return newValue;
+    }
+    // Typing inside a full field changes nothing; a paste over a selection is cut, as Flutter's limit does.
+    if (oldValue.text.runes.length == max && oldValue.selection.isCollapsed) {
+      return oldValue;
+    }
+    var runes = 0;
+    final kept = newValue.text.characters
+        .takeWhile((c) => (runes += c.runes.length) <= max)
+        .string;
+    final s = newValue.selection;
+    return TextEditingValue(
+      text: kept,
+      selection: s.copyWith(
+        baseOffset: min(s.baseOffset, kept.length),
+        extentOffset: min(s.extentOffset, kept.length),
+      ),
+    );
+  }
+}
 
 /// Text field with inline error announced to screen readers (spec §5.9).
 class AppTextField extends StatelessWidget {
@@ -61,6 +99,8 @@ class AppTextField extends StatelessWidget {
     decoration: InputDecoration(
       labelText: label,
       hintText: hint,
+      // Hints carry examples ("e.g. ABCD2345"): they wrap rather than cut off at 200% text (spec §5.9).
+      hintMaxLines: 2,
       errorText: error,
       errorMaxLines: 3,
       prefixText: prefixText,

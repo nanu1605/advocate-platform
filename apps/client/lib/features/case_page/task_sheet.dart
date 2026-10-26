@@ -9,10 +9,11 @@ import 'package:advocate_app/data/diary.dart';
 import 'package:advocate_app/features/board/assign_sheet.dart';
 import 'package:advocate_app/features/case_page/case_page_text.dart';
 import 'package:advocate_app/features/case_page/sheet_form.dart';
-import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
 import 'package:advocate_app/ui/fields.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/sheets.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -131,7 +132,7 @@ class _TaskSheetState extends ConsumerState<_TaskSheet> {
     navigator.pop();
     // From the "+" sheet nothing else shows the new task.
     if (task == null && widget.matterId == null) {
-      messenger.showSnackBar(SnackBar(content: Text(l.casePageTaskAdded)));
+      showSnack(messenger, l.casePageTaskAdded);
     }
   }
 
@@ -221,13 +222,15 @@ class _TaskSheetState extends ConsumerState<_TaskSheet> {
           onChanged: (v) => setState(() => _assigneeId = v),
         ),
         if (widget.matterId == null && widget.task == null)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(AppIcons.briefcase),
-            title: Text(l.casePageCase),
-            subtitle: Text(picked?.caseLabel ?? l.casePageNoCase),
-            trailing: const Icon(AppIcons.caretRight),
-            onTap: () => unawaited(_pickCase()),
+          FocusRing(
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(AppIcons.briefcase),
+              title: Text(l.casePageCase),
+              subtitle: Text(picked?.caseLabel ?? l.casePageNoCase),
+              trailing: const Icon(AppIcons.caretRight),
+              onTap: () => unawaited(_pickCase()),
+            ),
           ),
       ],
     );
@@ -269,19 +272,27 @@ class _CasePickerState extends ConsumerState<_CasePicker> {
           onChanged: (v) => setState(() => _query = CaseQuery(v)),
         ),
         const SizedBox(height: 8),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(l.casePageNoCase),
-          onTap: () => Navigator.pop(context, (id: null)),
+        FocusRing(
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(l.casePageNoCase),
+            onTap: () => Navigator.pop(context, (id: null)),
+          ),
         ),
         for (final c in cases.take(30))
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(c.caseLabel),
-            subtitle: c.title == null || c.title == c.caseLabel
-                ? null
-                : Text(c.title!, maxLines: 2, overflow: TextOverflow.ellipsis),
-            onTap: () => Navigator.pop(context, (id: c.id)),
+          FocusRing(
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(c.caseLabel),
+              subtitle: c.title == null || c.title == c.caseLabel
+                  ? null
+                  : Text(
+                      c.title!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+              onTap: () => Navigator.pop(context, (id: c.id)),
+            ),
           ),
       ],
     );

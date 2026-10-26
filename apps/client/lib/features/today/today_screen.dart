@@ -19,6 +19,7 @@ import 'package:advocate_app/features/notifications/notification_centre.dart';
 import 'package:advocate_app/features/today/today_refresh.dart';
 import 'package:advocate_app/ui/board_table.dart';
 import 'package:advocate_app/ui/case_card.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/section_header.dart';
 import 'package:advocate_app/ui/sheets.dart';
@@ -100,9 +101,7 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
         if (mounted) setState(() => _refreshing = false);
       }
     }
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(refreshSummary(l, outcome))));
+    showSnack(messenger, refreshSummary(l, outcome));
   }
 
   void _open(String path) => unawaited(context.push(path));
@@ -233,13 +232,15 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
       if (orders.isNotEmpty) ...[
         SectionHeader(l.todayNewOrders, count: orders.length),
         for (final n in orders)
-          ListTile(
-            key: ValueKey(n.id),
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(AppIcons.fileText),
-            title: Text(n.caseLabel ?? l.statusNewOrder),
-            subtitle: n.caseLabel == null ? null : Text(l.statusNewOrder),
-            onTap: () => _openNotice(n),
+          FocusRing(
+            child: ListTile(
+              key: ValueKey(n.id),
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(AppIcons.fileText),
+              title: Text(n.caseLabel ?? l.statusNewOrder),
+              subtitle: n.caseLabel == null ? null : Text(l.statusNewOrder),
+              onTap: () => _openNotice(n),
+            ),
           ),
       ],
       if (attention.isNotEmpty) ...[
@@ -248,12 +249,14 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
       ],
       // The board stays one tap away all day, once tomorrow has something on it.
       if (!evening && entries.isNotEmpty && (tomorrow?.isNotEmpty ?? false))
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(AppIcons.calendarBlank),
-          title: Text(l.todayTomorrowLink(tomorrow!.length)),
-          trailing: const Icon(AppIcons.caretRight),
-          onTap: toBoard,
+        FocusRing(
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(AppIcons.calendarBlank),
+            title: Text(l.todayTomorrowLink(tomorrow!.length)),
+            trailing: const Icon(AppIcons.caretRight),
+            onTap: toBoard,
+          ),
         ),
     ];
 
@@ -399,18 +402,23 @@ class _TomorrowBanner extends StatelessWidget {
     return Card(
       color: c.isSunlight ? null : c.primarySoft,
       margin: const EdgeInsets.only(top: 16),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Icon(AppIcons.calendarBlank, color: c.primary),
-        title: Text(
-          entries.isEmpty
-              ? l.todayTomorrowNone
-              : l.todayTomorrowBanner(entries.length, entries.courtCount),
-          style: context.text.titleMedium,
+      child: FocusRing(
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
+          leading: Icon(AppIcons.calendarBlank, color: c.primary),
+          title: Text(
+            entries.isEmpty
+                ? l.todayTomorrowNone
+                : l.todayTomorrowBanner(entries.length, entries.courtCount),
+            style: context.text.titleMedium,
+          ),
+          subtitle: Text(l.boardTitle),
+          trailing: const Icon(AppIcons.caretRight),
+          onTap: onTap,
         ),
-        subtitle: Text(l.boardTitle),
-        trailing: const Icon(AppIcons.caretRight),
-        onTap: onTap,
       ),
     );
   }
@@ -429,24 +437,26 @@ class _AttentionTile extends StatelessWidget {
     final f = Formats(Localizations.localeOf(context));
     final a = item;
     final delayed = a.kind == AttentionKind.courtDataDelayed;
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        AppIcons.warningCircle,
-        color: context.colors.of(StatusKind.adjourned).fg,
-      ),
-      title: Text(delayed ? l.todayAttnDelayed : a.caseLabel ?? ''),
-      subtitle: Text(switch (a.kind) {
-        AttentionKind.noNextDate => l.todayAttnNoNextDate,
-        AttentionKind.courtDataPending => l.todayAttnPending,
-        AttentionKind.courtDataDelayed => l.todayAttnDelayedBody,
-        AttentionKind.addNextDate => l.todayAttnAddDate,
-        AttentionKind.dateMismatch => l.todayAttnMismatch(
-          f.shortDate(a.courtDate!),
-          f.shortDate(a.userDate!),
+    return FocusRing(
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(
+          AppIcons.warningCircle,
+          color: context.colors.of(StatusKind.adjourned).fg,
         ),
-      }),
-      onTap: () => onTap(a),
+        title: Text(delayed ? l.todayAttnDelayed : a.caseLabel ?? ''),
+        subtitle: Text(switch (a.kind) {
+          AttentionKind.noNextDate => l.todayAttnNoNextDate,
+          AttentionKind.courtDataPending => l.todayAttnPending,
+          AttentionKind.courtDataDelayed => l.todayAttnDelayedBody,
+          AttentionKind.addNextDate => l.todayAttnAddDate,
+          AttentionKind.dateMismatch => l.todayAttnMismatch(
+            f.shortDate(a.courtDate!),
+            f.shortDate(a.userDate!),
+          ),
+        }),
+        onTap: () => onTap(a),
+      ),
     );
   }
 }

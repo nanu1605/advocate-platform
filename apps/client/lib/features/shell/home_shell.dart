@@ -4,6 +4,7 @@ import 'package:advocate_app/core/flags.dart';
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/core/theme/app_theme.dart';
+import 'package:advocate_app/data/cases.dart';
 import 'package:advocate_app/data/document_files.dart';
 import 'package:advocate_app/data/local_notifier.dart';
 import 'package:advocate_app/data/sync/sync.dart';
@@ -13,6 +14,7 @@ import 'package:advocate_app/features/documents/upload_flow.dart';
 import 'package:advocate_app/features/feedback/feedback_sheet.dart';
 import 'package:advocate_app/ui/app_scaffold.dart';
 import 'package:advocate_app/ui/command_palette.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/sheets.dart';
 import 'package:advocate_app/ui/states.dart';
@@ -21,16 +23,51 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 /// Navigation shell for signed-in screens (spec §5.2). P1 phone bar: Today · Cases · (+) · More.
-class HomeShell extends ConsumerWidget {
+class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({required this.location, required this.child, super.key});
 
   final String location;
   final Widget child;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeShell> createState() => _HomeShellState();
+}
+
+class _HomeShellState extends ConsumerState<HomeShell> {
+  /// Offline or failed since sync last caught up.
+  bool _behind = false;
+
+  /// Says "Up to date" for a moment once sync catches up after that: a polite announcement, and a live region
+  /// for TalkBack, which needs it on screen (spec §5.9). Never for a local write's "Syncing" blip.
+  Timer? _caughtUp;
+
+  @override
+  void dispose() {
+    _caughtUp?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l = context.l10n;
+    final location = widget.location;
     final flags = ref.watch(featureFlagsProvider);
+    ref.listen(syncViewProvider, (_, next) {
+      final view = next.value;
+      if (view == null) return;
+      if (view.offline || view.status == SyncStatus.failed) {
+        _behind = true;
+        _caughtUp?.cancel();
+        _caughtUp = null;
+      } else if (_behind && view.status == SyncStatus.synced) {
+        _behind = false;
+        setState(
+          () => _caughtUp = Timer(const Duration(seconds: 4), () {
+            if (mounted) setState(() => _caughtUp = null);
+          }),
+        );
+      }
+    });
     final offline = ref.watch(syncViewProvider).value?.offline ?? false;
     // Queued uploads and offline copies are looked after while signed-in screens are up (ADR 0016), and new
     // notifications become local ones (ADR 0017).
@@ -39,11 +76,15 @@ class HomeShell extends ConsumerWidget {
       ..watch(offlineKeeperProvider)
       ..watch(localAlertsProvider);
     final today = NavDest('/today', AppIcons.sun, AppIcons.sunFill, l.navToday);
+    // Newly found cases (auto-match) wait in "Found for you": a badge says how many (spec §4.1).
+    final found = ref.watch(pendingFoundCountProvider).value ?? 0;
     final cases = NavDest(
       '/cases',
       AppIcons.briefcase,
       AppIcons.briefcaseFill,
       l.navCases,
+      badge: found,
+      badgeLabel: l.navCasesFound(found),
     );
     final rail = [
       today,
@@ -91,7 +132,11 @@ class HomeShell extends ConsumerWidget {
       onNavigate: context.go,
       onCenterAction: () => showAddSheet(context),
       onNewCase: () => unawaited(showAddCaseChooser(context)),
-      banner: offline ? const OfflineBanner() : null,
+      banner: offline
+          ? const OfflineBanner()
+          : _caughtUp != null
+          ? const OfflineBanner(synced: true)
+          : null,
       onCommandPalette: () => showCommandPalette(context, [
         for (final (i, d) in rail.indexed)
           PaletteCommand(
@@ -134,7 +179,7 @@ class HomeShell extends ConsumerWidget {
           run: () => unawaited(showFeedbackSheet(context)),
         ),
       ]),
-      child: child,
+      child: widget.child,
     );
   }
 }
@@ -154,20 +199,26 @@ void showAddSheet(BuildContext context) {
       builder: (_) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ListTile(
-            leading: const Icon(AppIcons.briefcase),
-            title: Text(l.addCase),
-            onTap: () => then(() => unawaited(showAddCaseChooser(context))),
+          FocusRing(
+            child: ListTile(
+              leading: const Icon(AppIcons.briefcase),
+              title: Text(l.addCase),
+              onTap: () => then(() => unawaited(showAddCaseChooser(context))),
+            ),
           ),
-          ListTile(
-            leading: const Icon(AppIcons.checkSquare),
-            title: Text(l.addTask),
-            onTap: () => then(() => unawaited(showTaskSheet(context))),
+          FocusRing(
+            child: ListTile(
+              leading: const Icon(AppIcons.checkSquare),
+              title: Text(l.addTask),
+              onTap: () => then(() => unawaited(showTaskSheet(context))),
+            ),
           ),
-          ListTile(
-            leading: const Icon(AppIcons.filePlus),
-            title: Text(l.addDocument),
-            onTap: () => then(() => unawaited(startUpload(context))),
+          FocusRing(
+            child: ListTile(
+              leading: const Icon(AppIcons.filePlus),
+              title: Text(l.addDocument),
+              onTap: () => then(() => unawaited(startUpload(context))),
+            ),
           ),
         ],
       ),

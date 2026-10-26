@@ -5,8 +5,8 @@ import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/data/cases.dart';
 import 'package:advocate_app/features/case_page/links.dart';
 import 'package:advocate_app/features/case_page/sheet_form.dart';
-import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
 import 'package:advocate_app/ui/fields.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/sheets.dart';
 import 'package:advocate_app/ui/states.dart';
@@ -89,33 +89,35 @@ class _Client extends ConsumerWidget {
     final client = link.client;
     final phone = client.phone;
     final sub = [?phone, ?clientLanguageLabel(l, client.language)].join(' · ');
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      minVerticalPadding: 12,
-      leading: Avatar(client.name),
-      title: Text(client.name, style: context.text.titleSmall),
-      subtitle: sub.isEmpty ? null : Text(sub, style: context.text.bodySmall),
-      onTap: () => openInSection(context, '/clients/${client.id}'),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (phone != null)
-            IconButton(
-              tooltip: l.casePageCall(client.name),
-              icon: const Icon(AppIcons.phone),
-              onPressed: () => unawaited(
-                openExternal(context, ref, Uri(scheme: 'tel', path: phone)),
+    return FocusRing(
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        minVerticalPadding: 12,
+        leading: Avatar(client.name),
+        title: Text(client.name, style: context.text.titleSmall),
+        subtitle: sub.isEmpty ? null : Text(sub, style: context.text.bodySmall),
+        onTap: () => openInSection(context, '/clients/${client.id}'),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (phone != null)
+              IconButton(
+                tooltip: l.casePageCall(client.name),
+                icon: const Icon(AppIcons.phone),
+                onPressed: () => unawaited(
+                  openExternal(context, ref, Uri(scheme: 'tel', path: phone)),
+                ),
               ),
+            PopupMenuButton<bool>(
+              tooltip: l.boardMoreActions(client.name),
+              icon: const Icon(AppIcons.dotsThreeVertical),
+              onSelected: (_) => _unlink(context, ref),
+              itemBuilder: (_) => [
+                PopupMenuItem(value: true, child: Text(l.casePageUnlink)),
+              ],
             ),
-          PopupMenuButton<bool>(
-            tooltip: l.boardMoreActions(client.name),
-            icon: const Icon(AppIcons.dotsThreeVertical),
-            onSelected: (_) => _unlink(context, ref),
-            itemBuilder: (_) => [
-              PopupMenuItem(value: true, child: Text(l.casePageUnlink)),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -214,12 +216,14 @@ class _LinkClientSheetState extends ConsumerState<_LinkClientSheet> {
             children: [
               // ponytail: the first 20 matches; typing narrows it.
               for (final c in matches.take(20))
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Avatar(c.name),
-                  title: Text(c.name),
-                  subtitle: c.phone == null ? null : Text(c.phone!),
-                  onTap: () => unawaited(_link(c.id)),
+                FocusRing(
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Avatar(c.name),
+                    title: Text(c.name),
+                    subtitle: c.phone == null ? null : Text(c.phone!),
+                    onTap: () => unawaited(_link(c.id)),
+                  ),
                 ),
               if (matches.isEmpty) Text(l.casePageNoClientMatch),
             ],

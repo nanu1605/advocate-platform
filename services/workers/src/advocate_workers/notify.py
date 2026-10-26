@@ -4,18 +4,24 @@ delivers and no notification_deliveries rows are written. By default a notificat
 court position, never parties or clients (§13.2); notification_prefs.include_titles adds the case title. `data`
 carries the kind, ids, a deep link, the event key, a collapse key and the facts, so the app can re-render it."""
 
+import asyncio
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import date, time
+from datetime import date, datetime, time
 from typing import Any, Literal
 from uuid import UUID
 
+import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from advocate_shared.ist import IST, now_ist
 from advocate_workers import db
+from advocate_workers.celery_app import DEADLINE_REMINDERS, app
 from advocate_workers.diff import Event
+
+log = structlog.get_logger()
 
 EN_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 HI_DAYS = ["सोम", "मंगल", "बुध", "गुरु", "शुक्र", "शनि", "रवि"]
@@ -29,6 +35,14 @@ TITLES = {
     "next_date_set": ("Next date", "अगली तारीख"),
     "status_changed": ("Case status", "केस की स्थिति"),
     "sync_issue": ("Court data delayed", "कोर्ट डेटा में देरी"),
+    "deadline_due": ("Deadline", "समय-सीमा"),
+}
+# deadlines.kind as a deadline_due body names it (the app's casesDeadline* words).
+DEADLINE_KINDS = {
+    "limitation": ("limitation", "परिसीमा"),
+    "compliance": ("compliance", "अनुपालन"),
+    "filing": ("filing", "फ़ाइलिंग"),
+    "other": ("deadline", "समय-सीमा"),
 }
 
 
@@ -75,15 +89,16 @@ def time_text(t: time, lang: str) -> str:
 
 
 def case_label(matter: Mapping[str, Any], include_titles: bool = False) -> str:
-    """ "WP 1234/2024" from case_type, case_number and case_year; the CNR when there is no number. The title (party
-    names) only when the user turned on "Include case titles"."""
+    """ "WP 1234/2024" from case_type, case_number and case_year; the CNR when there is no number, else the office's
+    file number (a manual case may have neither). The title (party names) only when the user turned on "Include case
+    titles". Empty when there is nothing to name it by."""
     number, year = matter.get("case_number"), matter.get("case_year")
     if number:
         label = " ".join(str(p) for p in (matter.get("case_type"), f"{number}/{year}" if year else number) if p)
     else:
-        label = matter.get("cnr") or "—"
-    title = matter.get("title")
-    return f"{label} · {title}" if include_titles and title else label
+        label = matter.get("cnr") or matter.get("file_no") or ""
+    title = matter.get("title") if include_titles else None
+    return " · ".join(p for p in (label, title) if p)
 
 
 async def recipients(conn: AsyncConnection, org_id: UUID | str, kind: str) -> list[Recipient]:
@@ -257,3 +272,72 @@ async def sync_issue(conn: AsyncConnection, org_id: UUID | str, day: date, retry
 
     data = {"link": "/today", "collapse_key": f"sync_issue:{org_id}", "day": day}
     return await write(conn, org_id, "sync_issue", f"sync_issue:{org_id}:{day}", body, data)
+
+
+DUE = """
+select d.id, d.org_id, d.matter_id, d.kind, d.due_date, d.due_date - cast(:d as date) as days,
+       m.case_type, m.case_number, m.case_year, m.cnr, m.file_no, m.title, m.court_no, c.short_name, c.short_name_hi
+from public.deadlines d
+join public.matters m on m.id = d.matter_id and m.deleted_at is null
+left join public.courts c on c.id = m.court_id
+where d.status = 'active' and d.deleted_at is null and d.due_date >= cast(:d as date)
+  and d.due_date - cast(:d as date) = any(d.reminder_offsets)
+order by d.org_id, d.due_date
+"""
+
+
+async def deadline_due(conn: AsyncConnection, deadline: Mapping[str, Any]) -> int:
+    """ "WP 1234/2024, MPHC Indore, Court 12: filing due in 3 days (Thu 29 Oct)." for a DUE row, `days` (one of its
+    reminder_offsets) before its due date. Keyed per deadline and offset, so each reminder is written once; they share
+    a collapse key, so the newest replaces the earlier ones. The app lets the day-of one break quiet hours
+    (data.due_date is today, ADR 0017)."""
+    days, due = deadline["days"], deadline["due_date"]
+    court = Position(deadline["short_name"], deadline["short_name_hi"], deadline["court_no"])
+
+    def body(who: Recipient) -> str:
+        hi = who.lang == "hi"
+        label, at = case_label(deadline, who.include_titles), court.text(who.lang)
+        if label:
+            where = ", ".join(p for p in (label, at) if p)
+        else:  # a manual case with only a title, which names parties: its court says which
+            where = (f"{at} का एक केस" if at else "एक केस") if hi else (f"A case at {at}" if at else "A case")
+        what = DEADLINE_KINDS.get(deadline["kind"], DEADLINE_KINDS["other"])[hi]
+        on = day_text(due, who.lang)
+        if hi:
+            when = "आज" if days == 0 else f"कल ({on})" if days == 1 else f"{days} दिन में ({on})"
+            return f"{where}: {what} की आखिरी तारीख {when}।"
+        when = "today" if days == 0 else f"tomorrow ({on})" if days == 1 else f"in {days} days ({on})"
+        return f"{where}: {what} due {when}."
+
+    data = {
+        "matter_id": str(deadline["matter_id"]),
+        "deadline_id": str(deadline["id"]),
+        "link": f"/cases/{deadline['matter_id']}?tab=notes",  # deadlines are listed under Notes & tasks
+        "collapse_key": f"deadline_due:{deadline['id']}",
+        "due_date": due,
+        "days": days,
+    }
+    return await write(conn, deadline["org_id"], "deadline_due", f"deadline_due:{deadline['id']}:{days}", body, data)
+
+
+async def run_deadline_due(now: datetime) -> int:
+    """07:30 IST: deadline_due to every member (like the other kinds; clerks see deadlines too, §15.3) for each active
+    deadline on a live case due in one of its reminder_offsets days (default 3, 1, 0) from today in IST. A re-run
+    writes nothing new. A deadline with no case gets none (the app always files one under a case). Returns the
+    notifications written."""
+    # ponytail: a morning the beat misses is not caught up, and a moved due date keeps the reminders sent for the old
+    # one (the key has no date); look back a few days and key on due_date if deadlines become editable.
+    written = 0
+    async with db.engine().begin() as c:
+        for deadline in await db.rows(c, DUE, d=now.astimezone(IST).date()):
+            try:
+                async with c.begin_nested():
+                    written += await deadline_due(c, deadline)
+            except Exception:
+                log.exception("deadline_due_failed", deadline_id=str(deadline["id"]))  # the others still get theirs
+    return written
+
+
+@app.task(name=DEADLINE_REMINDERS)
+def deadline_reminders() -> int:
+    return asyncio.run(run_deadline_due(now_ist()))

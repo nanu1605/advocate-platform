@@ -15,6 +15,7 @@ import 'package:advocate_app/features/cases/cases_screen.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/pdf_viewer.dart';
 import 'package:advocate_app/ui/states.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -35,158 +36,160 @@ DateTime nov(int d) => DateTime.utc(2026, 11, d);
 /// order (unread) and hearing (court next date 5 Nov; the user noted 6 Nov, with a note). Three documents (ready,
 /// being checked, quarantined), a team and a private note, three tasks, a deadline and client Suresh Patel. WP 1002
 /// (m-2) is a manual case at an "Other court" with one hearing on 12 Nov; WP 1003 (m-3) has tracking off and no
-/// next date.
-FakeCases sampleCases({List<CaseInfo>? cases}) => FakeCases(
-  cases:
-      cases ??
-      [
-        caseInfo(
-          1,
-          nextDate: _today,
-          judge: 'Justice A. B. Sharma',
-          stage: 'Admission',
-          assigneeId: 'user-3',
-          assigneeName: 'Neha Verma',
-        ),
-        caseInfo(
-          2,
-          tracking: 'manual',
-          courtName: 'Family Court, Indore',
-          courtNo: '3',
-          nextDate: nov(12),
-        ),
-        caseInfo(3, tracking: 'off'),
-      ],
-  hearings: {
-    'm-1': [
-      CaseHearing(
-        id: 'h-1',
-        date: _today,
-        courtNo: '12',
-        itemNo: '23',
-        purpose: 'Admission',
-      ),
-      CaseHearing(
-        id: 'h-2',
-        date: DateTime.utc(2026, 10, 28),
-        courtNo: '12',
-        purpose: 'Arguments',
-        outcome: 'Adjourned',
-        nextDate: _today,
-        userNextDate: nov(6),
-        userNote: 'Client to bring the vakalatnama',
-      ),
-    ],
-    'm-2': [
-      CaseHearing(
-        id: 'h-3',
-        date: nov(12),
-        source: 'manual',
-        courtNo: '3',
-        purpose: 'Evidence',
-      ),
-    ],
-  },
-  orders: {
-    'm-1': [
-      CaseOrder(
-        id: 'o-1',
-        date: DateTime.utc(2026, 10, 28),
-        title: 'Reply within 4 weeks',
-      ),
-    ],
-  },
-  documents: {
-    'm-1': const [
-      CaseDocument(
-        id: 'd-1',
-        title: 'Writ petition',
-        kind: 'pleading',
-        sizeBytes: 245760,
-        pages: 12,
-      ),
-      CaseDocument(
-        id: 'd-2',
-        title: 'Reply draft',
-        kind: 'correspondence',
-        uploadStatus: 'pending',
-      ),
-      CaseDocument(
-        id: 'd-3',
-        title: 'Scan from client',
-        uploadStatus: 'quarantined',
-      ),
-    ],
-  },
-  notes: {
-    'm-1': [
-      CaseNote(
-        id: 'n-1',
-        body: 'Ask for the certified copy of the 28 Oct order.',
-        authorId: 'user-3',
-        authorName: 'Neha Verma',
-        createdAt: DateTime.utc(2026, 11, 4, 5),
-      ),
-      CaseNote(
-        id: 'n-2',
-        body: 'Opposing counsel may seek time.',
-        authorId: 'user-1',
-        authorName: 'Ramesh Sharma',
-        visibility: 'private',
-        createdAt: DateTime.utc(2026, 11, 3, 12),
-      ),
-    ],
-  },
-  tasks: {
-    'm-1': [
-      CaseTask(
-        id: 't-1',
-        title: 'Collect certified copy',
-        dueAt: taskDueAt(nov(3)),
-      ),
-      CaseTask(
-        id: 't-2',
-        title: 'File reply',
-        dueAt: taskDueAt(nov(6), hour: 11, minute: 30),
-        assigneeId: 'user-2',
-        assigneeName: 'Rakesh Jain',
-      ),
-      const CaseTask(id: 't-3', title: 'Pay court fee', status: 'done'),
-    ],
-  },
-  deadlines: {
-    'm-1': [
-      CaseDeadline(
-        id: 'dl-1',
-        kind: 'limitation',
-        dueDate: DateTime.utc(2026, 12),
-      ),
-    ],
-  },
-  links: {
-    'm-1': [
-      (
-        linkId: 'mc-1',
-        client: const ClientInfo(
+/// next date. [pendingFound] found cases wait in "Found for you".
+FakeCases sampleCases({List<CaseInfo>? cases, int pendingFound = 0}) =>
+    FakeCases(
+      pendingFound: pendingFound,
+      cases:
+          cases ??
+          [
+            caseInfo(
+              1,
+              nextDate: _today,
+              judge: 'Justice A. B. Sharma',
+              stage: 'Admission',
+              assigneeId: 'user-3',
+              assigneeName: 'Neha Verma',
+            ),
+            caseInfo(
+              2,
+              tracking: 'manual',
+              courtName: 'Family Court, Indore',
+              courtNo: '3',
+              nextDate: nov(12),
+            ),
+            caseInfo(3, tracking: 'off'),
+          ],
+      hearings: {
+        'm-1': [
+          CaseHearing(
+            id: 'h-1',
+            date: _today,
+            courtNo: '12',
+            itemNo: '23',
+            purpose: 'Admission',
+          ),
+          CaseHearing(
+            id: 'h-2',
+            date: DateTime.utc(2026, 10, 28),
+            courtNo: '12',
+            purpose: 'Arguments',
+            outcome: 'Adjourned',
+            nextDate: _today,
+            userNextDate: nov(6),
+            userNote: 'Client to bring the vakalatnama',
+          ),
+        ],
+        'm-2': [
+          CaseHearing(
+            id: 'h-3',
+            date: nov(12),
+            source: 'manual',
+            courtNo: '3',
+            purpose: 'Evidence',
+          ),
+        ],
+      },
+      orders: {
+        'm-1': [
+          CaseOrder(
+            id: 'o-1',
+            date: DateTime.utc(2026, 10, 28),
+            title: 'Reply within 4 weeks',
+          ),
+        ],
+      },
+      documents: {
+        'm-1': const [
+          CaseDocument(
+            id: 'd-1',
+            title: 'Writ petition',
+            kind: 'pleading',
+            sizeBytes: 245760,
+            pages: 12,
+          ),
+          CaseDocument(
+            id: 'd-2',
+            title: 'Reply draft',
+            kind: 'correspondence',
+            uploadStatus: 'pending',
+          ),
+          CaseDocument(
+            id: 'd-3',
+            title: 'Scan from client',
+            uploadStatus: 'quarantined',
+          ),
+        ],
+      },
+      notes: {
+        'm-1': [
+          CaseNote(
+            id: 'n-1',
+            body: 'Ask for the certified copy of the 28 Oct order.',
+            authorId: 'user-3',
+            authorName: 'Neha Verma',
+            createdAt: DateTime.utc(2026, 11, 4, 5),
+          ),
+          CaseNote(
+            id: 'n-2',
+            body: 'Opposing counsel may seek time.',
+            authorId: 'user-1',
+            authorName: 'Ramesh Sharma',
+            visibility: 'private',
+            createdAt: DateTime.utc(2026, 11, 3, 12),
+          ),
+        ],
+      },
+      tasks: {
+        'm-1': [
+          CaseTask(
+            id: 't-1',
+            title: 'Collect certified copy',
+            dueAt: taskDueAt(nov(3)),
+          ),
+          CaseTask(
+            id: 't-2',
+            title: 'File reply',
+            dueAt: taskDueAt(nov(6), hour: 11, minute: 30),
+            assigneeId: 'user-2',
+            assigneeName: 'Rakesh Jain',
+          ),
+          const CaseTask(id: 't-3', title: 'Pay court fee', status: 'done'),
+        ],
+      },
+      deadlines: {
+        'm-1': [
+          CaseDeadline(
+            id: 'dl-1',
+            kind: 'limitation',
+            dueDate: DateTime.utc(2026, 12),
+          ),
+        ],
+      },
+      links: {
+        'm-1': [
+          (
+            linkId: 'mc-1',
+            client: const ClientInfo(
+              id: 'cl-1',
+              name: 'Suresh Patel',
+              phone: '+919876543210',
+              language: 'hi',
+            ),
+          ),
+        ],
+      },
+      clients: const [
+        ClientInfo(
           id: 'cl-1',
           name: 'Suresh Patel',
           phone: '+919876543210',
           language: 'hi',
         ),
-      ),
-    ],
-  },
-  clients: const [
-    ClientInfo(
-      id: 'cl-1',
-      name: 'Suresh Patel',
-      phone: '+919876543210',
-      language: 'hi',
-    ),
-    ClientInfo(id: 'cl-2', name: 'Ramesh Gupta', phone: '+919812345678'),
-    ClientInfo(id: 'cl-3', name: 'राजेश शर्मा'),
-  ],
-);
+        ClientInfo(id: 'cl-2', name: 'Ramesh Gupta', phone: '+919812345678'),
+        ClientInfo(id: 'cl-3', name: 'राजेश शर्मा'),
+      ],
+    );
 
 /// A clerk of the same org: may do everything on the case page but delete it.
 const clerkAccount = Account(
@@ -411,6 +414,7 @@ void main() {
     });
 
     testWidgets('Assign to: no one, with Undo', (tester) async {
+      final announced = captureAnnouncements(tester);
       final cases = sampleCases();
       await open(tester, cases: cases);
       await tester.tap(find.text(en.boardAssignTo));
@@ -425,6 +429,10 @@ void main() {
         'assigneeId': null,
       });
       expect(find.text(en.casePageUnassigned), findsOneWidget);
+      // The Undo snackbar is read out on Windows, which never reads a snackbar's live region.
+      final said = en.boardAssignedSnack('WP 1001/2024', en.casePageAssignNone);
+      expect(find.text(said), findsOneWidget);
+      expect(announced, contains(said));
       await tester.tap(find.text(en.undo));
       await tester.pumpAndSettle();
       expectCall(cases.writes.last, 'assignCase', {
@@ -437,6 +445,7 @@ void main() {
   group('actions', () {
     testWidgets('Refresh asks the court; a recent refresh is up to date; '
         'offline says so; F5 refreshes too', (tester) async {
+      final announced = captureAnnouncements(tester);
       final api = await open(tester);
       await tester.tap(find.byTooltip(en.casePageRefresh));
       await tester.pumpAndSettle();
@@ -454,6 +463,24 @@ void main() {
       await tester.tap(find.byTooltip(en.casePageRefresh));
       await tester.pumpAndSettle();
       expect(snack(en.todayRefreshOffline), findsOneWidget);
+      // Each outcome is read out on Windows, which never reads a snackbar's live region.
+      expect(
+        announced,
+        containsAllInOrder([
+          en.todayRefreshChecking(1),
+          en.todayRefreshUpToDate,
+          en.todayRefreshOffline,
+        ]),
+      );
+
+      // iOS reads the snackbar itself: said once, not twice.
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      announced.clear();
+      await tester.tap(find.byTooltip(en.casePageRefresh));
+      await tester.pumpAndSettle();
+      expect(announced, isNot(contains(en.todayRefreshOffline)));
+      debugDefaultTargetPlatformOverride = null;
     });
 
     testWidgets('Share case status: the title only when asked, never clients', (
@@ -597,6 +624,101 @@ void main() {
       await tester.pumpAndSettle();
       expect(snack(en.errorNeedsNetwork), findsOneWidget);
       expect(find.byType(CasePage), findsOneWidget);
+    });
+
+    // Spec §5.13 / §16.6: the case page reads the device, so it works offline; only the API's actions wait.
+    testWidgets('offline: the banner over the saved case; a next date, a '
+        'note and a task still save; Refresh, tracking, the portal and '
+        'Delete say they need a connection', (tester) async {
+      final cases = sampleCases();
+      final api = await open(
+        tester,
+        location: '/cases/m-2',
+        cases: cases,
+        overrides: syncedData(offline: true),
+      );
+      api.offline = true;
+      expect(find.byType(OfflineBanner), findsOneWidget);
+      expect(find.widgetWithText(AppBar, 'WP 1002/2024'), findsOneWidget);
+      expect(find.text('${en.casePageHearing} · Evidence'), findsOneWidget);
+      Finder inSheet(Finder f) =>
+          find.descendant(of: find.byType(BottomSheet), matching: f);
+
+      // A next date on a manual case.
+      await tester.tap(
+        find.widgetWithText(OutlinedButton, en.casePageAddNextDate),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        inSheet(find.widgetWithText(TextField, en.dateLabel)),
+        '09-11-2026',
+      );
+      await tester.tap(find.text(en.casePageSave));
+      await tester.pumpAndSettle();
+      expect(cases.writes.last.name, 'addHearing');
+
+      // A note and a task.
+      container(tester).read(routerProvider).go('/cases/m-1?tab=notes');
+      await tester.pumpAndSettle();
+      expect(find.byType(OfflineBanner), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, en.casePageAddNote));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        inSheet(find.byType(TextField)),
+        'Written offline',
+      );
+      await tester.tap(find.text(en.casePageSave));
+      await tester.pumpAndSettle();
+      expect(cases.writes.last.name, 'addNote');
+      expect(find.text('Written offline'), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, en.addTask));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        inSheet(find.widgetWithText(TextField, en.casePageTaskTitle)),
+        'Task offline',
+      );
+      await tester.tap(find.text(en.casePageSave));
+      await tester.pumpAndSettle();
+      expect(cases.writes.last.name, 'addTask');
+      expect(find.text(en.errorNeedsNetwork), findsNothing);
+
+      await tester.tap(find.byTooltip(en.casePageRefresh));
+      await tester.pumpAndSettle();
+      expect(snack(en.todayRefreshOffline), findsOneWidget);
+
+      // Each action's own message: the last one's is cleared first (a snackbar outlives the action).
+      Future<void> clearSnack() async {
+        ScaffoldMessenger.of(tester.element(find.byType(CasePage)))
+            .clearSnackBars();
+        await tester.pumpAndSettle();
+        expect(find.byType(SnackBar), findsNothing);
+      }
+
+      await clearSnack();
+      await tapMenu(tester, en.casePageTrackingOff);
+      await tester.tap(
+        find.widgetWithText(FilledButton, en.casePageTrackingOff),
+      );
+      await tester.pumpAndSettle();
+      expect(snack(en.errorNeedsNetwork), findsOneWidget);
+
+      await clearSnack();
+      await tapMenu(tester, en.casePagePortal);
+      expect(snack(en.errorNeedsNetwork), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+
+      await clearSnack();
+      await tapMenu(tester, en.casePageDelete);
+      await tester.tap(find.widgetWithText(FilledButton, en.casePageDelete));
+      await tester.pumpAndSettle();
+      expect(snack(en.errorNeedsNetwork), findsOneWidget);
+      expect(find.byType(CasePage), findsOneWidget);
+
+      container(tester).read(routerProvider).go('/cases/m-3');
+      await tester.pumpAndSettle();
+      await clearSnack();
+      await tapMenu(tester, en.casePageTrackingOn);
+      expect(snack(en.errorNeedsNetwork), findsOneWidget);
     });
 
     testWidgets('a clerk has no Delete', (tester) async {

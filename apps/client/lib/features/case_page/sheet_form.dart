@@ -4,7 +4,7 @@ import 'package:advocate_app/core/errors.dart';
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/data/cases.dart';
-import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/sheets.dart';
 import 'package:advocate_app/ui/skeleton.dart';
 import 'package:advocate_app/ui/states.dart';
@@ -216,12 +216,14 @@ class _TextSheetState extends State<_TextSheet> {
           ),
         ),
         if (widget.private != null)
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(l.casePagePrivate),
-            subtitle: Text(l.casePagePrivateHint),
-            value: _private,
-            onChanged: (v) => setState(() => _private = v),
+          FocusRing(
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(l.casePagePrivate),
+              subtitle: Text(l.casePagePrivateHint),
+              value: _private,
+              onChanged: (v) => setState(() => _private = v),
+            ),
           ),
       ],
     );

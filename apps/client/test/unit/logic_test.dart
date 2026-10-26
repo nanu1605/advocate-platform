@@ -265,6 +265,12 @@ void main() {
       expect(Formats(const Locale('hi')).money(12550), '₹125.50');
     });
 
+    test('counts in Indian grouping, Western digits in both languages', () {
+      expect(Formats(const Locale('en')).number(125000), '1,25,000');
+      expect(Formats(const Locale('hi')).number(125000), '1,25,000');
+      expect(Formats(const Locale('en')).number(7), '7');
+    });
+
     test('DD-MM-YYYY entry round-trips and rejects impossible dates', () {
       expect(Formats.entry(d), '05-11-2026');
       expect(Formats.parseEntry('05-11-2026'), DateTime(2026, 11, 5));
@@ -277,6 +283,57 @@ void main() {
     expect(isValidIndianMobile('9876543210'), isTrue);
     expect(isValidIndianMobile('5876543210'), isFalse);
     expect(isValidIndianMobile('98765'), isFalse);
+  });
+
+  test('CodePointLimit counts as the API does and never splits a letter', () {
+    const limit = CodePointLimit(5);
+    TextEditingValue v(String s) => TextEditingValue(text: s);
+    String cut(String old, String typed) =>
+        limit.formatEditUpdate(v(old), v(typed)).text;
+    // "कि" is one letter, two code points: two fit in 5, a third would be split.
+    expect(cut('', 'किकिकि'), 'किकि');
+    expect(cut('', 'abcdefg'), 'abcde');
+    expect(cut('', 'abcde'), 'abcde');
+    // A full field: an edit inside it changes nothing.
+    expect(cut('abcde', 'abXcde'), 'abcde');
+    // A paste over a selection in a full field replaces it, cut to fit.
+    const all = TextEditingValue(
+      text: 'abcde',
+      selection: TextSelection(baseOffset: 0, extentOffset: 5),
+    );
+    const pasted = TextEditingValue(
+      text: 'vwxyz12',
+      selection: TextSelection.collapsed(offset: 7),
+    );
+    expect(
+      limit.formatEditUpdate(all, pasted),
+      const TextEditingValue(
+        text: 'vwxyz',
+        selection: TextSelection.collapsed(offset: 5),
+      ),
+    );
+    // A cut keeps the caret where the paste left it.
+    expect(
+      limit
+          .formatEditUpdate(
+            const TextEditingValue(
+              text: 'abcd',
+              selection: TextSelection.collapsed(offset: 2),
+            ),
+            const TextEditingValue(
+              text: 'abXYcd',
+              selection: TextSelection.collapsed(offset: 4),
+            ),
+          )
+          .selection,
+      const TextSelection.collapsed(offset: 4),
+    );
+    // An input method still composing is left alone; its result is cut when it commits.
+    const composing = TextEditingValue(
+      text: 'abcdef',
+      composing: TextRange(start: 4, end: 6),
+    );
+    expect(limit.formatEditUpdate(v('abcd'), composing), composing);
   });
 
   test('uuidV4 shape', () {
@@ -311,6 +368,12 @@ void main() {
       expect(hi.difference(en), isEmpty, reason: 'missing in app_en.arb');
     },
   );
+
+  test('the OTP resend wait spells out its unit, for screen readers', () {
+    final en = lookupAppLocalizations(const Locale('en'));
+    expect(en.resendIn(60), 'Resend code in 60 seconds');
+    expect(en.resendIn(1), 'Resend code in 1 second');
+  });
 
   test('Hindi =1 branches print the count, never a literal 1', () {
     // intl puts Hindi 0 in the "one" category, so =1{1 केस} would read "1 केस" for a count of 0.

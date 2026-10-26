@@ -7,6 +7,7 @@ import 'package:advocate_app/data/device.dart';
 import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
 import 'package:advocate_app/ui/fields.dart';
 import 'package:advocate_app/ui/sheets.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -66,12 +67,9 @@ class _AddByCnrState extends ConsumerState<_AddByCnr> {
           .addByCnr(orgId: org, idempotencyKey: key, cnr: cnr);
       if (!mounted) return;
       // Not created: the CNR was already a live matter, so nothing was added or fetched.
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            added.created ? l.foundCnrAdded : l.errorFoundCaseAdded,
-          ),
-        ),
+      showSnack(
+        ScaffoldMessenger.of(context),
+        added.created ? l.foundCnrAdded : l.errorFoundCaseAdded,
       );
       Navigator.pop(context, added.matterId);
     } on ApiException catch (e) {

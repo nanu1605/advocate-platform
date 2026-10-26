@@ -17,14 +17,13 @@ class App extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(settingsProvider);
     ref.watch(syncConnectionProvider);
-    final osReduce = WidgetsBinding
-        .instance
-        .platformDispatcher
-        .accessibilityFeatures
-        .disableAnimations;
-    final reduce = s.reduceMotion || osReduce;
-    ThemeData theme(AppThemeMode m) =>
-        buildTheme(colorsFor(m, Brightness.light), reduceMotion: reduce);
+    // The view's MediaQuery, so the theme follows the OS flag when it changes while the app runs.
+    final reduce = s.reduceMotion || MediaQuery.disableAnimationsOf(context);
+    ThemeData theme(AppThemeMode m) => buildTheme(
+      colorsFor(m, Brightness.light),
+      reduceMotion: reduce,
+      haptics: s.haptics,
+    );
 
     return MaterialApp.router(
       title: Brand.appName,
@@ -44,7 +43,11 @@ class App extends ConsumerWidget {
             ? AppThemeMode.sunlight
             : AppThemeMode.light,
       ),
-      darkTheme: buildTheme(darkColors, reduceMotion: reduce),
+      darkTheme: buildTheme(
+        darkColors,
+        reduceMotion: reduce,
+        haptics: s.haptics,
+      ),
       themeMode: switch (s.theme) {
         AppThemeMode.system => ThemeMode.system,
         AppThemeMode.dark => ThemeMode.dark,

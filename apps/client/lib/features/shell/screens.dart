@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/features/feedback/feedback_sheet.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/foundation.dart';
@@ -29,11 +30,13 @@ class MoreScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    Widget tile(IconData icon, String label, VoidCallback onTap) => ListTile(
-      leading: Icon(icon, color: context.colors.ink2),
-      title: Text(label, style: context.text.bodyLarge),
-      trailing: const Icon(AppIcons.caretRight),
-      onTap: onTap,
+    Widget tile(IconData icon, String label, VoidCallback onTap) => FocusRing(
+      child: ListTile(
+        leading: Icon(icon, color: context.colors.ink2),
+        title: Text(label, style: context.text.bodyLarge),
+        trailing: const Icon(AppIcons.caretRight),
+        onTap: onTap,
+      ),
     );
     Widget go(IconData icon, String label, String path) =>
         tile(icon, label, () => context.go(path));

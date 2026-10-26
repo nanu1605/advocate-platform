@@ -1,6 +1,7 @@
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/ui/fields.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:flutter/material.dart';
 
 @immutable
@@ -79,18 +80,20 @@ class _CommandPaletteState extends State<CommandPalette> {
                   shrinkWrap: true,
                   children: [
                     for (final c in matches)
-                      ListTile(
-                        leading: Icon(c.icon),
-                        title: Text(c.label),
-                        trailing: c.shortcut == null
-                            ? null
-                            : Text(
-                                c.shortcut!,
-                                style: context.text.labelMedium?.copyWith(
-                                  color: context.colors.ink2,
+                      FocusRing(
+                        child: ListTile(
+                          leading: Icon(c.icon),
+                          title: Text(c.label),
+                          trailing: c.shortcut == null
+                              ? null
+                              : Text(
+                                  c.shortcut!,
+                                  style: context.text.labelMedium?.copyWith(
+                                    color: context.colors.ink2,
+                                  ),
                                 ),
-                              ),
-                        onTap: () => _run(c),
+                          onTap: () => _run(c),
+                        ),
                       ),
                   ],
                 ),

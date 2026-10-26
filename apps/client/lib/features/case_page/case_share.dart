@@ -6,8 +6,10 @@ import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/data/case_text.dart';
 import 'package:advocate_app/data/cases.dart';
 import 'package:advocate_app/features/board/board_share.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/sheets.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
@@ -59,7 +61,7 @@ class _CaseShareSheetState extends ConsumerState<_CaseShareSheet> {
       );
       if (sheet?.isCurrent ?? false) navigator.pop();
     } on Object catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text(errorText(l, e))));
+      showSnack(messenger, errorText(l, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -86,12 +88,14 @@ class _CaseShareSheetState extends ConsumerState<_CaseShareSheet> {
         ),
         const SizedBox(height: 8),
         if (widget.c.title != null)
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(l.casePageShareTitles),
-            subtitle: Text(l.boardShareTitlesHint),
-            value: _titles,
-            onChanged: (v) => setState(() => _titles = v),
+          FocusRing(
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(l.casePageShareTitles),
+              subtitle: Text(l.boardShareTitlesHint),
+              value: _titles,
+              onChanged: (v) => setState(() => _titles = v),
+            ),
           ),
         const SizedBox(height: 8),
         Text(l.boardSharePreview, style: context.text.labelLarge),

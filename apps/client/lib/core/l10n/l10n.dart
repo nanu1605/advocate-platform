@@ -40,6 +40,9 @@ class Formats {
     return '$part ${DateFormat('h:mm', 'hi').format(t)}';
   }
 
+  /// 1,25,000: a count with Indian digit grouping.
+  String number(int n) => NumberFormat.decimalPattern(_tag).format(n);
+
   /// ₹1,25,000 (paise in, rupees out).
   String money(int paise) => NumberFormat.currency(
     locale: 'en_IN',

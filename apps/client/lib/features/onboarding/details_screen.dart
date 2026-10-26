@@ -8,6 +8,7 @@ import 'package:advocate_app/data/device.dart';
 import 'package:advocate_app/data/jobs.dart';
 import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
 import 'package:advocate_app/ui/fields.dart';
+import 'package:advocate_app/ui/states.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -86,10 +87,7 @@ class _DetailsScreenState extends ConsumerState<DetailsScreen> {
           .start(orgId: orgId, idempotencyKey: _key);
       await ref.read(accountProvider.notifier).refresh();
     } on ApiException catch (e) {
-      if (!mounted) return;
-      final message = errorText(l, e);
-      setState(() => _error = message);
-      announce(context, message);
+      if (mounted) setState(() => _error = errorText(l, e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

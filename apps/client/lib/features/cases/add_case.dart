@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/data/cases.dart';
 import 'package:advocate_app/features/found_cases/add_by_cnr.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/sheets.dart';
 import 'package:flutter/material.dart';
@@ -39,14 +40,16 @@ Future<void> showAddCaseChooser(BuildContext context) =>
           String title,
           String hint,
           Future<void> Function() then,
-        ) => ListTile(
-          leading: Icon(icon),
-          title: Text(title),
-          subtitle: Text(hint),
-          onTap: () {
-            Navigator.of(sheet).pop();
-            unawaited(then());
-          },
+        ) => FocusRing(
+          child: ListTile(
+            leading: Icon(icon),
+            title: Text(title),
+            subtitle: Text(hint),
+            onTap: () {
+              Navigator.of(sheet).pop();
+              unawaited(then());
+            },
+          ),
         );
         return Column(
           mainAxisSize: MainAxisSize.min,

@@ -15,6 +15,7 @@ import 'package:advocate_app/features/clients/client_profile.dart';
 import 'package:advocate_app/features/onboarding/onboarding_layout.dart';
 import 'package:advocate_app/features/team/invite_sheet.dart';
 import 'package:advocate_app/ui/fields.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/section_header.dart';
 import 'package:advocate_app/ui/sheets.dart';
@@ -22,7 +23,6 @@ import 'package:advocate_app/ui/skeleton.dart';
 import 'package:advocate_app/ui/states.dart';
 import 'package:advocate_app/ui/tiles.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -63,9 +63,8 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
     if (mounted) ref.invalidate(_invitesProvider);
   }
 
-  void _say(String message) => ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message)));
+  void _say(String message) =>
+      showSnack(ScaffoldMessenger.of(context), message);
 
   /// One owner change to [m] (`PATCH /v1/orgs/{id}/members/{user}`); sync brings the result to every device. Null
   /// when it went through, else why not.
@@ -111,14 +110,16 @@ class _TeamScreenState extends ConsumerState<TeamScreen> {
           ),
           const SizedBox(height: 8),
           for (final r in memberRoles)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(roleLabel(l, r)),
-              selected: r == m.role,
-              trailing: r == m.role
-                  ? const Icon(AppIcons.checkCircleFill)
-                  : null,
-              onTap: () => Navigator.pop(sheet, r),
+            FocusRing(
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(roleLabel(l, r)),
+                selected: r == m.role,
+                trailing: r == m.role
+                    ? const Icon(AppIcons.checkCircleFill)
+                    : null,
+                onTap: () => Navigator.pop(sheet, r),
+              ),
             ),
         ],
       ),
@@ -409,28 +410,30 @@ class _MemberRow extends StatelessWidget {
     } else {
       trailing = open == null ? null : const Icon(AppIcons.caretRight);
     }
-    return ListTile(
-      onTap: open,
-      minVerticalPadding: 12,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-      // Grows with the text so large initials stay inside the circle (spec §5.9), as on ClientTile.
-      leading: Avatar(
-        name,
-        size: 24 + MediaQuery.textScalerOf(context).scale(16),
+    return FocusRing(
+      child: ListTile(
+        onTap: open,
+        minVerticalPadding: 12,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+        // Grows with the text so large initials stay inside the circle (spec §5.9), as on ClientTile.
+        leading: Avatar(
+          name,
+          size: 24 + MediaQuery.textScalerOf(context).scale(16),
+        ),
+        title: Text(
+          m.me ? l.teamMemberMe(name) : name,
+          style: context.text.titleSmall,
+        ),
+        // Screen readers pause between the parts instead of reading the dots.
+        subtitle: details.isEmpty
+            ? null
+            : Text(
+                details.join(' · '),
+                semanticsLabel: details.join(', '),
+                style: context.text.bodySmall,
+              ),
+        trailing: trailing,
       ),
-      title: Text(
-        m.me ? l.teamMemberMe(name) : name,
-        style: context.text.titleSmall,
-      ),
-      // Screen readers pause between the parts instead of reading the dots.
-      subtitle: details.isEmpty
-          ? null
-          : Text(
-              details.join(' · '),
-              semanticsLabel: details.join(', '),
-              style: context.text.bodySmall,
-            ),
-      trailing: trailing,
     );
   }
 }
@@ -488,15 +491,21 @@ class _NameDialogState extends State<_NameDialog> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     return AlertDialog(
+      // As wide as the phone allows, so the field's label fits at 200% text; no wider than M3's dialogs on a desktop.
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      constraints: const BoxConstraints(minWidth: 280, maxWidth: 560),
       title: Text(l.teamEditName),
-      content: AppTextField(
-        controller: _name,
-        label: l.teamNameLabel,
-        error: _error,
-        autofocus: true,
-        textInputAction: TextInputAction.done,
-        inputFormatters: [LengthLimitingTextInputFormatter(100)],
-        onSubmitted: (_) => unawaited(_submit()),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: AppTextField(
+          controller: _name,
+          label: l.teamNameLabel,
+          error: _error,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          inputFormatters: const [CodePointLimit(100)],
+          onSubmitted: (_) => unawaited(_submit()),
+        ),
       ),
       actions: [
         TextButton(

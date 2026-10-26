@@ -84,10 +84,18 @@ void main() {
         'offline with nothing cached: offline state, Retry carries on ($locale ${scale}x)',
         (tester) async {
           final handle = tester.ensureSemantics();
+          final announced = captureAnnouncements(tester);
           final api = FakeApi()..offline = true;
           await pumpApp(tester, api: api, locale: locale, textScale: scale);
           expect(find.byType(OfflineBanner), findsOneWidget);
+          // No saved data to show yet; the error below is what is read out.
+          expect(find.text(l.offlineBannerSteps), findsOneWidget);
           expect(find.text(l.errorNetwork), findsOneWidget);
+          expect(announced, contains(l.errorNetwork));
+          expect(
+            announced,
+            everyElement(isNot(anyOf(l.offlineBanner, l.offlineBannerSteps))),
+          );
           expect(tester.takeException(), isNull);
           await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
           await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));

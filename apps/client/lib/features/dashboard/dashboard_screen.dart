@@ -4,6 +4,7 @@ import 'package:advocate_app/core/clock.dart';
 import 'package:advocate_app/core/errors.dart';
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
+import 'package:advocate_app/core/theme/tokens.g.dart';
 import 'package:advocate_app/data/calendar.dart';
 import 'package:advocate_app/data/cases.dart';
 import 'package:advocate_app/data/dashboard.dart';
@@ -12,6 +13,7 @@ import 'package:advocate_app/data/team.dart';
 import 'package:advocate_app/features/calendar/calendar_screen.dart';
 import 'package:advocate_app/features/cases/add_case.dart';
 import 'package:advocate_app/features/today/today_screen.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/section_header.dart';
 import 'package:advocate_app/ui/skeleton.dart';
@@ -218,30 +220,34 @@ class _CountTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final color = tone != null && count > 0 ? c.of(tone!).fg : c.ink;
+    final shown = Formats(Localizations.localeOf(context)).number(count);
     return Semantics(
       container: true,
       button: true,
-      label: '$count $label',
+      label: '$shown $label',
       excludeSemantics: true,
       onTap: onTap,
-      child: Card(
-        margin: EdgeInsets.zero,
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icon, color: tone != null && count > 0 ? color : c.ink2),
-                const SizedBox(height: 8),
-                Text(
-                  '$count',
-                  style: context.text.headlineMedium?.copyWith(color: color),
-                ),
-                Text(label, style: context.text.bodyMedium),
-              ],
+      child: FocusRing(
+        radius: Radii.card,
+        child: Card(
+          margin: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(icon, color: tone != null && count > 0 ? color : c.ink2),
+                  const SizedBox(height: 8),
+                  Text(
+                    shown,
+                    style: context.text.headlineMedium?.copyWith(color: color),
+                  ),
+                  Text(label, style: context.text.bodyMedium),
+                ],
+              ),
             ),
           ),
         ),

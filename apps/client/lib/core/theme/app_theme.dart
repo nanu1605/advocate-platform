@@ -1,6 +1,8 @@
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/core/theme/tokens.g.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 enum AppThemeMode { system, light, dark, sunlight }
 
@@ -24,7 +26,62 @@ TextTheme _textTheme(AppColors c) => TextTheme(
   labelSmall: TypeTokens.caption.style(c.ink2),
 );
 
-ThemeData buildTheme(AppColors c, {required bool reduceMotion}) {
+/// The keyboard focus ring (spec §5.9): 2 dp of the focus colour, 2 dp clear of the control's edge, so it never sits
+/// flush on a primary fill of the same colour. [inset] draws it 2 dp inside the edge instead, for rows whose edge
+/// meets the next row or a list's clip.
+BorderSide focusRingSide(AppColors c, {bool inset = false}) => BorderSide(
+  color: c.focus,
+  width: Radii.focusRing,
+  strokeAlign: inset ? -3 : 3,
+);
+
+/// Whether a control in [states] shows the focus ring: focused from the keyboard ([focusVisible]).
+// ponytail: read when the control rebuilds, so a ring can outlive a switch to touch until the control's next state
+// change; a highlight-mode listener per control if that ever shows.
+bool showsFocusRing(Set<WidgetState> states) =>
+    states.contains(WidgetState.focused) && focusVisible;
+
+/// Whether focus shows at all, as the web's :focus-visible: Flutter's highlight mode is traditional (a key since the
+/// last touch) and no pointer went down since the last key either, which that mode ignores for a mouse on a desktop.
+/// So a card that a click selected, and focused, shows no ring until a key is pressed.
+bool get focusVisible =>
+    FocusManager.instance.highlightMode == FocusHighlightMode.traditional &&
+    !pointerSinceKey.value;
+
+/// A pointer went down since the last key press. Kept while anything [watchPointer]s (each FocusRing does: the rows
+/// a click focuses); false otherwise, so focus then shows as the highlight mode says.
+final ValueNotifier<bool> pointerSinceKey = ValueNotifier(false);
+var _watchers = 0;
+
+/// Keeps [pointerSinceKey] up to date until the matching [unwatchPointer].
+void watchPointer() {
+  if (_watchers++ > 0) return;
+  HardwareKeyboard.instance.addHandler(_keyDown);
+  GestureBinding.instance.pointerRouter.addGlobalRoute(_pointerDown);
+}
+
+void unwatchPointer() {
+  if (--_watchers > 0) return;
+  HardwareKeyboard.instance.removeHandler(_keyDown);
+  GestureBinding.instance.pointerRouter.removeGlobalRoute(_pointerDown);
+  pointerSinceKey.value = false;
+}
+
+bool _keyDown(KeyEvent e) {
+  if (e is KeyDownEvent) pointerSinceKey.value = false;
+  return false;
+}
+
+void _pointerDown(PointerEvent e) {
+  if (e is PointerDownEvent) pointerSinceKey.value = true;
+}
+
+/// [haptics] off also silences Flutter's own feedback (a tooltip's long-press buzz, a tap's click).
+ThemeData buildTheme(
+  AppColors c, {
+  required bool reduceMotion,
+  bool haptics = true,
+}) {
   final dark = c.bg.computeLuminance() < 0.2;
   final scheme = ColorScheme(
     brightness: dark ? Brightness.dark : Brightness.light,
@@ -59,6 +116,9 @@ ThemeData buildTheme(AppColors c, {required bool reduceMotion}) {
   final transitions = reduceMotion
       ? const _InstantFadeTransitions()
       : const FadeForwardsPageTransitionsBuilder();
+  final ring = focusRingSide(c);
+  WidgetStateBorderSide ringOr(BorderSide? side) =>
+      WidgetStateBorderSide.resolveWith((s) => showsFocusRing(s) ? ring : side);
 
   return ThemeData(
     useMaterial3: true,
@@ -107,6 +167,10 @@ ThemeData buildTheme(AppColors c, {required bool reduceMotion}) {
         textStyle: WidgetStatePropertyAll(text.labelLarge),
         backgroundColor: WidgetStatePropertyAll(c.primaryFill),
         foregroundColor: WidgetStatePropertyAll(c.onPrimary),
+        side: ringOr(null),
+        enableFeedback: haptics,
+        // Shape changes are instant, so the ring follows focus rather than growing in over 200 ms.
+        animationDuration: Duration.zero,
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -115,9 +179,9 @@ ThemeData buildTheme(AppColors c, {required bool reduceMotion}) {
         shape: pressable,
         textStyle: WidgetStatePropertyAll(text.labelLarge),
         foregroundColor: WidgetStatePropertyAll(c.primary),
-        side: WidgetStatePropertyAll(
-          BorderSide(color: c.outline, width: c.borderWidth),
-        ),
+        side: ringOr(BorderSide(color: c.outline, width: c.borderWidth)),
+        enableFeedback: haptics,
+        animationDuration: Duration.zero,
       ),
     ),
     textButtonTheme: TextButtonThemeData(
@@ -126,14 +190,31 @@ ThemeData buildTheme(AppColors c, {required bool reduceMotion}) {
         shape: pressable,
         textStyle: WidgetStatePropertyAll(text.labelLarge),
         foregroundColor: WidgetStatePropertyAll(c.primary),
+        side: ringOr(null),
+        enableFeedback: haptics,
+        animationDuration: Duration.zero,
       ),
     ),
     iconButtonTheme: IconButtonThemeData(
       style: ButtonStyle(
         minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
         foregroundColor: WidgetStatePropertyAll(c.ink),
+        side: ringOr(null),
+        enableFeedback: haptics,
+        animationDuration: Duration.zero,
       ),
     ),
+    // The desktop rail's New button: Material 3's 16 dp corners, with the ring when focused.
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      enableFeedback: haptics,
+      shape: WidgetStateOutlinedBorder.resolveWith(
+        (s) => RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: showsFocusRing(s) ? ring : BorderSide.none,
+        ),
+      ),
+    ),
+    listTileTheme: ListTileThemeData(enableFeedback: haptics),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: c.surface,
@@ -169,7 +250,9 @@ ThemeData buildTheme(AppColors c, {required bool reduceMotion}) {
       checkmarkColor: c.primary,
       labelStyle: text.bodySmall?.copyWith(color: c.ink),
       side: WidgetStateBorderSide.resolveWith(
-        (s) => c.isSunlight && s.contains(WidgetState.selected)
+        (s) => showsFocusRing(s)
+            ? ring
+            : c.isSunlight && s.contains(WidgetState.selected)
             ? BorderSide(color: c.primary, width: 2)
             : BorderSide(color: c.outline, width: c.borderWidth),
       ),
@@ -227,6 +310,7 @@ ThemeData buildTheme(AppColors c, {required bool reduceMotion}) {
       unselectedLabelTextStyle: text.labelMedium?.copyWith(color: c.ink2),
     ),
     tooltipTheme: TooltipThemeData(
+      enableFeedback: haptics,
       textStyle: text.bodySmall?.copyWith(color: c.bg),
       decoration: BoxDecoration(
         color: c.ink,

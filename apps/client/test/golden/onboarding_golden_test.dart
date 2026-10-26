@@ -8,11 +8,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers.dart';
+import 'scene_goldens.dart';
 
-/// "Finding your cases" mid-search (spec §4.1 step 7) × light/dark/sunlight × en/hi × text scale 1.0/2.0, on a
+/// "Finding your cases" mid-search (spec §4.1 step 7), and the other onboarding steps (account loading offline,
+/// role, join, details, notifications) through the app, × light/dark/sunlight × en/hi × text scale 1.0/2.0, on a
 /// phone. Reference images are rendered on Windows, like the kit goldens.
 void main() {
   setUpAll(loadAppFonts);
+  sceneGoldens('onboarding', {
+    'account loading, offline': 'loading_offline',
+    'role': 'role',
+    'join': 'join',
+    'details': 'details',
+    'onboarding notifications': 'notifications',
+  });
   const boundary = Key('finding');
   const job = Job(
     id: 'job-1',
