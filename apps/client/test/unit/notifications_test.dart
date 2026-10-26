@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:advocate_app/core/clock.dart';
 import 'package:advocate_app/core/l10n/l10n.dart';
+import 'package:advocate_app/core/settings/settings.dart';
+import 'package:advocate_app/data/account.dart';
 import 'package:advocate_app/data/device.dart';
 import 'package:advocate_app/data/feedback.dart';
 import 'package:advocate_app/data/jobs.dart';
 import 'package:advocate_app/data/local_notifier.dart';
 import 'package:advocate_app/data/notifications.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -13,6 +18,17 @@ import '../helpers.dart';
 
 /// IST wall-clock [h]:[m] on 5 Nov 2026 (see [istOf]).
 DateTime _ist(int h, [int m = 0]) => DateTime.utc(2026, 11, 5, h, m);
+
+/// The current org, which a test moves as `/me` answers.
+class _Org extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  String? get org => state;
+  set org(String? org) => state = org;
+}
+
+final _org = NotifierProvider<_Org, String?>(_Org.new);
 
 /// Notifications (spec §13): collapse, preferences rows, quiet hours, what becomes an OS notification, links.
 void main() {
@@ -73,6 +89,8 @@ void main() {
       '/board/tomorrow',
       '/found',
       '/cases/9f1c2a4e-1111-4222-8333-444455556666',
+      // A deadline opens the tab that lists it.
+      '/cases/9f1c2a4e-1111-4222-8333-444455556666?tab=notes',
     ]) {
       expect(appLink(ok), ok);
     }
@@ -84,6 +102,8 @@ void main() {
       '/cases/1/../../settings',
       '/settings',
       '/cases/1?x=y',
+      '/cases/1?tab=settings',
+      '/cases/1?tab=notes&x=y',
       '/today/',
     ]) {
       expect(appLink(bad), isNull, reason: '$bad');
@@ -447,6 +467,50 @@ void main() {
       await rows(a, []);
       expect(notifier.cancelledTags, hasLength(3));
     });
+
+    test(
+      "a cold start keeps the tray until the org's rows have read",
+      () async {
+        // Last session left an unread row's notice in the tray; the account is still loading.
+        SharedPreferences.setMockInitialValues({
+          'notifications.tray': ['new_order:m-1'],
+        });
+        final prefs = await SharedPreferences.getInstance();
+        final db = StreamController<List<AppNotification>>();
+        addTearDown(db.close);
+        final c = ProviderContainer(
+          overrides: [
+            prefsProvider.overrideWithValue(prefs),
+            localNotifierProvider.overrideWithValue(notifier),
+            currentOrgIdProvider.overrideWith((ref) => ref.watch(_org)),
+            currentUserIdProvider.overrideWithValue('user-1'),
+            // As the real one: empty without an org, then the database's rows (a moment later).
+            notificationRowsProvider.overrideWith(
+              (ref) => ref.watch(currentOrgIdProvider) == null
+                  ? Stream.value(const [])
+                  : db.stream,
+            ),
+            notificationPrefsProvider.overrideWith(
+              (_) => Stream.value(const NotificationPrefs()),
+            ),
+            latestFindJobProvider.overrideWith((_) => Stream.value(null)),
+          ],
+        );
+        addTearDown(c.dispose);
+        c.listen(localAlertsProvider, (_, _) {});
+        Future<void> settle() => Future<void>.delayed(Duration.zero);
+        await settle();
+        // /me answers: the rows reload for the org, still holding the empty list a moment.
+        c.read(_org.notifier).org = 'org-1';
+        await settle();
+        expect(notifier.cancelledTags, isEmpty);
+        expect(prefs.getStringList('notifications.tray'), ['new_order:m-1']);
+        // The org's rows: that one is gone (deleted on the server), so its notice goes.
+        db.add(const []);
+        await settle();
+        expect(notifier.cancelledTags, ['new_order:m-1']);
+      },
+    );
 
     test('a notice whose row was deleted while the app was closed goes on the next start', () async {
       await rows(alerts(), [notification(1), notification(2)]);

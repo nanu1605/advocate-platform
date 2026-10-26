@@ -5,6 +5,7 @@
                   POST_HEARING_REFRESH, POST_HEARING_RETRY (kwarg attempt=1|2), WEEKLY_SWEEP
     orders.py     ORDER_PIPELINE (arg: court_order_id)
     board.py      TODAY_MORNING
+    notify.py     DEADLINE_REMINDERS
     causelist.py  CAUSE_LIST_TOMORROW (kwarg attempt=1|2|3), ADVOCATE_WATCH
     scan.py       advocate_shared.tasks.SCAN_DOCUMENT (job)
     windows.py    REFRESH_WINDOWS
@@ -25,12 +26,13 @@ POST_HEARING_RETRY = "advocate_workers.refresh.post_hearing_retry"
 WEEKLY_SWEEP = "advocate_workers.refresh.weekly_sweep"
 ORDER_PIPELINE = "advocate_workers.orders.order_pipeline"
 TODAY_MORNING = "advocate_workers.board.today_morning"
+DEADLINE_REMINDERS = "advocate_workers.notify.deadline_reminders"
 CAUSE_LIST_TOMORROW = "advocate_workers.causelist.cause_list_tomorrow"
 ADVOCATE_WATCH = "advocate_workers.causelist.advocate_watch"
 REFRESH_WINDOWS = "advocate_workers.windows.refresh_windows"
 SWEEP_JOBS = "advocate_workers.jobs.sweep_jobs"
 
-MODULES = ["jobs", "find", "refresh", "orders", "board", "causelist", "scan", "windows"]
+MODULES = ["jobs", "find", "refresh", "orders", "board", "notify", "causelist", "scan", "windows"]
 
 configure_logging()
 app = Celery("advocate_workers", broker=get_settings().redis_url, include=[f"advocate_workers.{m}" for m in MODULES])
@@ -56,6 +58,7 @@ app.conf.update(
             "kwargs": {"attempt": 3},
         },
         "today-morning": {"task": TODAY_MORNING, "schedule": crontab(hour=7, minute=30)},
+        "deadline-due": {"task": DEADLINE_REMINDERS, "schedule": crontab(hour=7, minute=30)},
         "post-hearing-refresh": {"task": POST_HEARING_REFRESH, "schedule": crontab(hour=19, minute=30)},
         "post-hearing-retry-1": {
             "task": POST_HEARING_RETRY,
