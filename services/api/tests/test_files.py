@@ -9,7 +9,7 @@ import pytest
 from advocate_api import storage
 from advocate_api.ratelimit import redis
 from advocate_api.routes.files import MAX_BYTES
-from advocate_shared.tasks import SCAN_DOCUMENT
+from advocate_shared.tasks import EXTRACT_TEXT, SCAN_DOCUMENT
 
 from .conftest import make_team, sql
 
@@ -196,7 +196,7 @@ async def court_order_id():
         r.raise_for_status()
 
 
-async def test_order_pdf_fetched_once(api, team, other, matter_id, court_order_id, monkeypatch):
+async def test_order_pdf_fetched_once(api, team, other, matter_id, court_order_id, monkeypatch, enqueued):
     [order] = await sql(
         "insert into public.orders (org_id, matter_id, court_order_id, title) values (:o, :m, :co, 'Order') "
         "returning id::text",
@@ -228,6 +228,7 @@ async def test_order_pdf_fetched_once(api, team, other, matter_id, court_order_i
     assert (await sql(calls, o=team.org_id)) == [{"n": 1}]
     [stored] = await sql("select storage_path, sha256 from public.court_orders where id = :id", id=court_order_id)
     assert stored["storage_path"] == f"{CNR}/{stored['sha256']}.pdf"
+    assert enqueued == [(EXTRACT_TEXT, "court_order", court_order_id)]  # then its text is read
 
     r = await api.get(url, headers=team.h("owner"))
     assert r.status_code == 200

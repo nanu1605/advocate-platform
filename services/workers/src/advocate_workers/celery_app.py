@@ -8,16 +8,20 @@
     notify.py     DEADLINE_REMINDERS
     causelist.py  CAUSE_LIST_TOMORROW (kwarg attempt=1|2|3), ADVOCATE_WATCH
     scan.py       advocate_shared.tasks.SCAN_DOCUMENT (job)
+    text.py       advocate_shared.tasks.EXTRACT_TEXT (args: kind, id), TEXT_SWEEP
+    embed.py      EMBED_CHUNKS
     windows.py    REFRESH_WINDOWS
     jobs.py       SWEEP_JOBS
     ai.py         AI_COST_WATCH
 
 Job tasks take one argument, the job id, and run through jobs.run_job. The beat's tasks go to the `scheduled`
-queue, served by its own worker (infra/docker/compose.yml), so user jobs on the default queue never delay them."""
+queue and text extraction to `text`, each served by its own worker (infra/docker/compose.yml), so user jobs on the
+default queue never wait for them."""
 
 from celery import Celery
 from celery.schedules import crontab
 
+from advocate_shared import tasks
 from advocate_shared.logging import configure_logging
 from advocate_shared.settings import get_settings
 
@@ -33,8 +37,12 @@ ADVOCATE_WATCH = "advocate_workers.causelist.advocate_watch"
 REFRESH_WINDOWS = "advocate_workers.windows.refresh_windows"
 SWEEP_JOBS = "advocate_workers.jobs.sweep_jobs"
 AI_COST_WATCH = "advocate_workers.ai.ai_cost_watch"
+TEXT_SWEEP = "advocate_workers.text.text_sweep"
+EMBED_CHUNKS = "advocate_workers.embed.embed_chunks"
 
-MODULES = ["jobs", "find", "refresh", "orders", "board", "notify", "causelist", "scan", "windows", "ai"]
+MODULES = [
+    "jobs", "find", "refresh", "orders", "board", "notify", "causelist", "scan", "windows", "ai", "text", "embed",
+]  # fmt: skip
 
 configure_logging()
 app = Celery("advocate_workers", broker=get_settings().redis_url, include=[f"advocate_workers.{m}" for m in MODULES])
@@ -77,6 +85,12 @@ app.conf.update(
         "window-flags": {"task": REFRESH_WINDOWS, "schedule": crontab(minute=5)},
         "job-sweeper": {"task": SWEEP_JOBS, "schedule": crontab(minute="*/10")},
         "ai-cost-watch": {"task": AI_COST_WATCH, "schedule": crontab(minute=35)},
+        "text-sweep": {"task": TEXT_SWEEP, "schedule": crontab(minute=20)},
+        "embed-sweep": {"task": EMBED_CHUNKS, "schedule": crontab(minute="*/15")},
     },
 )
-app.conf.task_routes = {entry["task"]: {"queue": "scheduled"} for entry in app.conf.beat_schedule.values()}
+app.conf.task_routes = {entry["task"]: {"queue": "scheduled"} for entry in app.conf.beat_schedule.values()} | {
+    # Reading text, OCR above all, can take minutes per file: its own worker, so it delays neither user jobs nor the
+    # evening board.
+    tasks.EXTRACT_TEXT: {"queue": "text"},
+}

@@ -132,12 +132,12 @@ async def make_team(members: Mapping[str, tuple[str, str | None]], *, kind: str 
 
 
 @pytest.fixture
-def enqueued(monkeypatch) -> list[tuple[str, str]]:
-    """Celery tasks the request would have sent, as (task name, job id), instead of sending them."""
-    calls: list[tuple[str, str]] = []
+def enqueued(monkeypatch) -> list[tuple[str, ...]]:
+    """Celery tasks the request would have sent, as (task name, *args), instead of sending them."""
+    calls: list[tuple[str, ...]] = []
 
-    async def fake(task: str, job_id: uuid.UUID) -> None:
-        calls.append((task, str(job_id)))
+    async def fake(task: str, *args: object) -> None:
+        calls.append((task, *map(str, args)))
 
     monkeypatch.setattr("advocate_api.jobs.enqueue", fake)
     return calls

@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from advocate_api import storage
+from advocate_api import jobs, storage
 from advocate_api.auth import CurrentClaims
 from advocate_api.courts import court_data
 from advocate_api.db import CurrentOrg, UserDb, service_db
@@ -18,7 +18,8 @@ from advocate_api.errors import ApiError
 from advocate_api.idempotency import IdempotencyKey
 from advocate_api.jobs import create_job
 from advocate_api.ratelimit import limit, redis
-from advocate_shared.tasks import SCAN_DOCUMENT
+from advocate_shared import retrieval
+from advocate_shared.tasks import EXTRACT_TEXT, SCAN_DOCUMENT
 from court_data.models import Capability
 
 router = APIRouter(prefix="/v1")
@@ -60,6 +61,25 @@ class Completed(BaseModel):
 class SignedUrl(BaseModel):
     url: str
     expires_in_s: int
+
+
+class SearchIn(BaseModel):
+    query: str = Field(min_length=2, max_length=200)
+    matter_id: UUID | None = None
+
+
+class SearchHit(BaseModel):
+    document_id: UUID | None  # an uploaded document, or
+    order_id: UUID | None  # a court order (opened as /cases/{matter_id}/orders/{order_id})
+    matter_id: UUID | None
+    title: str
+    page: int
+    paras: list[str]
+    snippet: str
+
+
+class SearchOut(BaseModel):
+    hits: list[SearchHit]
 
 
 @router.post("/documents/upload-url", status_code=201)
@@ -177,6 +197,28 @@ async def _court_order(court_order_id: UUID) -> dict[str, Any]:
         return dict(row.mappings().one())
 
 
+@router.post("/documents/search")
+async def search_documents(db: UserDb, org: CurrentOrg, claims: CurrentClaims, body: SearchIn) -> SearchOut:
+    """Search inside the organisation's documents and court orders, scans included (spec F06, F15): the most relevant
+    pages first. The query goes in the body, never the URL: it can name parties (§15.6)."""
+    await limit(f"doc-search:{claims['sub']}", 30, 60)
+    hits = await retrieval.search(db, org.org_id, body.query, matter_id=body.matter_id)
+    return SearchOut(
+        hits=[
+            SearchHit(
+                document_id=h.document_id,
+                order_id=h.order_id,
+                matter_id=h.matter_id,
+                title=h.title,
+                page=h.page_no,
+                paras=h.paras,
+                snippet=retrieval.snippet(h.text, body.query),
+            )
+            for h in hits
+        ]
+    )
+
+
 @router.get("/orders/{order_id}/pdf-url")
 async def order_pdf_url(db: UserDb, org: CurrentOrg, order_id: UUID) -> SignedUrl:
     row = (
@@ -216,6 +258,7 @@ async def _fetch_order_pdf(org_id: UUID, court_order_id: UUID) -> str:
                 text("update public.court_orders set storage_path = :p, sha256 = :s where id = :id"),
                 {"p": path, "s": sha, "id": court_order_id},
             )
+        await jobs.enqueue(EXTRACT_TEXT, "court_order", court_order_id)  # its text, for search and AI
         return path
     finally:
         await redis().register_script(RELEASE_LOCK)(keys=[lock], args=[token])

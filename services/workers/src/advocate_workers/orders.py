@@ -1,8 +1,8 @@
 """The order pipeline (spec §11.5): a new order's PDF is fetched once globally into court-orders/{cnr}/{sha256}.pdf and
 recorded on court_orders (storage_path, sha256), the same convention and Redis lock (order-pdf:{id}) as the API's
-fetch-on-open. Text, OCR and summaries come in P2. A shared fetch (platform row, §11.8): it pauses at the global daily
-cap and skips a CNR whose tracking organisations are all over budget; the API then fetches the PDF when someone opens
-it."""
+fetch-on-open; then its text is read (text.py). Summaries come with P2 task 5. A shared fetch (platform row, §11.8):
+it pauses at the global daily cap and skips a CNR whose tracking organisations are all over budget; the API then
+fetches the PDF when someone opens it."""
 
 import hashlib
 from datetime import date
@@ -12,6 +12,7 @@ import structlog
 from redis.asyncio import Redis
 from sqlalchemy import text
 
+from advocate_shared import tasks
 from advocate_shared.ist import today_ist
 from advocate_workers import db, jobs, storage
 from advocate_workers.celery_app import ORDER_PIPELINE, app
@@ -50,6 +51,7 @@ async def fetch_order(r: Redis, court_order_id: str, today: date) -> str:
                 text("update public.court_orders set storage_path = :p, sha256 = :s where id = :id"),
                 {"p": path, "s": sha, "id": court_order_id},
             )
+        jobs.send(tasks.EXTRACT_TEXT, "court_order", court_order_id)
         return "stored"
     except Paused:
         return "paused"

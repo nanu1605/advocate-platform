@@ -20,9 +20,10 @@ def celery() -> Celery:
     return Celery("advocate_api", broker=get_settings().redis_url)
 
 
-async def enqueue(task: str, job_id: UUID) -> None:
-    """Replaced in tests. Workers read everything else from the job row, so a redelivered task resumes the same job."""
-    celery().send_task(task, args=[str(job_id)])
+async def enqueue(task: str, *args: object) -> None:
+    """Sends a Celery task; replaced in tests. A job task takes only the job id: workers read everything else from the
+    job row, so a redelivered task resumes the same job."""
+    celery().send_task(task, args=[str(a) for a in args])
 
 
 async def create_job(

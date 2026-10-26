@@ -108,6 +108,8 @@ async def scan(job: jobs.Job, r: Redis) -> dict[str, Any]:
             ),
             {"s": status, "h": hashlib.sha256(data).hexdigest(), "id": document_id},
         )
+    if status == "ready":
+        jobs.send(tasks.EXTRACT_TEXT, "document", document_id)  # its text, for search and AI
     return {"upload_status": status}
 
 

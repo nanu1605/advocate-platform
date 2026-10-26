@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     bedrock_profile_deep: str = ""
     ai_platform_daily_budget_inr: Decimal | None = None  # past it, automatic AI waits for the next day
     clamav_url: str = ""  # clamd for upload scans, e.g. tcp://127.0.0.1:3310; empty: uploads stay pending (fail closed)
+    embedder_url: str = ""  # services/embedder, e.g. http://embedder:8001; empty: search uses full text only
 
     @property
     def jwks_url(self) -> str:

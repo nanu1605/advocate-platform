@@ -313,6 +313,10 @@ max_frequency = "60s"
 919999900038 = "123456"
 919999900039 = "123456"
 919999900040 = "123456"
+919999900041 = "123456"
+919999900042 = "123456"
+919999900043 = "123456"
+919999900044 = "123456"
 
 # OTP delivery goes through our API (WhatsApp authentication template, DLT SMS fallback).
 # Test numbers above skip delivery. Secret comes from supabase/.env (local) or the dashboard (hosted).

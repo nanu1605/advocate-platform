@@ -48,6 +48,8 @@ jobs:
         run: npx supabase test db
       - name: Start local sync service
         run: docker compose -f infra/docker/compose.yml up -d --wait powersync
+      - name: Tesseract for the OCR test
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-hin
       - name: API, worker and sync tests
         run: uv run pytest -q
 
