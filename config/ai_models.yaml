@@ -1,0 +1,50 @@
+# Model router (spec §12.2). Read by legal_ai.config; ${VAR}s come from the environment (.env.example).
+# Hard rule 3: case content reaches Claude only through Bedrock Runtime in ap-south-1 with India geographic inference
+# profiles. LLMClient refuses to start with anything else.
+providers:
+  bedrock_india:
+    region: ap-south-1
+    endpoint: bedrock-runtime            # never bedrock-mantle
+    required_profile_prefix: "in."       # confirm in spike 11c
+    profiles:                            # India geographic inference profile IDs (from the Bedrock console)
+      fast:     ${BEDROCK_PROFILE_FAST}      # Haiku-class
+      standard: ${BEDROCK_PROFILE_STANDARD}  # Sonnet-class
+      deep:     ${BEDROCK_PROFILE_DEEP}      # Opus-class
+    price_multiplier: 1.10               # regional premium over global endpoints; confirm on the Bedrock pricing page
+    # Spike 11c replaces everything below in this block with the India-profile models' real values.
+    usd_inr: 88.0                        # exchange rate for cost_inr
+    prices_usd_per_mtok:                 # list prices; output includes thinking tokens
+      fast:     { input: 1.00, output: 5.00 }    # Haiku 4.5
+      standard: { input: 2.00, output: 10.00 }   # Sonnet-class (spec §14.2)
+      deep:     { input: 5.00, output: 25.00 }   # Opus 5
+    effort_supported:                    # Haiku 4.5 rejects `effort`; the 5-class models take it
+      fast: false
+      standard: true
+      deep: true
+tasks:   # max_tokens sent = output_budget + thinking_allowance
+  voice_parse:      { tier: fast,     output_budget: 600,  effort: low,    thinking_allowance: 1000 }
+  order_summary:    { tier: standard, output_budget: 1200, effort: medium, thinking_allowance: 4000 }
+  order_intel:      { tier: fast,     output_budget: 800,  effort: low,    thinking_allowance: 1000 }
+  ask_case:         { tier: standard, output_budget: 1200, effort: medium, thinking_allowance: 4000 }
+  brief_me:         { tier: fast,     output_budget: 700,  effort: low,    thinking_allowance: 1000 }
+  client_update:    { tier: fast,     output_budget: 400,  effort: low,    thinking_allowance: 500 }
+  list_of_dates:    { tier: standard, output_budget: 3000, effort: medium, thinking_allowance: 6000 }
+  draft_section:    { tier: standard, output_budget: 3000, effort: medium, thinking_allowance: 6000 }
+  translate_legal:  { tier: standard, output_budget: 4000, effort: low,    thinking_allowance: 2000 }   # or sarvam, by eval
+  research_answer:  { tier: standard, output_budget: 2500, effort: high,   thinking_allowance: 8000 }
+  citation_extract: { tier: fast,     output_budget: 1500, effort: low,    thinking_allowance: 1000 }
+  strategy:         { tier: deep,     output_budget: 4000, effort: high,   thinking_allowance: 16000 }
+  unfavourable:     { tier: deep,     output_budget: 4000, effort: high,   thinking_allowance: 16000 }
+fallbacks:
+  on_unavailable: degrade        # show "AI is busy, we'll notify you" and queue; never re-route outside India
+credits:                         # spec §12.14, §14.2: 1 credit = ₹0.25 of measured AI cost
+  inr_per_credit: 0.25
+  # Estimates until spike 11c measures p90 cost per action: credits = ceil(p90 cost in ₹ ÷ 0.25).
+  actions:
+    ask_case: 20
+    brief_me: 4
+    voice_parse: 4               # speech-to-text + parse
+    client_update: 2
+  order_summary:                 # "4–24, by length": 4 per 5 pages, at most 24
+    per_5_pages: 4
+    max: 24

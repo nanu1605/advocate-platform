@@ -1,0 +1,20 @@
+{
+  "ask_case": {
+    "v1": "2fd31c3d20ff7e1a2454ef7b3583a6934d50035bd84c29ef2337ae045928d6db"
+  },
+  "brief_me": {
+    "v1": "3a41bfcfe5dee7548061c6ed7e00703803120724584538deaf1a17ce633a314c"
+  },
+  "client_update": {
+    "v1": "df7eceada3c280b7028c4178171288a49899c54bd66ed8bfe53a983eaaf71988"
+  },
+  "order_intel": {
+    "v1": "e2abba730a0201f76fbd03bdeb53ceed8dd1d33f518a2c1557aa03009bf5f1ef"
+  },
+  "order_summary": {
+    "v1": "1a3c44b6c65b067ce62b61b986f42c6af72321b43edbe8d56903381aa2e7cb74"
+  },
+  "voice_parse": {
+    "v1": "639b3a5127aef49ec566a57474e9ffc06646a208372dacd0f18230a787d9cc01"
+  }
+}

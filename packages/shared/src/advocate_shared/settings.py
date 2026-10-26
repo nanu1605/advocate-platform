@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     ecourtsindia_api_key: str = ""
     courtdata_global_daily_cap_inr: Decimal | None = None
     courtdata_org_monthly_default_inr: Decimal | None = None
+    ai_live: bool = False  # False: legal_ai.fake answers locally, never a real model
+    bedrock_profile_fast: str = ""  # India geographic inference profiles (config/ai_models.yaml)
+    bedrock_profile_standard: str = ""
+    bedrock_profile_deep: str = ""
+    ai_platform_daily_budget_inr: Decimal | None = None  # past it, automatic AI waits for the next day
     clamav_url: str = ""  # clamd for upload scans, e.g. tcp://127.0.0.1:3310; empty: uploads stay pending (fail closed)
 
     @property

@@ -262,6 +262,15 @@ select is((select (run_id, created_by, approved_by, status, recipient)::text fro
            where id = 'aa000000-0000-0000-0000-0000000000a6'), '(,,,approved,919000000001)',
   'client_messages: … and the approved message is otherwise unchanged');
 
+-- ---------------------------------------------------------------- AI cost controls (ADR 0020)
+select lives_ok($$insert into public.usage_ledger (org_id, kind, quantity, cost_inr) values
+  ('0000000a-0000-0000-0000-000000000000', 'ai_automatic', 1, 0.5),
+  ('0000000a-0000-0000-0000-000000000000', 'ai_credit', 20, 0.5)$$, 'usage_ledger takes automatic AI and credits');
+select throws_ok($$insert into public.usage_ledger (org_id, kind) values ('0000000a-0000-0000-0000-000000000000', 'ai')$$,
+  '23514', null, 'usage_ledger refuses an unknown kind');
+select tests.matrix('usage_ledger insert ai_automatic (api)', $$insert into public.usage_ledger (org_id, kind) values ('0000000a-0000-0000-0000-000000000000', 'ai_automatic')$$, true, '{-1,-1,-1,-1,-1}');
+select has_index('public', 'ai_runs', 'ai_runs_created_idx', 'ai_runs is indexed for the daily platform spend');
+
 -- ---------------------------------------------------------------- anon gets nothing
 set local role anon;
 select is(tests.try('select 1 from public.document_chunks'), -1, 'anon cannot read document_chunks');
