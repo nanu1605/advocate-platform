@@ -1,8 +1,14 @@
 # PROJECT_STATE
-Current phase: 1 — Court diary MVP (status: Track A done, at the gate; Track B on hold)
+Current phase: 2 — Daily AI assistant (status: planning; Phase 0 and 1 gates wait on Track B)
 Last updated: 2026-10-26
 
 ## Done (this phase)
+- Plan: [phase-2-plan.md](docs/phases/phase-2-plan.md) (Track A local, Track B on hold). Phase 2 started 26 Oct 2026
+  on the founder's go-ahead.
+
+## Done (Phase 1, Track A)
+- Gate exceptions decided 26 Oct 2026 (the founder delegated the call) ([phase-1-report.md](docs/phases/phase-1-report.md)): the focus
+  ring now reaches Material's own destinations (rail, bar, tabs, menus, segments); the rest accepted or deferred.
 - Plan: [phase-1-plan.md](docs/phases/phase-1-plan.md) (Track A local, Track B on hold). Report:
   [phase-1-report.md](docs/phases/phase-1-report.md).
 - P1 phase checks ([ADR 0018](docs/adr/0018-p1-phase-checks.md)): one sweep over all 80 screens, sheets and dialogs
@@ -68,9 +74,10 @@ Last updated: 2026-10-26
   Hindi review, privacy-policy page.
 
 ## Next up
-1. Phase 1 gate review with the founder on [phase-1-report.md](docs/phases/phase-1-report.md): Track A is done; the
-   gate needs Track B, and the founder decides the listed gate exceptions.
+1. P2 Track A tasks 1–14 in order ([phase-2-plan.md](docs/phases/phase-2-plan.md)), starting with task 1: schema,
+   RLS and pgTAP for the P2 tables.
 2. iOS (P2): NSCameraUsageDescription and NSFaceIDUsageDescription in Info.plist.
+3. Phase 0 and 1 gates: Track B (on hold); see [phase-1-report.md](docs/phases/phase-1-report.md).
 
 ## Deviations from spec (with ADR links)
 - Kit: 5 P2-only components deferred to P2 start — [ADR 0001](docs/adr/0001-defer-p2-kit-components.md).
@@ -115,10 +122,11 @@ Last updated: 2026-10-26
 - Team: `GET`/`DELETE /v1/orgs/{id}/invites` added to §10.2 (invites aren't synced and hold a seat for 7 days); no
   SMS is sent with an invite until messaging (Track B); "urgent alerts may break quiet hours" is a device setting;
   local notifications stand in for push until FCM (Track B) — [ADR 0017](docs/adr/0017-p1-team-notifications.md).
-- Phase checks: the 2 dp focus ring isn't on Material's own destinations (rail, bar, tabs, menus, segments); reduce
-  motion shows sheets without animation rather than §5.5's 100 ms cross-fade; the Devanagari digits setting, the
+- Phase checks: reduce motion shows sheets without animation rather than §5.5's 100 ms cross-fade; haptics Flutter
+  fires itself (pickers, text selection) follow the phone's setting, not the app's; the Devanagari digits setting, the
   Found counter flight and Windows keep-running-in-tray are deferred; end-to-end tests run locally on Windows, not in
   CI — [ADR 0018](docs/adr/0018-p1-phase-checks.md).
+- Phase 2 started before the Phase 1 gate closed (founder go-ahead, 26 Oct 2026); both earlier gates wait on Track B.
 - Windows `APPLY_STANDARD_SETTINGS` defines `_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS`: `local_auth_windows` 2.0.2 builds with `/await`, which MSVC 14.51 rejects (STL1011). Remove when the plugin moves to C++20 `<coroutine>`.
 
 ## Questions for the founder

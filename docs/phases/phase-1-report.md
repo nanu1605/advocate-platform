@@ -1,8 +1,9 @@
 # Phase 1 — Court diary MVP: interim report (Track A)
 
-Date: 26 Oct 2026. The gate is **not** reached: Track B (production, live providers, push, store accounts, beta users)
-is on hold with the founder's accounts. This report covers Track A, tasks 1–12 of
-[phase-1-plan.md](phase-1-plan.md), all merged or in review.
+Date: 26 Oct 2026. Track A, tasks 1–12 of [phase-1-plan.md](phase-1-plan.md), is done and merged, and the gate exceptions
+are decided (below; the founder delegated the call). The full gate is **not** reached: Track B (production, live providers, push,
+store accounts, beta users) is on hold with the founder's accounts. On 26 Oct 2026 the founder started Phase 2 with
+this gate still open, as Phase 1 started with Phase 0's.
 
 ## Exit criteria (spec §17 Phase 1)
 
@@ -53,7 +54,7 @@ is on hold with the founder's accounts. This report covers Track A, tasks 1–12
 - pgTAP: 1019 assertions pass (RLS for five actors × CRUD on every table, every trigger, workers' SQL).
 - pytest: 298 pass: API (incl. the team join flow against PowerSync), workers (incl. `deadline_due`), court_data
   contract and router tests, shared search keys, the LLM guard.
-- Flutter: 1275 unit and widget tests pass (the screen sweep alone is 353); 960 goldens pass, stable on two runs;
+- Flutter: 1276 unit and widget tests pass (the screen sweep alone is 353); 960 goldens pass, stable on two runs;
   the pseudo-locale run passes 932 widget tests; `flutter analyze` clean.
 - End to end on Windows against the local stack (`just test-e2e`): `sync_test` 3 pass (incl. offline notes, tasks
   and hearings), `onboarding_import_test` 1 passes; each also passed twice back to back.
@@ -61,17 +62,22 @@ is on hold with the founder's accounts. This report covers Track A, tasks 1–12
   builds succeed.
 - At the start of task 12: 874 Flutter tests, 552 goldens, 537 pseudo-locale tests, 294 pytest.
 
-## Gate exceptions (to accept, or to fix before the beta)
-1. Material's own destinations (NavigationRail, NavigationBar, TabBar, popup menu items, SegmentedButton) show only
-   the focus tint, not the 2 dp ring (§5.9). Fixing it means custom destinations.
+## Gate exceptions (decided 26 Oct 2026)
+1. Material's own destinations (NavigationRail, NavigationBar, TabBar, popup menu items, SegmentedButton) showed only
+   the focus tint, not the 2 dp ring (§5.9). **Fixed**: `DestinationFocusRing` wraps the app's navigator and draws the
+   ring 2 dp inside whichever of them has keyboard focus, menus included, under the same focus-visible rule as the
+   other rings (`a11y_test`).
 2. Haptics that Flutter fires outside the theme (date and time pickers, long-press text selection) still vibrate with
-   haptics off.
+   haptics off. **Accepted**: they go through the OS haptics API, which follows the phone's own haptics setting; the
+   app's switch covers everything the app itself fires. Revisit if a beta tester reports it.
 3. With reduce motion on, bottom sheets appear without any animation rather than the §5.5 100 ms cross-fade, which a
-   bottom sheet can't do.
-4. Deferred features: the Devanagari digits setting (§5.10, optional); the Found cases counter that flies to the Cases
-   tab (§5.5); keeping Windows alerts running from the tray after the window closes (§5.12, optional).
+   bottom sheet can't do. **Accepted** as the reading of §5.5: reduce motion means no movement, and no animation is
+   the closest a sheet gets.
+4. **Deferred**: the Devanagari digits setting (§5.10, optional) until a beta tester asks or P7's languages; the Found
+   cases counter that flies to the Cases tab (§5.5) until usability round 1 shows the badge isn't enough; keeping
+   Windows alerts running from the tray after the window closes (§5.12, optional) until the Windows beta asks.
 5. Provider down during the first search says "We'll keep looking and notify you": later matches arrive as the Cases
-   badge and in Found for you, not as a push (§13.1 has no kind for it).
+   badge and in Found for you, not as a push (§13.1 has no kind for it). **Accepted**; revisit with FCM push (B3).
 
 ## Known issues
 - A PostgREST or Postgres error outside the permanent set (e.g. an unknown column after a schema change) retries
@@ -105,4 +111,4 @@ Flutter's pixel-sampling guideline, which misreads anti-aliased glyphs; Android'
 2. Before the beta: the native-speaker Hindi review of all P0–P1 strings, the privacy policy page, this year's MPHC
    and Indore district court holiday calendars (verified), a check of the court list, and the beta cohort for
    usability rounds 1–2.
-3. Decide the gate exceptions above.
+3. ~~Decide the gate exceptions above~~: done 26 Oct 2026.
