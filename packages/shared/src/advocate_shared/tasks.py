@@ -8,3 +8,7 @@ SCAN_DOCUMENT = "advocate_workers.scan.scan_document"  # malware scan after uplo
 # Internal, args (kind, id) with kind "document" or "court_order": text, OCR and chunks (§12.4), after a scan passes
 # or a court order's PDF is stored.
 EXTRACT_TEXT = "advocate_workers.text.extract_text"
+
+# Celery routes on the sending side, so the API's app and the workers' share these. Reading text, OCR above all, can
+# take minutes per file: its own worker (infra/docker/compose.yml), so it delays neither user jobs nor the board.
+ROUTES = {EXTRACT_TEXT: {"queue": "text"}}

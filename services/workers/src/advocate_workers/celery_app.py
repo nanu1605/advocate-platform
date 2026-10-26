@@ -51,6 +51,9 @@ app.conf.update(
     enable_utc=False,
     task_acks_late=True,  # tasks are idempotent, so redelivery after a crash is safe
     worker_prefetch_multiplier=1,
+    # Redis hands an unacked task out again after this; above text.py's HARD_LIMIT_S, so a long OCR isn't redelivered
+    # while it runs. It also delays redelivery of a task lost in a crash by as long.
+    broker_transport_options={"visibility_timeout": 4 * 3600},
     beat_schedule={
         "cause-list-tomorrow-1": {
             "task": CAUSE_LIST_TOMORROW,
@@ -89,8 +92,6 @@ app.conf.update(
         "embed-sweep": {"task": EMBED_CHUNKS, "schedule": crontab(minute="*/15")},
     },
 )
-app.conf.task_routes = {entry["task"]: {"queue": "scheduled"} for entry in app.conf.beat_schedule.values()} | {
-    # Reading text, OCR above all, can take minutes per file: its own worker, so it delays neither user jobs nor the
-    # evening board.
-    tasks.EXTRACT_TEXT: {"queue": "text"},
-}
+app.conf.task_routes = {
+    entry["task"]: {"queue": "scheduled"} for entry in app.conf.beat_schedule.values()
+} | tasks.ROUTES

@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 import pytest
+from celery.exceptions import SoftTimeLimitExceeded
 from conftest import Factory, _up, sql
 from pdfs import make_pdf
 
@@ -102,9 +103,50 @@ async def test_a_document_is_read_into_chunks(stored, r, sent):
     assert doc == {"text_status": "text", "pages": 2, "language": "en", "legacy_font_detected": True}  # mostly English
     assert sent == [(EMBED_CHUNKS, ())]
 
-    assert await text.extract(r, "document", doc_id, no_ocr) == "done"  # a rerun replaces the chunks
-    assert len(await chunks_of("document_id", doc_id)) == 2
+    # A redelivery or a swept duplicate: read already, so it costs a select and leaves the chunks (and vectors) be.
+    assert await text.extract(r, "document", doc_id, no_ocr) == "skipped"
+    assert await chunks_of("document_id", doc_id) == rows
     assert await r.get(f"text:document:{doc_id}") is None  # lock released
+
+
+@pytest.mark.parametrize("error", [SoftTimeLimitExceeded(), MemoryError()])
+async def test_a_run_that_breaks_or_runs_out_of_time_fails_for_good(stored, r, sent, error):
+    _, doc_id = await stored(make_pdf([[]]))
+
+    def ocr(_: bytes) -> str:
+        raise error
+
+    assert await text.extract(r, "document", doc_id, ocr) == "failed"
+    [doc] = await sql("select text_status from public.documents where id = :id", id=doc_id)
+    assert doc == {"text_status": "failed"}  # not 'none': the sweep leaves it
+    assert await r.get(f"text:document:{doc_id}") is None
+
+
+async def test_a_source_whose_runs_keep_getting_killed_fails(stored, r, sent, monkeypatch):
+    seen: list[tuple[bytes | None, int]] = []
+    get = storage.get
+
+    async def spy(bucket: str, path: str) -> bytes | None:
+        seen.append((await r.get(runs), await r.ttl(runs)))
+        return await get(bucket, path)
+
+    monkeypatch.setattr(storage, "get", spy)
+    _, doc_id = await stored(PDF)
+    runs = f"text-runs:document:{doc_id}"
+    await r.set(runs, 2, ex=60)  # two runs killed outright (the hard limit, out of memory): their finally never ran
+    assert await text.extract(r, "document", doc_id, no_ocr) == "done"
+    [(count, ttl)] = seen
+    assert count == b"3" and ttl > 86400  # counted while it runs
+    assert await r.get(runs) is None  # and cleared once it ends
+
+    _, doc_id = await stored(PDF)
+    runs = f"text-runs:document:{doc_id}"
+    await r.set(runs, 3, ex=60)
+    assert await text.extract(r, "document", doc_id, no_ocr) == "failed"  # a fourth isn't started
+    assert len(seen) == 1
+    [doc] = await sql("select text_status from public.documents where id = :id", id=doc_id)
+    assert doc == {"text_status": "failed"}
+    assert await r.get(runs) is None and await r.get(f"text:document:{doc_id}") is None
 
 
 async def test_a_scan_is_ocred_or_waits_for_ocr(stored, r, sent):
@@ -179,6 +221,34 @@ async def test_embeddings_fill_in_and_survive_an_outage(stored, r, sent, fake_em
     assert await embed.embed_pending(r) == 0
     assert [c["embedded"] for c in await chunks_of("document_id", doc_id)] == [False, False]
     assert await r.get(embed.LOCK) is None
+
+
+async def test_a_chunk_the_embedder_refuses_holds_up_no_one(stored, r, sent, fake_embedder, monkeypatch):
+    org, other = await stored(PDF)
+    [bad] = await sql(
+        "insert into public.document_chunks (org_id, document_id, page_no, chunk_no, text, created_at) "
+        "values (:o, :d, 1, 0, :t, '2000-01-01') returning id::text",
+        o=org.id, d=other, t="A" * 9000,  # over the embedder's 8000 characters: a 422, first in line
+    )  # fmt: skip
+    _, doc_id = await stored(PDF)
+    await text.extract(r, "document", doc_id, no_ocr)
+    seen: list[str] = []
+    real = embedder.Embedder.embed
+
+    async def spy(self, texts):
+        seen.extend(texts)
+        return await real(self, texts)
+
+    monkeypatch.setattr(embedder.Embedder, "embed", spy)
+    try:
+        assert await embed.embed_pending(r) >= 2
+        assert [c["embedded"] for c in await chunks_of("document_id", doc_id)] == [True, True]
+        assert await r.sismember(embed.REJECTED, bad["id"])
+        seen.clear()
+        await embed.embed_pending(r)
+        assert "A" * 9000 not in seen  # set aside: never sent again
+    finally:
+        await r.srem(embed.REJECTED, bad["id"])
 
 
 async def test_a_long_backlog_continues_in_a_new_run(stored, r, sent, fake_embedder):

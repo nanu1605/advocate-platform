@@ -2,38 +2,49 @@
 
 A PDF page's text comes from its text layer when it has one, and from OCR when it is a scan. Hindi typed in the Kruti
 Dev or DevLys fonts reads as Latin garble in a text layer; the runs drawn in those fonts are converted, and a page
-whose fonts aren't named but whose text reads as Kruti Dev is converted whole. Images are OCR'd; DOCX text is read
-from its XML. Pages are cut into chunks of about 400 tokens with 50 of overlap, each knowing its page and the
-paragraph numbers it covers."""
+whose fonts aren't named but whose text reads as Kruti Dev is converted whole; a DOCX's runs likewise, by the font
+each has from its styles. A PDF page that can't be loaded or OCR'd is left empty and the rest are read, but pages
+that won't load at the end (a page count that lies) are dropped. Images are OCR'd; DOCX text is read from its XML.
+Pages are cut into chunks of about 400 tokens with 50 of overlap, each knowing its page and the paragraph numbers it
+covers."""
 
 import ctypes
 import io
+import itertools
 import math
 import re
 import shutil
 import subprocess
 import zipfile
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from xml.etree import ElementTree
 
 import pypdfium2 as pdfium
 import pypdfium2.raw as pdfium_c
+import structlog
 
 from advocate_shared.krutidev import convert, looks_like_krutidev
 
 DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 OCR_DPI = 300
 MIN_LETTERS = 30  # a page with fewer letters in its text layer is a scan (a stamp or page number aside)
+# ponytail: pages in a row that won't load end the file (its /Count can claim a million); real ones after are lost
+MAX_UNLOADED = 20
 LEGACY_FONT = re.compile(r"kruti|devlys", re.IGNORECASE)
 CHUNK_TOKENS = 400
 OVERLAP_TOKENS = 50
 
-type Ocr = Callable[[bytes], str]  # an image (PNG, JPEG or PGM) -> its text
+log = structlog.get_logger()
+
+# An image (PNG, JPEG or PGM) -> its text. Raises OcrUnavailable without an engine (or its languages), and
+# subprocess.SubprocessError when it fails on this image.
+type Ocr = Callable[[bytes], str]
 
 
 class OcrUnavailable(Exception):
-    """No OCR engine here: the document waits (text_status ocr_pending) and is tried again later."""
+    """No OCR engine here: the document waits (text_status ocr_pending) and is tried again later. Only for a missing
+    engine or language pack: an image it fails on (an error, a timeout) fails that page alone."""
 
 
 class Unreadable(Exception):
@@ -52,8 +63,9 @@ def tesseract(image: bytes) -> str:
         timeout=300,
         check=False,
     )
-    if done.returncode != 0:
-        raise OcrUnavailable(done.stderr.decode(errors="replace")[-500:])
+    if b"Failed loading language" in done.stderr:  # every image would fail, or lose its Hindi if English loaded
+        raise OcrUnavailable
+    done.check_returncode()  # CalledProcessError, like TimeoutExpired: this image's page fails, not the engine
     return done.stdout.decode("utf-8", errors="replace")
 
 
@@ -66,9 +78,11 @@ class Reading:
 
 def read(data: bytes, mime: str, ocr: Ocr = tesseract) -> Reading:
     """The text of each page of a PDF, image or DOCX. Raises OcrUnavailable when a page needs OCR and there is none,
-    and Unreadable for a file that can't be opened."""
+    and Unreadable for a file that can't be opened. A PDF page that can't be loaded or OCR'd is left empty, unless
+    only such pages follow it (logged once)."""
     if mime == DOCX:
-        return Reading([_docx_text(data)])
+        text, legacy = _docx_text(data)
+        return Reading([text], legacy_font=legacy)
     if mime.startswith("image/"):
         return Reading([ocr(data)], ocr_pages=1)
     try:
@@ -76,21 +90,34 @@ def read(data: bytes, mime: str, ocr: Ocr = tesseract) -> Reading:
     except pdfium.PdfiumError as e:
         raise Unreadable from e
     pages, ocr_pages, legacy = [], 0, False
+    failed: list[tuple[int, str]] = []  # (page number, error)
+    loaded = 0  # the pages up to the last one that loaded
     try:
         for i in range(len(pdf)):
-            page = pdf[i]
+            if i - loaded == MAX_UNLOADED:
+                break
             try:
-                text, converted = _page_text(page)
-                if sum(c.isalpha() for c in text) < MIN_LETTERS:
-                    text, converted = ocr(_render(page)), False
-                    ocr_pages += 1
-            finally:
-                page.close()
+                page = pdf[i]
+                loaded = i + 1
+                try:
+                    text, converted = _page_text(page)
+                    if sum(c.isalpha() for c in text) < MIN_LETTERS:
+                        ocr_pages += 1
+                        text, converted = ocr(_render(page)), False
+                finally:
+                    page.close()
+            except (pdfium.PdfiumError, subprocess.SubprocessError) as e:
+                failed.append((i + 1, type(e).__name__))
+                text, converted = "", False  # the page keeps its number
             pages.append(text)
             legacy |= converted
     finally:
         pdf.close()
-    return Reading(pages, ocr_pages, legacy)
+    if failed:
+        log.warning("pages_unreadable", count=len(failed), first=failed[0][0], error=failed[0][1])
+    if not loaded:
+        raise Unreadable
+    return Reading(pages[:loaded], ocr_pages, legacy)
 
 
 def _page_text(page: pdfium.PdfPage) -> tuple[str, bool]:
@@ -103,29 +130,30 @@ def _page_text(page: pdfium.PdfPage) -> tuple[str, bool]:
             return "".join(chars), False
         buf = ctypes.create_string_buffer(256)
         flags = ctypes.c_int()
-        runs: list[tuple[str | None, list[str]]] = []  # (legacy font name or None, characters)
+        pieces: list[tuple[str | None, str]] = []
         for i, c in enumerate(chars):
             size = pdfium_c.FPDFText_GetFontInfo(textpage.raw, i, buf, len(buf), ctypes.byref(flags))
             name = buf.value.decode("latin-1") if size else ""
             font = name if LEGACY_FONT.search(name) else None
-            if c.isspace() and runs:
-                font = runs[-1][0]  # spaces join the run they are in
-            if runs and runs[-1][0] == font:
-                runs[-1][1].append(c)
-            else:
-                runs.append((font, [c]))
+            if c.isspace() and pieces:
+                font = pieces[-1][0]  # spaces join the run they are in
+            pieces.append((font, c))
     finally:
         textpage.close()
+    return _converted(pieces)
+
+
+def _converted(pieces: list[tuple[str | None, str]]) -> tuple[str, bool]:
+    """Text in pieces, each with its legacy font's name, '' for another named font, or None for a font not known: each
+    run in a legacy font converted whole (so an i-matra typed before its consonant finds it), or, with none, the text
+    in unknown fonts when it reads as Kruti Dev. True when something was converted."""
+    runs = [(font, "".join(t for _, t in run)) for font, run in itertools.groupby(pieces, key=lambda p: p[0])]
     if any(font for font, _ in runs):
-        text = "".join(
-            convert("".join(cs), devlys="devlys" in font.lower()) if font else "".join(cs) for font, cs in runs
-        )
-        return text, True
-    text = "".join(chars)
-    # ponytail: a page with unnamed fonts that reads as Kruti Dev is converted whole, English on it too
-    if looks_like_krutidev(text):
-        return convert(text), True
-    return text, False
+        return "".join(convert(t, devlys="devlys" in font.lower()) if font else t for font, t in runs), True
+    # ponytail: text in unknown fonts that reads as Kruti Dev is converted whole, English in it too
+    if looks_like_krutidev("".join(t for font, t in runs if font is None)):
+        return "".join(convert(t) if font is None else t for font, t in runs), True
+    return "".join(t for _, t in runs), False
 
 
 def _render(page: pdfium.PdfPage) -> bytes:
@@ -141,16 +169,63 @@ def _render(page: pdfium.PdfPage) -> bytes:
 
 
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+RUN_TEXT = {f"{W}tab": "\t", f"{W}br": "\n", f"{W}cr": "\n", f"{W}noBreakHyphen": "-"}  # besides w:t
 
 
-def _docx_text(data: bytes) -> str:
-    """A DOCX's paragraphs, one per line (it has no pages until it is laid out)."""
+def _docx_text(data: bytes) -> tuple[str, bool]:
+    """A DOCX's paragraphs, one per line (it has no pages until it is laid out), its runs in a legacy font converted
+    as a PDF's are. A run's font is its own, else its paragraph style's (or the default paragraph style's), else the
+    document's default. True when something was converted."""
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as z:
             root = ElementTree.fromstring(z.read("word/document.xml"))  # noqa: S314 - a scanned upload, no DTDs
+            styled = "word/styles.xml" in z.namelist()
+            sheet = ElementTree.fromstring(z.read("word/styles.xml") if styled else b"<styles/>")  # noqa: S314
     except (zipfile.BadZipFile, KeyError, ElementTree.ParseError) as e:
         raise Unreadable from e
-    return "\n".join("".join(t.text or "" for t in p.iter(f"{W}t")) for p in root.iter(f"{W}p"))
+    styles = {s.get(f"{W}styleId"): s for s in sheet.iter(f"{W}style") if s.get(f"{W}styleId")}
+    default = next(
+        (i for i, s in styles.items() if s.get(f"{W}type") == "paragraph" and s.get(f"{W}default") in ("1", "true")),
+        None,
+    )
+    doc_default = sheet.find(f"{W}docDefaults/{W}rPrDefault/{W}rPr")
+    pieces: list[tuple[str | None, str]] = []
+    for n, p in enumerate(root.iter(f"{W}p")):
+        if n:
+            pieces.append((None, "\n"))
+        style = p.find(f"{W}pPr/{W}pStyle")
+        style_id = None if style is None else style.get(f"{W}val")
+        inherited = [*_based(styles, style_id if style_id in styles else default), doc_default]
+        for run in p.iter(f"{W}r"):
+            text = "".join((e.text or "") if e.tag == f"{W}t" else RUN_TEXT.get(e.tag, "") for e in run)
+            pieces.append((_font([run.find(f"{W}rPr"), *inherited]), text))
+    return _converted(pieces)
+
+
+def _based(styles: dict[str | None, ElementTree.Element], style_id: str | None) -> list[ElementTree.Element | None]:
+    """A style's w:rPr, then those of the styles it is based on."""
+    out, seen = [], set()
+    while style_id in styles and style_id not in seen:  # a style can be based on itself, or loop
+        seen.add(style_id)
+        out.append(styles[style_id].find(f"{W}rPr"))
+        based = styles[style_id].find(f"{W}basedOn")
+        style_id = None if based is None else based.get(f"{W}val")
+    return out
+
+
+def _font(levels: Iterable[ElementTree.Element | None]) -> str | None:
+    """The font the nearest of these w:rPr names, as _converted takes it: a legacy font's name, '' for another font,
+    or None when none names one or it is the theme's (not read here)."""
+    for rpr in levels:
+        fonts = None if rpr is None else rpr.find(f"{W}rFonts")
+        if fonts is None:
+            continue
+        names = [name for name in (fonts.get(f"{W}ascii"), fonts.get(f"{W}hAnsi")) if name]
+        if names:
+            return next((name for name in names if LEGACY_FONT.search(name)), "")
+        if fonts.get(f"{W}asciiTheme") or fonts.get(f"{W}hAnsiTheme"):
+            return None
+    return None
 
 
 def language(pages: list[str]) -> str | None:
@@ -182,7 +257,9 @@ PARA = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
-WORD = re.compile(r"\S+")
+WORD = re.compile(r"\S{1,100}")  # a longer run (a hash, a text layer without spaces) is cut every 100 characters
+SPACES = re.compile(r"[^\S\n]+")  # a form aligned with spaces or tabs
+BREAKS = re.compile(r"\s*\n\s*")  # blank lines
 
 
 def _tokens(word: str) -> int:
@@ -193,10 +270,13 @@ def _tokens(word: str) -> int:
 
 def chunks(pages: list[str]) -> list[Chunk]:
     """Chunks of about CHUNK_TOKENS tokens, OVERLAP_TOKENS shared with the one before, never across a page. Each
-    lists the paragraph it starts in (carried over from earlier pages) and those that start inside it."""
+    lists the paragraph it starts in (carried over from earlier pages) and those that start inside it. Whitespace is
+    squeezed to one space or line break and long words are cut, so a chunk stays under about 2,200 characters, far
+    below the embedder's 8,000 (services/embedder Text)."""
     out: list[Chunk] = []
     current: str | None = None  # the paragraph the text so far is in
-    for page_no, page in enumerate(pages, 1):
+    for page_no, raw in enumerate(pages, 1):
+        page = BREAKS.sub("\n", SPACES.sub(" ", raw))
         starts = [(m.start(), m[1]) for m in PARA.finditer(page.translate(DIGITS))]
         words = list(WORD.finditer(page))
         i, chunk_no = 0, 0
