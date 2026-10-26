@@ -83,13 +83,14 @@ CLUSTER = re.compile(f"{CONS}़?(?:्{CONS}़?)*")
 POST = set("ािीुूृॄेैोौॅॉंँ़")  # signs that follow a cluster in Unicode order
 MARK = "[ऀ-ःऺ-्॑-ॗॢॣ]"
 
-# In order, after the table pass and before the reorderings.
+# In order, after the table pass and before the reorderings. A rule that could start anywhere in a run starts only at
+# its head ("(?<!...)"), or a long run with no match after it costs O(n²).
 CLEANUP = [
-    (re.compile(rf"\s+(?={MARK}|{REPH})"), ""),  # PDF extraction splits a sign from its letter: "vkb Z"
+    (re.compile(rf"(?<!\s)\s+(?={MARK}|{REPH})"), ""),  # PDF extraction splits a sign from its letter: "vkb Z"
     (re.compile(f"([{IKAR}{IKAR_ANUS}{IKAR_REPH}{IKAR_REPH_ANUS}])\\s+"), r"\1"),
     (re.compile(f"इ{REPH}"), "ई"),  # "b Z", split by extraction
     (re.compile(f"{REPH}([ािीुूृॄेैोौॅॉंँ]+)"), rf"\1{REPH}"),  # the reph goes after the vowel signs: "lokZsPp"
-    (re.compile("([ंँ]+)([ाीुूृॄेैोौॉ]+)"), r"\2\1"),  # a nasal typed before its vowel sign: "eas"
+    (re.compile("(?<![ंँ])([ंँ]+)([ाीुूृॄेैोौॉ]+)"), r"\2\1"),  # a nasal typed before its vowel sign: "eas"
     (re.compile("ॅा"), "ाॅ"),
     (re.compile("़्"), "़्"),  # the nukta before the virama: "T+" = ज़्
     (re.compile("््रा"), "्र"),  # half form + z + bar = full form + rakar: "Izk"
@@ -111,7 +112,7 @@ CLEANUP = [
 # '%' draws both the visarga and the colon. A word-final visarga stays only in these words; mid-word (दुःख) always.
 # ponytail: a word list (adverbs in -तः, not participles in -ित/-ुत); search treats a final ः and ':' alike anyway
 VISARGA_WORDS = re.compile(r"(?:अतः|पुनः|प्रायः|क्रमशः|वस्तुतः|नमः|.*[^िु]तः)")
-FINAL_VISARGA = re.compile(r"[ऀ-ॿ]+ः(?![ऀ-ॿ])")
+FINAL_VISARGA = re.compile(r"(?<![ऀ-ॿ])[ऀ-ॿ]+ः(?![ऀ-ॿ])")
 
 
 def _normalise(s: str) -> str:
@@ -168,22 +169,33 @@ def _is_cons(ch: str) -> bool:
 
 
 def _place_reph(s: str) -> str:
-    """Each reph placeholder becomes र् before the cluster it follows, past its vowel signs: "lkeF;Z" = सामर्थ्य."""
-    while (p := s.find(REPH)) != -1:
-        k = p
-        while k > 0 and s[k - 1] in POST:
-            k -= 1
-        if k > 0 and _is_cons(s[k - 1]):
-            k -= 1
-            while True:  # back over each "C ्" or "C ़ ्" before it
-                if k >= 2 and s[k - 1] == "्" and _is_cons(s[k - 2]):
-                    k -= 2
-                elif k >= 3 and s[k - 1] == "्" and s[k - 2] == "़" and _is_cons(s[k - 3]):
-                    k -= 3
+    """Each reph placeholder becomes र् before the cluster it follows, past its vowel signs: "lkeF;Z" = सामर्थ्य.
+
+    One pass: [at] is where a reph would go now. A र् placed before an earlier character is counted against it, and
+    the next reph there goes before it too (the र् joins the cluster) or right after it (the same text)."""
+    out: list[str] = []
+    rephs: list[int] = []  # the र्s that go before each character
+    head: list[int] = []  # [at] once each character is in
+    at = 0
+    for ch in s:
+        if ch == REPH and at < len(out):
+            rephs[at] += 1
+            continue
+        for c in "र्" if ch == REPH else ch:  # with nothing before it to go to, the reph stays here
+            n = len(out)
+            if _is_cons(c):  # back over each "C ्" or "C ़ ्" before it
+                if n >= 2 and out[n - 1] == "्" and _is_cons(out[n - 2]):
+                    at = head[n - 2]
+                elif n >= 3 and out[n - 1] == "्" and out[n - 2] == "़" and _is_cons(out[n - 3]):
+                    at = head[n - 3]
                 else:
-                    break
-        s = s[:k] + "र्" + s[k:p] + s[p + 1 :]
-    return s
+                    at = n
+            elif c not in POST:
+                at = n + 1
+            out.append(c)
+            rephs.append(0)
+            head.append(at)
+    return "".join("र्" * r + c for r, c in zip(rephs, out, strict=True))
 
 
 def convert(legacy: str, *, devlys: bool = False) -> str:
@@ -204,7 +216,7 @@ STOPWORDS = {
     "Fkh", "Hkh", "}kjk", "djus", "dj", "tkus", ";g", "rks", "bl", "og", "vuqlkj", "gks", "fd;s", "dksbZ", "rd",
     "mDr", "xbZ", "rFkk", "vFkok",
 }  # fmt: skip
-_EDGES = re.compile(r"^[\]A%&\-()¼½,.\d]+|[\]A%&\-()¼½,]+$")
+_EDGES = re.compile(r"^[\]A%&\-()¼½,.\d]+|(?<![\]A%&\-()¼½,])[\]A%&\-()¼½,]+$")  # run heads only, as in CLEANUP
 _LATIN = re.compile(r"[A-Za-z]")
 _DEVANAGARI = re.compile(r"[ऀ-ॿ]")
 # Kruti Dev letters that are ASCII punctuation next to a letter, or Latin-1 and cp1252 symbols.

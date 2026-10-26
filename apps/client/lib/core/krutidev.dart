@@ -230,7 +230,7 @@ final RegExp _keys = RegExp(
 final List<(RegExp, String)> _cleanup = [
   (
     RegExp(
-      r'\s+(?=[ऀ-ःऺ-\u094d॑-ॗॢॣ]|'
+      r'(?<!\s)\s+(?=[ऀ-ःऺ-\u094d॑-ॗॢॣ]|'
       '$_reph)',
     ),
     '',
@@ -248,7 +248,7 @@ final List<(RegExp, String)> _cleanup = [
     r'$1'
         '$_reph',
   ),
-  (RegExp('([ंँ]+)([ाीुूृॄेैोौॉ]+)'), r'$2$1'),
+  (RegExp('(?<![ंँ])([ंँ]+)([ाीुूृॄेैोौॉ]+)'), r'$2$1'),
   (RegExp('ॅा'), 'ाॅ'),
   (RegExp(r'\u094d\u093c'), '\u{93c}\u{94d}'),
   (RegExp(r'\u094d\u094dरा'), '\u{94d}र'),
@@ -311,7 +311,7 @@ const _post = 'ािीुूृॄेैोौॅॉंँ\u{93c}';
 final RegExp _visargaWords = RegExp(
   r'^(?:अतः|पुनः|प्रायः|क्रमशः|वस्तुतः|नमः|.*[^िु]तः)$',
 );
-final RegExp _finalVisarga = RegExp('[ऀ-ॿ]+ः(?![ऀ-ॿ])');
+final RegExp _finalVisarga = RegExp('(?<![ऀ-ॿ])[ऀ-ॿ]+ः(?![ऀ-ॿ])');
 
 bool _isDevanagari(int c) => c >= 0x900 && c <= 0x97f;
 
@@ -378,33 +378,49 @@ String _placeIkar(String s) {
   return out.toString();
 }
 
-String _placeReph(String text) {
-  var s = text;
-  var p = s.indexOf(_reph);
-  while (p != -1) {
-    var k = p;
-    while (k > 0 && _post.contains(s[k - 1])) {
-      k--;
+/// One pass, as in the Python module: `at` is where a reph would go now, and a र् placed before an earlier
+/// character is counted against it.
+String _placeReph(String s) {
+  final out = <String>[];
+  final rephs = <int>[]; // the र्s that go before each character
+  final head = <int>[]; // `at` once each character is in
+  var at = 0;
+  for (var i = 0; i < s.length; i++) {
+    final ch = s[i];
+    if (ch == _reph && at < out.length) {
+      rephs[at]++;
+      continue;
     }
-    if (k > 0 && _isCons(s[k - 1])) {
-      k--;
-      while (true) {
-        if (k >= 2 && s[k - 1] == '\u{94d}' && _isCons(s[k - 2])) {
-          k -= 2;
-        } else if (k >= 3 &&
-            s[k - 1] == '\u{94d}' &&
-            s[k - 2] == '\u{93c}' &&
-            _isCons(s[k - 3])) {
-          k -= 3;
+    // With nothing before it to go to, the reph stays here.
+    for (final c in ch == _reph ? const ['र', '\u{94d}'] : [ch]) {
+      final n = out.length;
+      if (_isCons(c)) {
+        // Back over each "C ्" or "C ़ ्" before it.
+        if (n >= 2 && out[n - 1] == '\u{94d}' && _isCons(out[n - 2])) {
+          at = head[n - 2];
+        } else if (n >= 3 &&
+            out[n - 1] == '\u{94d}' &&
+            out[n - 2] == '\u{93c}' &&
+            _isCons(out[n - 3])) {
+          at = head[n - 3];
         } else {
-          break;
+          at = n;
         }
+      } else if (!_post.contains(c)) {
+        at = n + 1;
       }
+      out.add(c);
+      rephs.add(0);
+      head.add(at);
     }
-    s = '${s.substring(0, k)}र\u{94d}${s.substring(k, p)}${s.substring(p + 1)}';
-    p = s.indexOf(_reph);
   }
-  return s;
+  final b = StringBuffer();
+  for (var i = 0; i < out.length; i++) {
+    b
+      ..write('र\u{94d}' * rephs[i])
+      ..write(out[i]);
+  }
+  return b.toString();
 }
 
 /// Kruti Dev 010 text ([devlys]: DevLys 010) as Unicode Devanagari. Only text known or detected to be in the legacy
@@ -472,7 +488,9 @@ const _stopwords = {
   'rFkk',
   'vFkok', //
 };
-final RegExp _edges = RegExp(r'^[\]A%&\-()¼½,.\d]+|[\]A%&\-()¼½,]+$');
+final RegExp _edges = RegExp(
+  r'^[\]A%&\-()¼½,.\d]+|(?<![\]A%&\-()¼½,])[\]A%&\-()¼½,]+$',
+);
 final RegExp _latin = RegExp('[A-Za-z]');
 final RegExp _devanagari = RegExp('[ऀ-ॿ]');
 // Kruti Dev letters that are ASCII punctuation next to a letter, or Latin-1 and cp1252 symbols.

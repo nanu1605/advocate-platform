@@ -42,4 +42,28 @@ void main() {
   test('Unicode text passes through', () {
     expect(krutidevToUnicode('न्यायालय 302'), 'न्यायालय 302');
   });
+
+  // A paste can run to pages, and a rule that rescans the rest of a run takes seconds on a long one (O(n²)): a run of
+  // each kind a rule once rescanned, a reph after many vowel signs (once a walk back over them per reph), and real text.
+  final text = (detect['legacy'] as List).cast<String>().join(' ');
+  for (final t in [
+    'a',
+    ' ',
+    'Z',
+    'D',
+    'b${'A' * 19998}b',
+    '${'w' * 10000}${'Z' * 10000}',
+    text,
+  ]) {
+    final s = (t * (20000 ~/ t.length + 1)).substring(0, 20000);
+    test(
+      '20,000 characters of ${t.substring(0, 1)}... convert in linear time',
+      () {
+        final watch = Stopwatch()..start();
+        krutidevToUnicode(s);
+        looksLikeKrutidev(s);
+        expect(watch.elapsed, lessThan(const Duration(milliseconds: 500)));
+      },
+    );
+  }
 }

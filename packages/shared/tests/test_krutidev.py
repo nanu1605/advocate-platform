@@ -1,4 +1,5 @@
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -35,3 +36,18 @@ def test_leaves_other_text_alone(text):
 
 def test_unicode_text_passes_through():
     assert convert("न्यायालय 302") == "न्यायालय 302"
+
+
+TEXT = " ".join(FIXTURE["detect"]["legacy"])
+# A run of each kind a rule once rescanned, a reph after many vowel signs (once a walk back over them per reph), and
+# real text.
+LONG = ["a", " ", "Z", "D", "b" + "A" * 19_998 + "b", "w" * 10_000 + "Z" * 10_000, TEXT]
+
+
+@pytest.mark.parametrize("text", [(t * (20_000 // len(t) + 1))[:20_000] for t in LONG], ids=lambda t: repr(t[:4]))
+def test_20_000_characters_convert_in_linear_time(text):
+    """The API takes 20,000 characters, and a rule that rescans the rest of a run takes seconds on one (O(n²))."""
+    start = time.perf_counter()
+    convert(text)
+    looks_like_krutidev(text)
+    assert time.perf_counter() - start < 0.5
