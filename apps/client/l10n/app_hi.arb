@@ -790,5 +790,10 @@
   "trackerUpdate": "आइटम अपडेट करें",
   "krutidevFound": "यह कृतिदेव फ़ॉन्ट में टाइप की गई हिंदी लगती है।",
   "krutidevConvert": "यूनिकोड हिंदी में बदलें",
-  "krutidevConverted": "यूनिकोड हिंदी में बदल दिया"
+  "krutidevConverted": "यूनिकोड हिंदी में बदल दिया",
+  "docsInsideSearch": "दस्तावेज़ों के अंदर “{query}” खोजें",
+  "docsInsideHint": "स्कैन और PDF के अंदर के शब्द भी खोजता है। इंटरनेट चाहिए।",
+  "docsInsideTitle": "दस्तावेज़ों के अंदर",
+  "docsInsideSearching": "दस्तावेज़ों के अंदर खोज रहे हैं…",
+  "docsInsideNone": "इन शब्दों वाला कोई पेज नहीं मिला।"
 }

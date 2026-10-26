@@ -51,6 +51,9 @@ class PdfrxPages extends PdfPages {
   var _page = 1;
   var _disposed = false;
 
+  /// A page asked for before the file was ready (a search hit opening at its page).
+  int? _pending;
+
   /// Reduce motion: jumps instead of scrolling (spec §5.5).
   var _instant = false;
 
@@ -89,6 +92,12 @@ class PdfrxPages extends PdfPages {
         onViewerReady: (document, controller) {
           _pageCount = document.pages.length;
           _page = controller.pageNumber ?? 1;
+          if (_pending case final page?) {
+            _pending = null;
+            unawaited(
+              controller.goToPage(pageNumber: page, duration: Duration.zero),
+            );
+          }
           _changed();
         },
         onPageChanged: (page) {
@@ -117,6 +126,8 @@ class PdfrxPages extends PdfPages {
   void goTo(int page) {
     if (_controller.isReady) {
       unawaited(_controller.goToPage(pageNumber: page, duration: _duration));
+    } else {
+      _pending = page;
     }
   }
 

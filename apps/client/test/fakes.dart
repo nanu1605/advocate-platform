@@ -481,6 +481,19 @@ class FakeApi extends ApiClient {
         (tracking: tracking, jobId: tracking == 'auto' ? trackingJobId : null),
   );
 
+  /// What searchDocuments returns.
+  List<DocumentHit> documentHits = const [];
+
+  @override
+  Future<List<DocumentHit>> searchDocuments({
+    required String orgId,
+    required String query,
+    String? matterId,
+  }) => _call('searchDocuments', {
+    'query': query,
+    'matterId': matterId,
+  }, () => documentHits);
+
   @override
   Future<String> documentUrl({
     required String orgId,

@@ -139,9 +139,27 @@ CaseHit _hit(int n, {bool tracked = false}) => CaseHit(
   tracked: tracked,
 );
 
-/// The API every scene talks to: [account], a pending invite, two search hits with more to load, a running search.
+/// The API every scene talks to: [account], a pending invite, two search hits with more to load, a running search,
+/// and two pages found inside documents.
 FakeApi _api(Account account) => FakeApi(account: account)
   ..invites.add(_invite)
+  ..documentHits = const [
+    DocumentHit(
+      documentId: 'd-1',
+      matterId: 'm-1',
+      title: 'Writ petition',
+      page: 2,
+      paras: ['4'],
+      snippet: '…the applicant is released on ज़मानत of Rs. 25,000 with one surety of the like amount…',
+    ),
+    DocumentHit(
+      orderId: 'o-1',
+      matterId: 'm-1',
+      title: 'Order 20-10-2026',
+      page: 3,
+      snippet: 'Interim protection continues. जमानत आवेदन पर अगली तारीख को विचार होगा।',
+    ),
+  ]
   ..searchPages = [
     CaseSearchPage(
       items: [_hit(1), _hit(2, tracked: true)],
@@ -732,6 +750,16 @@ final _scenes = <_Scene>[
     location: '/documents',
     open: (t, l) => _tap(t, find.byTooltip(l.docsRemoveUpload)),
     shows: (l) => find.text(l.docsRemoveBody),
+  ),
+  _Scene(
+    'documents, search inside',
+    location: '/documents',
+    open: (t, l) async {
+      await t.enterText(find.byType(TextField).first, 'bail');
+      await t.testTextInput.receiveAction(TextInputAction.search);
+      await t.pumpAndSettle();
+    },
+    shows: (l) => find.textContaining(l.docsInsideTitle),
   ),
   _Scene(
     'viewer, go to page',

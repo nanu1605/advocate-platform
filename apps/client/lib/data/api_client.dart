@@ -142,6 +142,41 @@ class CaseSearchPage {
   final List<String> ignoredCourtIds;
 }
 
+/// One hit of POST /v1/documents/search (spec F06, F15): a page of an uploaded document ([documentId]) or of a
+/// court order ([orderId], opened over its case [matterId]), with the text around the words found.
+@immutable
+class DocumentHit {
+  const DocumentHit({
+    required this.title,
+    required this.page,
+    required this.snippet,
+    this.documentId,
+    this.orderId,
+    this.matterId,
+    this.paras = const [],
+  });
+
+  factory DocumentHit.fromJson(Map<String, dynamic> j) => DocumentHit(
+    documentId: j['document_id'] as String?,
+    orderId: j['order_id'] as String?,
+    matterId: j['matter_id'] as String?,
+    title: j['title'] as String,
+    page: j['page'] as int,
+    paras: (j['paras'] as List? ?? const []).cast(),
+    snippet: j['snippet'] as String,
+  );
+
+  final String? documentId;
+  final String? orderId;
+  final String? matterId;
+  final String title;
+  final int page;
+
+  /// Paragraph numbers on that page's chunk, e.g. "12.1".
+  final List<String> paras;
+  final String snippet;
+}
+
 /// An invite to the team (spec §10.2 Team): its 8-character [code] works for 7 days, for anyone or (with [phone])
 /// only that number. Invites never sync (§9.4): the owner lists them through the API.
 @immutable
@@ -545,6 +580,26 @@ class ApiClient {
       ),
     );
     return (tracking: r['tracking'] as String, jobId: r['job_id'] as String?);
+  }
+
+  /// Search inside the org's documents and court orders, scans included (spec F06, F15): the best pages first,
+  /// within one case with [matterId]. Online only; the query goes in the body. RATE_LIMITED.
+  Future<List<DocumentHit>> searchDocuments({
+    required String orgId,
+    required String query,
+    String? matterId,
+  }) async {
+    final r = await _send<Map<String, dynamic>>(
+      () => _dio.post(
+        '/v1/documents/search',
+        data: {'query': query.trim(), 'matter_id': ?matterId},
+        options: _org(orgId),
+      ),
+    );
+    return [
+      for (final h in r['hits'] as List)
+        DocumentHit.fromJson((h as Map).cast()),
+    ];
   }
 
   /// A short-lived link to a document's file (no title in it). DOCUMENT_NOT_READY (still being checked),

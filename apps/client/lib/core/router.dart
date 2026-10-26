@@ -327,6 +327,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                         key: ValueKey(s.pathParameters['orderId']),
                         matterId: s.pathParameters['id']!,
                         orderId: s.pathParameters['orderId']!,
+                        page: int.tryParse(s.uri.queryParameters['page'] ?? ''),
                       ),
                     ),
                   ),
@@ -403,6 +404,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ViewerScreen.document(
                     s.pathParameters['id']!,
                     key: ValueKey(s.pathParameters['id']),
+                    page: int.tryParse(s.uri.queryParameters['page'] ?? ''),
                   ),
                 ),
               ),

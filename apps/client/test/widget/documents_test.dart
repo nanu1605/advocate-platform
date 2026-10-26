@@ -11,6 +11,7 @@ import 'package:advocate_app/features/dev_kitchen_sink/kitchen_sink.dart';
 import 'package:advocate_app/features/documents/upload_flow.dart';
 import 'package:advocate_app/features/documents/viewer_screen.dart';
 import 'package:advocate_app/ui/pdf_viewer.dart';
+import 'package:advocate_app/ui/source_chip.dart';
 import 'package:advocate_app/ui/states.dart';
 import 'package:dio/dio.dart' show CancelToken;
 import 'package:flutter/foundation.dart';
@@ -389,6 +390,126 @@ void main() {
       find.widgetWithText(TextField, en.docsSearchHint),
     );
     expect(search.focusNode!.hasPrimaryFocus, isTrue);
+  });
+
+  group('search inside', () {
+    const hits = [
+      DocumentHit(
+        documentId: 'd-1',
+        matterId: 'm-1',
+        title: 'Writ petition',
+        page: 2,
+        paras: ['4'],
+        snippet: '…Heard counsel. Reply within four weeks…',
+      ),
+      DocumentHit(
+        orderId: 'o-1',
+        matterId: 'm-1',
+        title: 'Order 20-10-2026',
+        page: 3,
+        snippet: 'जमानत पर विचार होगा।',
+      ),
+    ];
+    ViewerScreen viewer(WidgetTester tester) =>
+        tester.widget<ViewerScreen>(find.byType(ViewerScreen));
+
+    testWidgets('looks inside on a tap, and a hit opens at its page', (
+      tester,
+    ) async {
+      final api = await open(tester);
+      api.documentHits = hits;
+      await tester.enterText(find.byType(TextField), 'four weeks');
+      await tester.pump();
+      expect(api.callNames, isNot(contains('searchDocuments')));
+      final button = find.text(en.docsInsideSearch('four weeks'));
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(api.calls.last.name, 'searchDocuments');
+      expect(api.calls.last.args, {'query': 'four weeks', 'matterId': null});
+      expect(find.text('${en.docsInsideTitle} (2)'), findsOneWidget);
+      expect(
+        find.text('…Heard counsel. Reply within four weeks…'),
+        findsOneWidget,
+      );
+
+      final hit = find.byType(SourceChip).first;
+      await tester.ensureVisible(hit);
+      await tester.tap(hit);
+      await tester.pumpAndSettle();
+      expect((viewer(tester).documentId, viewer(tester).page), ('d-1', 2));
+      expect(find.text(en.docsPage(2, 3)), findsOneWidget); // opened at page 2
+    });
+
+    testWidgets('Enter searches; a court order opens over its case', (
+      tester,
+    ) async {
+      final api = await open(tester);
+      api.documentHits = hits;
+      await tester.enterText(find.byType(TextField), 'जमानत');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      final hit = find.byType(SourceChip).last;
+      await tester.ensureVisible(hit);
+      await tester.tap(hit);
+      await tester.pumpAndSettle();
+      final v = viewer(tester);
+      expect((v.matterId, v.orderId, v.page), ('m-1', 'o-1', 3));
+    });
+
+    testWidgets('within the case filter; nothing found; a new query asks '
+        'again', (tester) async {
+      final api = await open(tester);
+      final cases = find.widgetWithText(ActionChip, en.docsAllCases);
+      await tester.ensureVisible(cases);
+      await tester.tap(cases);
+      await tester.pumpAndSettle();
+      await tester.tap(inSheet(find.text('WP 1002/2024')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'surety');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      expect(api.calls.last.args, {'query': 'surety', 'matterId': 'm-2'});
+      expect(find.text(en.docsInsideNone), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'sureties');
+      await tester.pump();
+      expect(find.text(en.docsInsideNone), findsNothing);
+      expect(find.text(en.docsInsideSearch('sureties')), findsOneWidget);
+    });
+
+    testWidgets('offline it says so without asking; an error offers Retry', (
+      tester,
+    ) async {
+      final api = await open(
+        tester,
+        overrides: [
+          syncViewProvider.overrideWithValue(
+            const AsyncData((status: SyncStatus.syncing, offline: true)),
+          ),
+        ],
+      );
+      await tester.enterText(find.byType(TextField), 'bail');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      expect(find.text(en.errorNeedsNetwork), findsOneWidget);
+      expect(api.callNames, isNot(contains('searchDocuments')));
+    });
+
+    testWidgets('a failed search can be retried', (tester) async {
+      final api = await open(tester);
+      api.fail['searchDocuments'] = const ApiException('RATE_LIMITED');
+      await tester.enterText(find.byType(TextField), 'bail');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      expect(find.text(en.retry), findsOneWidget);
+      api
+        ..fail.remove('searchDocuments')
+        ..documentHits = hits;
+      await tester.tap(find.text(en.retry));
+      await tester.pumpAndSettle();
+      expect(find.text('${en.docsInsideTitle} (2)'), findsOneWidget);
+    });
   });
 
   group('upload', () {

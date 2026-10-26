@@ -18,7 +18,10 @@ import 'scene_goldens.dart';
 /// 1.0/2.0. Reference images are rendered on Windows; CI runs this file on windows-latest.
 void main() {
   setUpAll(loadAppFonts);
-  sceneGoldens('documents', {'document viewer': 'viewer'});
+  sceneGoldens('documents', {
+    'document viewer': 'viewer',
+    'documents, search inside': 'search_inside',
+  });
 
   for (final screen in ['list', 'upload']) {
     for (final MapEntry(key: name, value: theme) in themes.entries) {
