@@ -6,6 +6,7 @@ import 'package:advocate_app/core/theme/app_theme.dart';
 import 'package:advocate_app/core/theme/tokens.g.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/lock/lock_screen.dart';
+import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -61,7 +62,7 @@ class App extends ConsumerWidget {
             textScaler: mq.textScaler.clamp(maxScaleFactor: 2),
             disableAnimations: mq.disableAnimations || s.reduceMotion,
           ),
-          child: AppLockGate(child: child!),
+          child: AppLockGate(child: DestinationFocusRing(child: child!)),
         );
       },
     );
