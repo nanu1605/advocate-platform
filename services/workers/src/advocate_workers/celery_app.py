@@ -10,6 +10,7 @@
     scan.py       advocate_shared.tasks.SCAN_DOCUMENT (job)
     windows.py    REFRESH_WINDOWS
     jobs.py       SWEEP_JOBS
+    ai.py         AI_COST_WATCH
 
 Job tasks take one argument, the job id, and run through jobs.run_job. The beat's tasks go to the `scheduled`
 queue, served by its own worker (infra/docker/compose.yml), so user jobs on the default queue never delay them."""
@@ -31,8 +32,9 @@ CAUSE_LIST_TOMORROW = "advocate_workers.causelist.cause_list_tomorrow"
 ADVOCATE_WATCH = "advocate_workers.causelist.advocate_watch"
 REFRESH_WINDOWS = "advocate_workers.windows.refresh_windows"
 SWEEP_JOBS = "advocate_workers.jobs.sweep_jobs"
+AI_COST_WATCH = "advocate_workers.ai.ai_cost_watch"
 
-MODULES = ["jobs", "find", "refresh", "orders", "board", "notify", "causelist", "scan", "windows"]
+MODULES = ["jobs", "find", "refresh", "orders", "board", "notify", "causelist", "scan", "windows", "ai"]
 
 configure_logging()
 app = Celery("advocate_workers", broker=get_settings().redis_url, include=[f"advocate_workers.{m}" for m in MODULES])
@@ -74,6 +76,7 @@ app.conf.update(
         "auto-match": {"task": AUTO_MATCH, "schedule": crontab(day_of_week="sun", hour=2, minute=0)},
         "window-flags": {"task": REFRESH_WINDOWS, "schedule": crontab(minute=5)},
         "job-sweeper": {"task": SWEEP_JOBS, "schedule": crontab(minute="*/10")},
+        "ai-cost-watch": {"task": AI_COST_WATCH, "schedule": crontab(minute=35)},
     },
 )
 app.conf.task_routes = {entry["task"]: {"queue": "scheduled"} for entry in app.conf.beat_schedule.values()}

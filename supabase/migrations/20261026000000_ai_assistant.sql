@@ -71,7 +71,7 @@ create index voice_notes_author_idx on public.voice_notes (created_by);
 -- One row per model call, for cost and quality: never the prompt or the answer (§9.2).
 create table public.ai_runs (
   id uuid primary key default gen_random_uuid(),
-  org_id uuid references public.organizations (id) on delete cascade,  -- null: a shared summary (platform cost)
+  org_id uuid references public.organizations (id) on delete cascade,  -- null: a platform run (evals); ADR 0020
   user_id uuid references public.profiles (id) on delete set null,
   matter_id uuid references public.matters (id) on delete set null,
   kind text not null,                     -- the task in config/ai_models.yaml
