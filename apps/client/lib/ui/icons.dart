@@ -7,6 +7,10 @@ import 'package:flutter/widgets.dart';
 abstract final class AppIcons {
   static const archive = IconData(0xe00c, fontFamily: 'PhosphorRegular');
   static const arrowClockwise = IconData(0xe036, fontFamily: 'PhosphorRegular');
+  static const arrowCounterClockwise = IconData(
+    0xe038,
+    fontFamily: 'PhosphorRegular',
+  );
   static const arrowsClockwise = IconData(
     0xe094,
     fontFamily: 'PhosphorRegular',
@@ -15,6 +19,7 @@ abstract final class AppIcons {
     0xe0a0,
     fontFamily: 'PhosphorRegular',
   );
+  static const arrowSquareIn = IconData(0xe5dc, fontFamily: 'PhosphorRegular');
   static const arrowSquareOut = IconData(0xe5de, fontFamily: 'PhosphorRegular');
   static const bank = IconData(0xe0b4, fontFamily: 'PhosphorRegular');
   static const bell = IconData(0xe0ce, fontFamily: 'PhosphorRegular');
@@ -79,6 +84,7 @@ abstract final class AppIcons {
   static const filesFill = IconData(0xe710, fontFamily: 'PhosphorFill');
   static const files = IconData(0xe710, fontFamily: 'PhosphorRegular');
   static const fingerprint = IconData(0xe23e, fontFamily: 'PhosphorRegular');
+  static const flag = IconData(0xe244, fontFamily: 'PhosphorRegular');
   static const folderSimple = IconData(0xe25a, fontFamily: 'PhosphorRegular');
   static const funnel = IconData(0xe266, fontFamily: 'PhosphorRegular');
   static const gavel = IconData(0xea32, fontFamily: 'PhosphorRegular');
@@ -86,6 +92,7 @@ abstract final class AppIcons {
   static const gear = IconData(0xe270, fontFamily: 'PhosphorRegular');
   static const handshake = IconData(0xe582, fontFamily: 'PhosphorRegular');
   static const image = IconData(0xe2ca, fontFamily: 'PhosphorRegular');
+  static const info = IconData(0xe2ce, fontFamily: 'PhosphorRegular');
   static const lockSimple = IconData(0xe308, fontFamily: 'PhosphorRegular');
   static const magnifyingGlass = IconData(
     0xe30c,
@@ -100,15 +107,22 @@ abstract final class AppIcons {
     fontFamily: 'PhosphorRegular',
   );
   static const mapPin = IconData(0xe316, fontFamily: 'PhosphorRegular');
+  static const microphone = IconData(0xe326, fontFamily: 'PhosphorRegular');
   static const password = IconData(0xe752, fontFamily: 'PhosphorRegular');
   static const pencilSimple = IconData(0xe3b4, fontFamily: 'PhosphorRegular');
   static const phone = IconData(0xe3b8, fontFamily: 'PhosphorRegular');
   static const plusBold = IconData(0xe3d4, fontFamily: 'PhosphorBold');
   static const plus = IconData(0xe3d4, fontFamily: 'PhosphorRegular');
   static const question = IconData(0xe3e8, fontFamily: 'PhosphorRegular');
+  static const quotes = IconData(0xe660, fontFamily: 'PhosphorRegular');
+  static const sealCheck = IconData(0xe606, fontFamily: 'PhosphorRegular');
+  static const sealQuestion = IconData(0xe608, fontFamily: 'PhosphorRegular');
+  static const sealWarning = IconData(0xe60c, fontFamily: 'PhosphorRegular');
   static const shareNetwork = IconData(0xe408, fontFamily: 'PhosphorRegular');
   static const shieldWarning = IconData(0xe412, fontFamily: 'PhosphorRegular');
+  static const sparkle = IconData(0xe6a2, fontFamily: 'PhosphorRegular');
   static const squaresFour = IconData(0xe464, fontFamily: 'PhosphorRegular');
+  static const stop = IconData(0xe46c, fontFamily: 'PhosphorRegular');
   static const sunFill = IconData(0xe472, fontFamily: 'PhosphorFill');
   static const sun = IconData(0xe472, fontFamily: 'PhosphorRegular');
   static const sunDimFill = IconData(0xe474, fontFamily: 'PhosphorFill');
@@ -123,10 +137,12 @@ abstract final class AppIcons {
   static const usersThree = IconData(0xe68e, fontFamily: 'PhosphorRegular');
   static const warning = IconData(0xe4e0, fontFamily: 'PhosphorRegular');
   static const warningCircle = IconData(0xe4e2, fontFamily: 'PhosphorRegular');
+  static const waveform = IconData(0xe802, fontFamily: 'PhosphorRegular');
   static const whatsappLogo = IconData(0xe5d0, fontFamily: 'PhosphorRegular');
   static const wifiSlash = IconData(0xe4f2, fontFamily: 'PhosphorRegular');
   static const windowsLogo = IconData(0xe692, fontFamily: 'PhosphorRegular');
   static const x = IconData(0xe4f6, fontFamily: 'PhosphorRegular');
+  static const xCircle = IconData(0xe4f8, fontFamily: 'PhosphorRegular');
 }
 
 /// Size for an icon that sits inline with text: grows with the user's text scale (up to 200%).
