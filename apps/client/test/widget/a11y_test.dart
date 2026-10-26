@@ -39,9 +39,8 @@ Size? _ringSize(Symbol method, List<dynamic> args) {
   return ring ? outer.outerRect.size : null;
 }
 
-/// How many focus rings [object] and its children paint. A chip draws its border twice (its Material and its ink),
-/// so rings of one size count once.
-int _rings(RenderObject object) {
+/// The sizes of the focus rings [object] and its children paint.
+Set<Size> _ringSizes(RenderObject object) {
   final sizes = <Size>{};
   expect(
     object,
@@ -50,8 +49,12 @@ int _rings(RenderObject object) {
       return true;
     }),
   );
-  return sizes.length;
+  return sizes;
 }
+
+/// How many focus rings [object] and its children paint. A chip draws its border twice (its Material and its ink),
+/// so rings of one size count once.
+int _rings(RenderObject object) => _ringSizes(object).length;
 
 void main() {
   setUpAll(loadAppFonts);
@@ -263,6 +266,126 @@ void main() {
         }
         expect(rows, greaterThan(0), reason: location);
       }
+    });
+
+    testWidgets("Material's own destinations get the app's ring", (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(800, 600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildTheme(lightColors, reduceMotion: false),
+          builder: (context, child) => DestinationFocusRing(child: child!),
+          home: DefaultTabController(
+            length: 2,
+            child: Scaffold(
+              body: Row(
+                children: [
+                  NavigationRail(
+                    selectedIndex: 0,
+                    onDestinationSelected: (_) {},
+                    labelType: NavigationRailLabelType.all,
+                    destinations: const [
+                      NavigationRailDestination(
+                        icon: Icon(AppIcons.sun),
+                        label: Text('Today'),
+                      ),
+                      NavigationRailDestination(
+                        icon: Icon(AppIcons.sun),
+                        label: Text('Cases'),
+                      ),
+                    ],
+                  ),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        const TabBar(
+                          tabs: [
+                            Tab(text: 'Timeline'),
+                            Tab(text: 'Notes'),
+                          ],
+                        ),
+                        SegmentedButton<int>(
+                          segments: const [
+                            ButtonSegment(value: 0, label: Text('Day')),
+                            ButtonSegment(value: 1, label: Text('Week')),
+                          ],
+                          selected: const {0},
+                          onSelectionChanged: (_) {},
+                        ),
+                        PopupMenuButton<int>(
+                          itemBuilder: (_) => const [
+                            PopupMenuItem(value: 0, child: Text('Archive')),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      final app = find.byType(DestinationFocusRing);
+      Size ringOf(FocusNode node) => node.rect.deflate(Radii.focusRing).size;
+      bool inside<T extends Widget>(FocusNode node) =>
+          node.context!.findAncestorWidgetOfExactType<T>() != null;
+      expect(_rings(tester.renderObject(app)), 0);
+
+      // Two rail destinations, two tabs and two segments, in reading order, each ringed 2 dp inside its own box; the
+      // menu button has the theme's ring, outside, and the app's stays off it.
+      final ringed = <Type>[];
+      late FocusNode button;
+      for (var i = 0; i < 10; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        final node = FocusManager.instance.primaryFocus!;
+        final rings = _ringSizes(tester.renderObject(app));
+        if (inside<PopupMenuButton<int>>(node)) {
+          button = node;
+          expect(rings, isNot(contains(ringOf(button))));
+          break;
+        }
+        ringed.add(
+          inside<NavigationRail>(node)
+              ? NavigationRail
+              : inside<TabBar>(node)
+              ? TabBar
+              : SegmentedButton<int>,
+        );
+        expect(rings, {ringOf(node)}, reason: '${ringed.last}');
+      }
+      expect(ringed..sort((a, b) => '$a'.compareTo('$b')), [
+        NavigationRail,
+        NavigationRail,
+        SegmentedButton<int>,
+        SegmentedButton<int>,
+        TabBar,
+        TabBar,
+      ]);
+
+      // The open menu's item.
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      final item = FocusManager.instance.primaryFocus!;
+      expect(inside<PopupMenuItem<int>>(item), isTrue);
+      expect(_ringSizes(tester.renderObject(app)), contains(ringOf(item)));
+
+      // After a touch, a destination with focus shows none.
+      await tester.tapAt(const Offset(790, 590));
+      await tester.pumpAndSettle();
+      Focus.of(tester.element(find.text('Cases'))).requestFocus();
+      await tester.pumpAndSettle();
+      expect(
+        inside<NavigationRail>(FocusManager.instance.primaryFocus!),
+        isTrue,
+      );
+      expect(_rings(tester.renderObject(app)), 0);
     });
 
     testWidgets('a button inside a row takes the ring from the row', (

@@ -74,11 +74,12 @@ board. Each run uses a fresh account (test numbers 32–40 were added), since Su
 minute. `just test-e2e` runs the two app tests; they need Windows and the stack, so CI doesn't run them yet.
 
 ## Consequences
-- Phase 1 gate exceptions, for the manual screen-reader pass and Track B:
-  - Material's own destinations (NavigationRail, NavigationBar, TabBar, popup menu items, SegmentedButton) still
-    show only the focus tint.
+- Phase 1 gate exceptions, decided 26 Oct 2026 (phase-1-report.md):
+  - Material's own destinations (NavigationRail, NavigationBar, TabBar, popup menu items, SegmentedButton) get the
+    ring from `DestinationFocusRing`, one overlay over the app's navigator that rings the focused destination 2 dp
+    inside its box; it follows the destination frame by frame while shown (a menu opening, a tab bar scrolling).
   - Haptics Flutter fires outside the theme (date and time pickers, long-press text selection) still vibrate with
-    haptics off.
+    haptics off; accepted, as they follow the phone's own haptics setting.
   - The manual TalkBack, VoiceOver and Narrator pass (§16.4) needs devices. It should listen in particular for
     text now read when it first appears (the calendar's period title, "Loading your account").
 - A morning the beat misses isn't caught up, and a deadline whose date moves keeps the reminders already sent. P1
