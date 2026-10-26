@@ -30,6 +30,7 @@ PHONES = {
 NEVER = {  # §9.4 "Never synced" tables that exist so far
     "court_cases", "court_hearings", "court_orders", "cause_list_entries", "provider_calls", "usage_ledger",
     "audit_log", "invites", "devices", "consents", "platform_admins", "feedback",
+    "document_chunks", "ai_runs", "ai_answers", "public_summaries", "client_messages", "calendar_feeds",
 }  # fmt: skip
 
 if not _up(55380):
@@ -102,6 +103,7 @@ ROWS = [
     "dop_adv", "np_adv", "np_jun", "ocl_current", "ocl_old", "be_current", "be_old", "fc_pending", "fc_skipped",
     "fc_added", "c_live", "c_deleted", "c_b", "mc", "n_team", "n_private_adv", "n_private_jun", "n_deleted", "n_b",
     "t_live", "t_deleted", "dl_live", "nt_adv", "nt_adv_old", "nt_jun", "j_adv", "j_adv_old", "j_owner",
+    "vn_adv", "vn_jun", "vn_removed", "vn_b", "dbs_live", "dbs_old", "dbs_b",
 ]  # fmt: skip
 
 FIXTURE = """
@@ -151,18 +153,24 @@ insert into jobs (id, org_id, user_id, kind, is_recent) values
   (:j_adv, :a, :advocate, 'find_cases', true), (:j_adv_old, :a, :advocate, 'find_cases', false),
   (:j_owner, :a, :owner, 'find_cases', true);
 insert into court_cases (cnr) values ('TESTSYNC00000001') on conflict do nothing;
+insert into voice_notes (id, org_id, created_by) values
+  (:vn_adv, :a, :advocate), (:vn_jun, :a, :junior), (:vn_removed, :a, :removed), (:vn_b, :b, :outsider);
+insert into display_board_snapshots (id, org_id, court_id, court_no, current_item, is_live) values
+  (:dbs_live, :a, 'c0000000-0000-0000-0000-000000000003', '12', '18', true),
+  (:dbs_old, :a, 'c0000000-0000-0000-0000-000000000003', '12', '9', false),
+  (:dbs_b, :b, 'c0000000-0000-0000-0000-000000000003', '12', '18', true);
 """
 
 ORG_A = {
     "m_live", "h_live", "o_live", "d_live", "ocl_current", "be_current", "fc_pending", "fc_skipped",
-    "c_live", "mc", "n_team", "t_live", "dl_live",
+    "c_live", "mc", "n_team", "t_live", "dl_live", "dbs_live",
 }  # fmt: skip
-EXPECTED = {
+EXPECTED = {  # a member never receives anyone else's voice notes (§9.4)
     "owner": ORG_A | {"j_owner"},
-    "advocate": ORG_A | {"n_private_adv", "or_adv", "dop_adv", "np_adv", "nt_adv", "j_adv"},
-    "junior": ORG_A | {"n_private_jun", "or_jun", "np_jun", "nt_jun"},
+    "advocate": ORG_A | {"n_private_adv", "or_adv", "dop_adv", "np_adv", "nt_adv", "j_adv", "vn_adv"},
+    "junior": ORG_A | {"n_private_jun", "or_jun", "np_jun", "nt_jun", "vn_jun"},
     "clerk": ORG_A,
-    "outsider": {"m_b", "c_b", "n_b"},
+    "outsider": {"m_b", "c_b", "n_b", "vn_b", "dbs_b"},
     "removed": set(),
 }
 

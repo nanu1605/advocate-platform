@@ -261,6 +261,18 @@ const schema = Schema([
     Column.text('updated_at'),
   ]),
 
+  Table('display_board_snapshots', [
+    Column.text('org_id'),
+    Column.text('court_id'),
+    Column.text('court_no'),
+    Column.text('current_item'),
+    Column.text('captured_at'),
+    Column.text('captured_by'),
+    Column.text('source'),
+    Column.integer('is_live'),
+    Column.text('created_at'),
+  ]),
+
   // The signed-in user's own rows
   Table('profiles', [
     Column.text('full_name'),
@@ -319,6 +331,21 @@ const schema = Schema([
     Column.text('updated_at'),
   ]),
 
+  Table('voice_notes', [
+    Column.text('org_id'),
+    Column.text('matter_id'),
+    Column.text('created_by'),
+    Column.text('audio_path'),
+    Column.integer('duration_ms'),
+    Column.text('transcript'),
+    Column.text('language'),
+    Column.text('parsed'),
+    Column.text('status'),
+    Column.text('error_code'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
   // Local only, never uploaded: ticks on the Found cases screen survive the app being killed (§4.1).
   // `id` is the found case's id; `selected` is an explicit tick (1) or untick (0), no row = the default.
   Table.localOnly('found_selection', [
@@ -370,4 +397,5 @@ const jsonColumns = {
   'orders': {'summary_en', 'summary_hi'},
   'plans': {'limits'},
   'profiles': {'practice_court_ids'},
+  'voice_notes': {'parsed'},
 };
