@@ -787,5 +787,8 @@
   "trackerUpdatedAgo": "{minutes, plural, =0{अभी} =1{{minutes} मिनट पहले} other{{minutes} मिनट पहले}} अपडेट हुआ",
   "trackerStale": "यह जानकारी पुरानी हो सकती है।",
   "trackerNone": "कोर्ट से अभी कोई अपडेट नहीं",
-  "trackerUpdate": "आइटम अपडेट करें"
+  "trackerUpdate": "आइटम अपडेट करें",
+  "krutidevFound": "यह कृतिदेव फ़ॉन्ट में टाइप की गई हिंदी लगती है।",
+  "krutidevConvert": "यूनिकोड हिंदी में बदलें",
+  "krutidevConverted": "यूनिकोड हिंदी में बदल दिया"
 }

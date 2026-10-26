@@ -924,5 +924,9 @@
   "@trackerUpdatedAgo": { "description": "An update from a source, or from a member who has left.", "placeholders": { "minutes": { "type": "int" } } },
   "trackerStale": "This may be out of date.",
   "trackerNone": "No update from court yet",
-  "trackerUpdate": "Update item"
+  "trackerUpdate": "Update item",
+  "krutidevFound": "This looks like Hindi typed in the Kruti Dev font.",
+  "@krutidevFound": { "description": "Shown under a text field when pasted text is in the old Kruti Dev font encoding." },
+  "krutidevConvert": "Convert to Unicode Hindi",
+  "krutidevConverted": "Converted to Unicode Hindi"
 }

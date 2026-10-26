@@ -16,6 +16,7 @@ import 'package:advocate_app/ui/case_card.dart';
 import 'package:advocate_app/ui/fields.dart';
 import 'package:advocate_app/ui/focus_ring.dart';
 import 'package:advocate_app/ui/icons.dart';
+import 'package:advocate_app/ui/krutidev_offer.dart';
 import 'package:advocate_app/ui/section_header.dart';
 import 'package:advocate_app/ui/sheets.dart';
 import 'package:advocate_app/ui/skeleton.dart';
@@ -487,7 +488,9 @@ class _ClientSheetState extends ConsumerState<_ClientSheet> {
   String? _error(ClientFieldError? e) =>
       e == null ? null : clientFieldErrorText(context.l10n, e);
 
-  Widget _multiline(TextEditingController controller, String label) =>
+  Widget _multiline(TextEditingController controller, String label) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
       TextField(
         controller: controller,
         minLines: 2,
@@ -495,7 +498,10 @@ class _ClientSheetState extends ConsumerState<_ClientSheet> {
         textCapitalization: TextCapitalization.sentences,
         style: context.text.bodyLarge,
         decoration: InputDecoration(labelText: label, alignLabelWithHint: true),
-      );
+      ),
+      KrutidevOffer(controller),
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {

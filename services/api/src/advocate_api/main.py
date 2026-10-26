@@ -5,7 +5,7 @@ from sqlalchemy import text
 from advocate_api import courts, errors, idempotency
 from advocate_api.db import engine
 from advocate_api.ratelimit import redis
-from advocate_api.routes import account, board, devices, files, hooks, imports, matters, orgs, team
+from advocate_api.routes import account, board, devices, files, hooks, imports, matters, orgs, team, tools
 from advocate_shared.logging import configure_logging
 
 
@@ -15,7 +15,7 @@ def create_app() -> FastAPI:
     errors.install(app)
     idempotency.install(app)
     courts.install(app)
-    routers = (account, orgs, devices, hooks, team, imports, matters, files, board)
+    routers = (account, orgs, devices, hooks, team, imports, matters, files, board, tools)
     for r in (m.router for m in routers):
         app.include_router(r)
 
