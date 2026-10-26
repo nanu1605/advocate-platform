@@ -36,12 +36,17 @@ streams:
       - SELECT * FROM tasks WHERE org_id IN user_orgs AND deleted_at IS NULL
       - SELECT * FROM deadlines WHERE org_id IN user_orgs AND deleted_at IS NULL
       - SELECT * FROM documents WHERE org_id IN user_orgs AND deleted_at IS NULL
+      - SELECT * FROM display_board_snapshots WHERE org_id IN user_orgs AND is_live = true
 
   private_notes:
     auto_subscribe: true
     query: >-
       SELECT * FROM notes WHERE org_id IN user_orgs AND author_id = auth.user_id()
       AND visibility = 'private' AND deleted_at IS NULL
+
+  voice_notes:
+    auto_subscribe: true
+    query: SELECT * FROM voice_notes WHERE org_id IN user_orgs AND created_by = auth.user_id()
 
   user:
     auto_subscribe: true
