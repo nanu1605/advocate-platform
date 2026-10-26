@@ -1,12 +1,15 @@
 """Search inside documents (spec §12.4, F06, F15): the organisation's uploads and the court orders it tracks, scans
 included, as the user (row-level security), full text alone or hybrid with the embedder's fake models."""
 
+import asyncio
+
 import httpx
 import pytest
 
+from advocate_api.ratelimit import redis
 from advocate_embedder.app import create_app
 from advocate_embedder.fake import FakeModels
-from advocate_shared import embedder
+from advocate_shared import embedder, retrieval
 
 from .conftest import make_team, sql
 
@@ -125,6 +128,25 @@ async def test_narrows_to_one_case_and_any_member_can_search(api, team, files, m
     assert r.json()["hits"] == []
 
 
+async def test_full_text_puts_pages_with_every_word_first(api, team, files, monkeypatch):
+    monkeypatch.setattr(embedder, "configured", lambda: None)
+    case = await matter(team.org_id, "Verma v. State")
+    filler = await document(team.org_id, case, "Order sheet", ["अर्जी पर सुनवाई हुई। " * 25])
+    plea = await document(team.org_id, case, "Adjournment", ["वादी की ओर से स्थगन की अर्जी प्रस्तुत की गई।"])
+    r = await search(api, team, query="स्थगन की अर्जी", matter_id=case)  # not the page full of अर्जी
+    assert [h["document_id"] for h in r.json()["hits"]] == [plea, filler]
+
+
+async def test_full_text_leaves_out_common_words(api, team, files, monkeypatch):
+    monkeypatch.setattr(embedder, "configured", lambda: None)
+    await document(team.org_id, files["wp"], "Evidence", ["वादी की ओर से साक्षी की गवाही। " * 25])
+    r = await search(api, team, query="सुरेश की जमानत", matter_id=files["wp"])  # no page has every word
+    hits = {(h["document_id"], h["order_id"]) for h in r.json()["hits"]}
+    assert hits == {(files["bail"], None), (None, files["order"])}  # not the page full of की
+    r = await search(api, team, query="की", matter_id=files["wp"])  # only common words: as they are
+    assert [h["title"] for h in r.json()["hits"]] == ["Evidence"]
+
+
 async def test_hybrid_ranks_with_the_embedder(api, team, files, monkeypatch):
     client = embedder.Embedder("http://embedder", transport=httpx.ASGITransport(app=create_app(FakeModels())))
     monkeypatch.setattr(embedder, "configured", lambda: client)
@@ -132,6 +154,8 @@ async def test_hybrid_ranks_with_the_embedder(api, team, files, monkeypatch):
     hits = r.json()["hits"]
     assert hits[0]["document_id"] == files["bail"] and hits[0]["page"] == 2
     assert files["other"] not in {h["document_id"] for h in hits}
+
+    embed = embedder.Embedder.embed
 
     async def down(self, *args):
         raise httpx.ConnectError("down")
@@ -141,6 +165,49 @@ async def test_hybrid_ranks_with_the_embedder(api, team, files, monkeypatch):
     r = await search(api, team, query="bail granted on a bond")  # the full text still answers
     assert r.status_code == 200 and r.json()["hits"][0]["document_id"] == files["bail"]
 
+    async def slow(self, *args):
+        await asyncio.sleep(5)
+
+    monkeypatch.setattr(retrieval, "WAIT_S", 0.5)
+    monkeypatch.setattr(embedder.Embedder, "embed", embed)
+    for patched in ("rerank", "embed"):  # a slow reranker, then a slow embedder, is not waited for
+        monkeypatch.setattr(embedder.Embedder, patched, slow)
+        r = await search(api, team, query="bail granted on a bond")
+        assert r.status_code == 200 and r.json()["hits"][0]["document_id"] == files["bail"], patched
+
+
+async def test_pages_found_by_meaning_alone_need_the_reranker(api, team, files, monkeypatch):
+    client = embedder.Embedder("http://embedder", transport=httpx.ASGITransport(app=create_app(FakeModels())))
+    monkeypatch.setattr(embedder, "configured", lambda: client)
+    r = await search(api, team, query="release surety")  # words in no page: the nearest pages are not hits
+    assert r.status_code == 200 and r.json()["hits"] == []
+
+    async def bail_is_near(self, query, passages):  # as the real reranker scores the bail order for these words
+        return [0.6 if "Bail" in p else 0.0 for p in passages]
+
+    monkeypatch.setattr(embedder.Embedder, "rerank", bail_is_near)
+    r = await search(api, team, query="release surety")
+    assert [(h["document_id"], h["page"]) for h in r.json()["hits"]] == [(files["bail"], 2)]
+
+    async def down(self, *args):
+        raise httpx.ConnectError("down")
+
+    monkeypatch.setattr(embedder.Embedder, "rerank", down)
+    assert (await search(api, team, query="release surety")).json()["hits"] == []
+
+    def late(call):
+        async def after(*args):
+            await asyncio.sleep(0.3)
+            return await call(*args)
+
+        return after
+
+    monkeypatch.setattr(retrieval, "WAIT_S", 0.5)
+    monkeypatch.setattr(embedder.Embedder, "embed", late(embedder.Embedder.embed))
+    monkeypatch.setattr(embedder.Embedder, "rerank", late(bail_is_near))
+    r = await search(api, team, query="release surety")  # each wait is under WAIT_S, but both share it
+    assert r.status_code == 200 and r.json()["hits"] == []
+
 
 async def test_needs_membership_and_a_query(api, team, files):
     r = await search(api, team, "outsider", query="जमानत")
@@ -149,9 +216,11 @@ async def test_needs_membership_and_a_query(api, team, files):
     assert (await search(api, team, query="x" * 201)).status_code == 422
 
 
-async def test_rate_limited(api, team, files, monkeypatch):
-    monkeypatch.setattr(embedder, "configured", lambda: None)
-    for _ in range(30):
-        await search(api, team, "clerk", query="nothing here")
-    r = await search(api, team, "clerk", query="nothing here")
+async def test_rate_limited(api, team, files):
+    counter = f"rl:doc-search:{team.users['clerk']}"
+    await redis().set(counter, 30, ex=60)  # this minute's 30 searches used
+    try:
+        r = await search(api, team, "clerk", query="nothing here")
+    finally:
+        await redis().delete(counter)  # the other tests search as the clerk too
     assert r.status_code == 429 and r.json()["error"]["code"] == "RATE_LIMITED"

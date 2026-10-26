@@ -6,8 +6,13 @@ Run it on the user's connection: row-level security then limits it too. A docume
 court order's are shared, so they are reached through the organisation's own `orders` rows. Deleted documents and
 orders, and files still waiting for their scan, are skipped. The nearest chunks are found by exact distance over the
 organisation's own chunks, so the filters never starve the result as they can after an index scan (ADR 0019).
-Without an embedder the full text alone answers."""
+Without an embedder the full text alone answers.
 
+Full text puts the chunks with every query word first, and matches and ranks the rest by the words other than COMMON
+function words. A chunk only the vector branch found is kept only when the reranker scores it MIN_SCORE or more, and
+dropped without the reranker, so a page that neither holds a query word nor reranks well is not a hit."""
+
+import asyncio
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -25,6 +30,11 @@ log = structlog.get_logger()
 CANDIDATES = 40
 TOP = 8
 RRF_K = 60
+# For the embedder and the reranker together, then the search answers without them: under the app's 20 s receive timeout
+WAIT_S = 10
+# ponytail: a guess, to tune on real queries; bge-reranker-v2-m3's sigmoid scored a bail order 0.46 (Hindi) and 0.59
+# (English) for "bail granted to the accused", and an unrelated reply 0.0
+MIN_SCORE = 0.2
 
 # The chunks the organisation can search, with what the app needs to open them; :matter narrows to one case.
 VISIBLE = """
@@ -41,9 +51,15 @@ where o.org_id = :org and o.deleted_at is null
 order by score {direction} limit :n
 """
 QUERY = "plainto_tsquery('simple', public.search_text(:q))"
-# Any of the words: ranking puts chunks with all of them first; the reranker sorts out the rest.
-ANY_WORD = f"replace({QUERY}::text, '&', '|')::tsquery"
-FULL_TEXT = VISIBLE.format(score=f"ts_rank_cd(c.tsv, {ANY_WORD})", match=f"c.tsv @@ {ANY_WORD}", direction="desc")
+# Any of the words, COMMON's left out (:any). Chunks with all the words come first, then by cover density.
+# Normalisation 32 (rank / (rank + 1)) keeps that below 1: it counts every hit of a word, so a chunk full of one would
+# otherwise outrank one with all of them.
+ANY_WORD = "replace(plainto_tsquery('simple', public.search_text(:any))::text, '&', '|')::tsquery"
+# On nearly every page ('simple' keeps them), so they would match and rank pages that hold none of the other words.
+COMMON = frozenset("का के की को में पर से ने और है तथा एवं the of to a an and in on for by is with at as".split())
+FULL_TEXT = VISIBLE.format(
+    score=f"(c.tsv @@ {QUERY})::int + ts_rank_cd(c.tsv, {ANY_WORD}, 32)", match=f"c.tsv @@ {ANY_WORD}", direction="desc"
+)
 NEAREST = VISIBLE.format(
     score="c.embedding <=> cast(:v as extensions.vector)", match="c.embedding is not null", direction="asc"
 )
@@ -68,14 +84,18 @@ async def _ranked(conn: AsyncConnection, sql: str, **params: object) -> list[Hit
 
 async def search(conn: AsyncConnection, org_id: UUID, query: str, *, matter_id: UUID | None = None) -> list[Hit]:
     """The TOP chunks for `query` in the organisation's files, most relevant first."""
-    params = {"org": org_id, "matter": matter_id, "q": query}
+    deadline = asyncio.get_running_loop().time() + WAIT_S
+    any_word = " ".join(w for w in query.split() if fold(w) not in COMMON) or query  # as typed if all are common
+    params = {"org": org_id, "matter": matter_id, "q": query, "any": any_word}
     lists = [await _ranked(conn, FULL_TEXT, **params)]
+    keep = {h.chunk_id for h in lists[0]}  # the full text's hits, and below the vector branch's that rerank well
     client = embedder.configured()
     if client is not None:
         try:
-            [v] = await client.embed([query])
+            async with asyncio.timeout_at(deadline):
+                [v] = await client.embed([query])
             lists.append(await _ranked(conn, NEAREST, v=embedder.vector(v), **params))
-        except httpx.HTTPError as e:
+        except (httpx.HTTPError, TimeoutError) as e:
             log.warning("embedder_unavailable", error=type(e).__name__)
             client = None
     fused: dict[UUID, float] = {}
@@ -87,11 +107,13 @@ async def search(conn: AsyncConnection, org_id: UUID, query: str, *, matter_id: 
     candidates = sorted(fused, key=fused.__getitem__, reverse=True)[:CANDIDATES]
     if client is not None and candidates:
         try:
-            scores = await client.rerank(query, [hits[c].text for c in candidates])
+            async with asyncio.timeout_at(deadline):
+                scores = await client.rerank(query, [hits[c].text for c in candidates])
+            keep |= {c for s, c in zip(scores, candidates, strict=True) if s >= MIN_SCORE}
             candidates = [c for _, c in sorted(zip(scores, candidates, strict=True), key=lambda p: -p[0])]
-        except httpx.HTTPError as e:
+        except (httpx.HTTPError, TimeoutError) as e:
             log.warning("reranker_unavailable", error=type(e).__name__)
-    return [hits[c] for c in candidates[:TOP]]
+    return [hits[c] for c in candidates if c in keep][:TOP]
 
 
 # The same folding as the database's public.search_text, so a snippet finds the word the search matched.
@@ -110,10 +132,12 @@ def fold(s: str) -> str:
 
 
 def snippet(text: str, query: str) -> str:
-    """About SNIPPET characters of `text` around the first word of `query` in it, cut at spaces (or its start)."""
+    """About SNIPPET characters of `text` around the first word of `query` in it (COMMON's skipped, as in the search),
+    cut at spaces (or its start)."""
     folded = [(i, f) for i, c in enumerate(text) if (f := fold(c))]  # original index of each folded character
     flat = "".join(f for _, f in folded)
-    found = [at for w in fold(query).split() if (at := flat.find(w)) >= 0]
+    words = fold(query).split()
+    found = [at for w in [w for w in words if w not in COMMON] or words if (at := flat.find(w)) >= 0]
     centre = folded[min(found)][0] if found else 0
     start = max(0, centre - SNIPPET // 3)
     end = min(len(text), start + SNIPPET)
