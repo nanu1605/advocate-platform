@@ -7,10 +7,10 @@ import 'package:flutter_test/flutter_test.dart';
 import '../helpers.dart';
 import 'scene_goldens.dart';
 
-/// Sheet and dialog goldens (spec §4.2, §4.3, §5.3): the + sheet, adding a case, the case page's sheets, assigning
-/// and sharing the board, a client's details, feedback and the team's role and name, on a phone ×
-/// light/dark/sunlight × en/hi × text scale 1.0/2.0; a case note and a client's details also over the Windows two
-/// panes. Reference images are rendered on Windows; CI runs this file on windows-latest.
+/// Sheet and dialog goldens (spec §4.2, §4.3, §5.3): the + sheet, adding a case, the case page's sheets (an order's
+/// summary among them), assigning and sharing the board, a client's details, feedback and the team's role and name,
+/// on a phone × light/dark/sunlight × en/hi × text scale 1.0/2.0; a case note and a client's details also over the
+/// Windows two panes. Reference images are rendered on Windows; CI runs this file on windows-latest.
 void main() {
   setUpAll(loadAppFonts);
   sceneGoldens('sheets', {
@@ -23,6 +23,7 @@ void main() {
     'case page, deadline': 'case_deadline',
     'case page, link client': 'case_link_client',
     'case page, share': 'case_share',
+    'case page, order summary': 'order_summary',
     'board, assign to': 'assign',
     'board, share': 'board_share',
     'client, edit': 'client',

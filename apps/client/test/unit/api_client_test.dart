@@ -161,6 +161,63 @@ void main() {
     },
   );
 
+  test('summaries and order intelligence: cached now, or a job; the credits '
+      'agreed and the key go with it', () async {
+    final (api, adapter) = _client(
+      (r) => switch (r.path) {
+        '/v1/orders/o-1/summary' => (
+          200,
+          {
+            'status': 'ready',
+            'summary': {'title': 'Order'},
+          },
+        ),
+        '/v1/documents/d-1/summary' => (
+          202,
+          {'status': 'queued', 'job_id': 'j1'},
+        ),
+        _ => (200, {'status': 'ready', 'proposed': 2}),
+      },
+    );
+    final order = await api.summariseOrder(
+      orgId: 'o1',
+      orderId: 'o-1',
+      language: 'hi',
+      idempotencyKey: 'key-1234',
+    );
+    expect(order.summary, {'title': 'Order'});
+    expect(order.jobId, isNull);
+    final doc = await api.summariseDocument(
+      orgId: 'o1',
+      documentId: 'd-1',
+      language: 'en',
+      credits: 4,
+      idempotencyKey: 'key-2345',
+    );
+    expect((doc.summary, doc.jobId), (null, 'j1'));
+    final intel = await api.orderIntel(
+      orgId: 'o1',
+      orderId: 'o-1',
+      idempotencyKey: 'key-3456',
+    );
+    expect(intel.proposed, 2);
+    expect(
+      [
+        for (final r in adapter.requests)
+          (r.method, r.path, r.data, r.headers['Idempotency-Key']),
+      ].map((r) => '$r'),
+      [
+        '(POST, /v1/orders/o-1/summary, {language: hi, credits: 0}, key-1234)',
+        '(POST, /v1/documents/d-1/summary, {language: en, credits: 4}, key-2345)',
+        '(POST, /v1/ai/order-intel, {order_id: o-1, credits: 0}, key-3456)',
+      ],
+    );
+    expect(
+      adapter.requests.every((r) => r.headers['X-Org-Id'] == 'o1'),
+      isTrue,
+    );
+  });
+
   test('a decision is org-scoped without an idempotency key', () async {
     final (api, adapter) = _client(
       (_) => (200, {'id': 'f1', 'decision': 'not_mine'}),

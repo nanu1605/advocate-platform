@@ -6,6 +6,7 @@ import 'package:advocate_app/data/cases.dart';
 import 'package:advocate_app/data/documents.dart';
 import 'package:advocate_app/features/case_page/case_page_text.dart';
 import 'package:advocate_app/features/case_page/sheet_form.dart';
+import 'package:advocate_app/features/case_page/summary_sheet.dart';
 import 'package:advocate_app/ui/fields.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/sheets.dart';
@@ -18,8 +19,9 @@ import 'package:go_router/go_router.dart';
 /// Timeline (spec §4.3): hearings and orders, newest first. A hearing shows the court's values, the user's where
 /// they differ ("You noted"), and its note, which can be added on every hearing. Manual cases add, edit and delete
 /// their hearings ("Add next date" adds one). An order says "New" until the user opens it in the viewer (the court's
-/// copy, else its uploaded document), and "Available offline" when its file is on the device. Order summaries are
-/// P2. A sliver for the case page.
+/// copy, else its uploaded document), and "Available offline" when its file is on the device; its Summary (spec
+/// §5.3 wireframe, F07) opens the summary sheet, as does "2 actions to review" when the AI proposed tasks or
+/// deadlines from it (F13). A sliver for the case page.
 class TimelineTab extends ConsumerWidget {
   const TimelineTab(this.c, {super.key});
 
@@ -168,6 +170,13 @@ class _Order extends ConsumerWidget {
       ),
     );
     final success = context.colors.of(StatusKind.success).fg;
+    final toReview = ref.watch(
+      caseProposalsProvider(
+        matterId,
+      ).select((ps) => ps.value?.where((p) => p.orderId == o.id).length ?? 0),
+    );
+    void summary() =>
+        unawaited(showOrderSummarySheet(context, matterId, order: o));
     return TimelineItem(
       date: date == null
           ? ''
@@ -187,6 +196,12 @@ class _Order extends ConsumerWidget {
                 unawaited(context.push('/cases/$matterId/orders/${o.id}')),
             child: Text(l.casePageOpenOrder),
           ),
+          TextButton(onPressed: summary, child: Text(l.summaryButton)),
+          if (toReview > 0)
+            TextButton(
+              onPressed: summary,
+              child: Text(l.summaryToReview(toReview)),
+            ),
           if (saved)
             Row(
               mainAxisSize: MainAxisSize.min,

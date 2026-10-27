@@ -60,6 +60,16 @@ String errorText(AppLocalizations l, Object? error) {
     'SCANNER_UNAVAILABLE' => l.errorScannerUnavailable,
     'CASE_NOT_FOUND' => l.errorCaseNotFound,
     'COURT_PROVIDER_ERROR' => l.errorProviderError,
+    'AI_CREDITS_NEEDED' => l.errorAiCreditsNeeded,
+    'AI_CREDITS_EXHAUSTED' => l.errorAiCreditsExhausted,
+    'ORDER_TEXT_PENDING' => l.errorOrderTextPending,
+    'ORDER_TEXT_UNREADABLE' => l.errorOrderTextUnreadable,
+    'ORDER_DATE_UNKNOWN' => l.errorOrderDateUnknown,
+    'ORDER_SUMMARY_UNAVAILABLE' => l.errorOrderSummaryUnavailable,
+    'DOCUMENT_NOT_AN_ORDER' => l.errorDocumentNotAnOrder,
+    'AI_BUSY' => l.errorAiBusy,
+    'AI_FAILED' => l.errorAiFailed,
+    'AI_IN_PROGRESS' => l.errorAiInProgress,
     // INTERNAL (API), INTERNAL_ERROR (workers), METHOD_NOT_ALLOWED and HTTP_ERROR (the API's catch-alls) are ours
     // to fix: the generic text. So is an unexpected code a court-data provider passes through to a job.
     _ => l.errorGeneric,

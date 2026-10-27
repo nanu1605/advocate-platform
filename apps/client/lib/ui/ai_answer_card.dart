@@ -5,17 +5,25 @@ import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/source_chip.dart';
 import 'package:flutter/material.dart';
 
-/// One line of an AI answer and the sources it rests on (spec §12.1: every claim tied to a source).
+/// One line of an AI answer and the sources it rests on (spec §12.1: every claim tied to a source), with a [note]
+/// under it (e.g. "As cited in this order — not verified"); or a section's heading ([AnswerLine.heading]).
 @immutable
 class AnswerLine {
-  const AnswerLine(this.text, {this.sources = const []});
+  const AnswerLine(this.text, {this.sources = const [], this.note})
+    : heading = false;
+
+  const AnswerLine.heading(this.text, {this.note})
+    : sources = const [],
+      heading = true;
 
   final String text;
   final List<SourceChip> sources;
+  final String? note;
+  final bool heading;
 }
 
-/// AI output beside the work (spec §5.1, §5.11 #7): the AI badge, the answer line by line with its sources, the
-/// actions, and a footer saying to check it. Copy, insert, undo and report show when they are given.
+/// AI output beside the work (spec §5.1, §5.11 #7): the AI badge, the answer line by line with its sources (under
+/// section headings when it has them, e.g. an order summary's), the actions, and a footer saying to check it. Copy, insert, undo and report show when they are given.
 class AIAnswerCard extends StatelessWidget {
   const AIAnswerCard({
     required this.lines,
@@ -90,8 +98,21 @@ class AIAnswerCard extends StatelessWidget {
             ],
           ),
           for (final line in lines) ...[
-            const SizedBox(height: 12),
-            Text(line.text, style: context.text.bodyLarge),
+            SizedBox(height: line.heading ? 20 : 12),
+            if (line.heading)
+              Semantics(
+                header: true,
+                child: Text(line.text, style: context.text.titleSmall),
+              )
+            else
+              Text(line.text, style: context.text.bodyLarge),
+            if (line.note != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                line.note!,
+                style: context.text.bodySmall?.copyWith(color: c.ink2),
+              ),
+            ],
             if (line.sources.isNotEmpty) ...[
               const SizedBox(height: 4),
               Wrap(spacing: 8, runSpacing: 8, children: line.sources),

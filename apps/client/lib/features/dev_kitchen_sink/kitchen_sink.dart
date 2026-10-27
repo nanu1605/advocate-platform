@@ -453,6 +453,37 @@ final kitSections = <KitSection>[
       ),
     ]),
   ),
+  // An order summary's sections (F07): headings, a direction's who and when, authorities "not verified".
+  KitSection('ai_summary', (context) {
+    final l = context.l10n;
+    SourceChip page(int p) =>
+        SourceChip(l.casePageOrder, page: p, onTap: _noop);
+    return AIAnswerCard(
+      title: 'Order dated 28-10-2026',
+      lines: [
+        AnswerLine(
+          'MPHC Indore · 28 Oct 2026 · Justice A. B. Sharma',
+          sources: [page(1)],
+        ),
+        AnswerLine.heading(l.summaryGist),
+        AnswerLine(
+          'Notice issued; interim protection continues till the next date.',
+          sources: [page(1), page(2)],
+        ),
+        AnswerLine.heading(l.summaryDirections),
+        AnswerLine(
+          'File a reply to the petition.',
+          note: [
+            l.summaryWho('the respondents'),
+            l.summaryByWhen('within 4 weeks'),
+          ].join(' · '),
+          sources: [page(2)],
+        ),
+        AnswerLine.heading(l.summaryAuthorities, note: l.summaryAsCited),
+        AnswerLine('(2019) 5 SCC 123', sources: [page(3)]),
+      ],
+    );
+  }),
   KitSection(
     'sources',
     (context) => const Wrap(

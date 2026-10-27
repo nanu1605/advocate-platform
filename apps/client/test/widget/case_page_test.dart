@@ -33,8 +33,9 @@ DateTime nov(int d) => DateTime.utc(2026, 11, d);
 
 /// The case page's sample (testNow: Thu 5 Nov 2026, 10:00 IST). WP 1001/2024 (m-1) is auto-tracked and listed today,
 /// before Justice A. B. Sharma at the admission stage, assigned to Neha. Its timeline: today's hearing, the 28 Oct
-/// order (unread) and hearing (court next date 5 Nov; the user noted 6 Nov, with a note). Three documents (ready,
-/// being checked, quarantined), a team and a private note, three tasks, a deadline and client Suresh Patel. WP 1002
+/// order (unread, summarised in English and Hindi, with two proposals from it: a deadline due 25 Nov read on page 2,
+/// and an undated task) and hearing (court next date 5 Nov; the user noted 6 Nov, with a note). Three documents (ready, being
+/// checked, quarantined), a team and a private note, three tasks, a deadline and client Suresh Patel. WP 1002
 /// (m-2) is a manual case at an "Other court" with one hearing on 12 Nov; WP 1003 (m-3) has tracking off and no
 /// next date. [pendingFound] found cases wait in "Found for you".
 FakeCases sampleCases({List<CaseInfo>? cases, int pendingFound = 0}) =>
@@ -96,6 +97,32 @@ FakeCases sampleCases({List<CaseInfo>? cases, int pendingFound = 0}) =>
             id: 'o-1',
             date: DateTime.utc(2026, 10, 28),
             title: 'Reply within 4 weeks',
+            summaryEn: orderSummary(),
+            summaryHi: orderSummary(hindi: true),
+          ),
+        ],
+      },
+      proposals: {
+        'm-1': [
+          CaseProposal(
+            id: 'p-1',
+            table: 'deadlines',
+            matterId: 'm-1',
+            orderId: 'o-1',
+            orderTitle: 'Reply within 4 weeks',
+            orderDate: DateTime.utc(2026, 10, 28),
+            page: 2,
+            title: 'File the reply',
+            due: nov(25),
+          ),
+          CaseProposal(
+            id: 'p-2',
+            table: 'tasks',
+            matterId: 'm-1',
+            orderId: 'o-1',
+            orderTitle: 'Reply within 4 weeks',
+            orderDate: DateTime.utc(2026, 10, 28),
+            title: 'Get instructions for the reply',
           ),
         ],
       },
@@ -190,6 +217,52 @@ FakeCases sampleCases({List<CaseInfo>? cases, int pendingFound = 0}) =>
         ClientInfo(id: 'cl-3', name: 'राजेश शर्मा'),
       ],
     );
+
+/// An order summary as the pipeline stores it (spec F07): MPHC Indore's 28 Oct 2026 order, its points on pages 1–3.
+Map<String, Object?> orderSummary({bool hindi = false}) => {
+  'title': hindi ? '28-10-2026 का आदेश' : 'Order dated 28-10-2026',
+  'court': 'MPHC Indore',
+  'order_date': '2026-10-28',
+  'judges': ['Justice A. B. Sharma'],
+  'header_sources': ['S1'],
+  'outcome': {
+    'text': hindi ? 'नोटिस जारी।' : 'Notice issued.',
+    'sources': ['S1'],
+  },
+  'gist': {
+    'text': hindi ? 'प्रतिवादियों को नोटिस; अगली तारीख तक अंतरिम राहत जारी।' : 'Notice to the respondents; interim protection continues till the next date.',
+    'sources': ['S1', 'S2'],
+  },
+  'directions': [
+    {
+      'text': hindi ? 'याचिका का जवाब दें।' : 'File a reply to the petition.',
+      'sources': ['S2'],
+      'who': hindi ? 'प्रतिवादी' : 'the respondents',
+      'by_when': hindi ? '4 हफ़्ते में' : 'within 4 weeks',
+    },
+  ],
+  'next_date': {
+    'date': '2026-12-02',
+    'sources': ['S2'],
+  },
+  'relief': null,
+  'key_reasons': <Object?>[],
+  'authorities_cited_in_document': [
+    {
+      'text': '(2019) 5 SCC 123',
+      'sources': ['S3'],
+    },
+  ],
+  'next_steps_for_us': [
+    {
+      'text': hindi
+          ? 'जवाब आने पर प्रत्युत्तर तैयार करें।'
+          : 'Prepare a rejoinder once the reply comes.',
+      'sources': ['S2'],
+    },
+  ],
+  'source_pages': {'S1': 1, 'S2': 2, 'S3': 3},
+};
 
 /// A clerk of the same org: may do everything on the case page but delete it.
 const clerkAccount = Account(
