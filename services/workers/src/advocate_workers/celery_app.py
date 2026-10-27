@@ -13,10 +13,12 @@
     windows.py    REFRESH_WINDOWS
     jobs.py       SWEEP_JOBS
     ai.py         AI_COST_WATCH
+    summaries.py  ORDER_AI (arg: court_order_id, kwarg attempt), advocate_shared.tasks.SUMMARISE_ORDER (job),
+                  advocate_shared.tasks.SUMMARISE_DOCUMENT (job), advocate_shared.tasks.ORDER_INTEL (job)
 
 Job tasks take one argument, the job id, and run through jobs.run_job. The beat's tasks go to the `scheduled`
-queue and text extraction to `text`, each served by its own worker (infra/docker/compose.yml), so user jobs on the
-default queue never wait for them."""
+queue, text extraction to `text` and order AI to `ai`, each served by its own worker (infra/docker/compose.yml), so
+user jobs on the default queue never wait for them."""
 
 from celery import Celery
 from celery.schedules import crontab
@@ -39,9 +41,11 @@ SWEEP_JOBS = "advocate_workers.jobs.sweep_jobs"
 AI_COST_WATCH = "advocate_workers.ai.ai_cost_watch"
 TEXT_SWEEP = "advocate_workers.text.text_sweep"
 EMBED_CHUNKS = "advocate_workers.embed.embed_chunks"
+ORDER_AI = "advocate_workers.summaries.order_ai"
 
 MODULES = [
     "jobs", "find", "refresh", "orders", "board", "notify", "causelist", "scan", "windows", "ai", "text", "embed",
+    "summaries",
 ]  # fmt: skip
 
 configure_logging()
@@ -92,6 +96,8 @@ app.conf.update(
         "embed-sweep": {"task": EMBED_CHUNKS, "schedule": crontab(minute="*/15")},
     },
 )
-app.conf.task_routes = {
-    entry["task"]: {"queue": "scheduled"} for entry in app.conf.beat_schedule.values()
-} | tasks.ROUTES
+app.conf.task_routes = (
+    {entry["task"]: {"queue": "scheduled"} for entry in app.conf.beat_schedule.values()}
+    | tasks.ROUTES
+    | {ORDER_AI: {"queue": "ai"}}
+)

@@ -1,7 +1,7 @@
 """The text pipeline (spec §12.4, F15, F28): a document's or a court order's text, page by page, cut into chunks in
 document_chunks for search and AI (doctext.py does the reading). It runs when a document's malware scan passes and
 when a court order's PDF is stored; an hourly sweep picks up the rest: OCR that was unavailable, a lost task, and
-files from before P2. The embeddings come after (embed.py).
+files from before P2. The embeddings come after (embed.py), and for a court order its summaries (summaries.py).
 
 A document's chunks belong to its organisation; a court order's are shared by every organisation tracking its CNR
 (ADR 0019). A source is read once: a redelivered or swept duplicate is skipped unless its text is still unread or
@@ -19,7 +19,7 @@ from sqlalchemy.exc import IntegrityError
 
 from advocate_shared import tasks
 from advocate_workers import db, doctext, jobs, storage
-from advocate_workers.celery_app import EMBED_CHUNKS, TEXT_SWEEP, app
+from advocate_workers.celery_app import EMBED_CHUNKS, ORDER_AI, TEXT_SWEEP, app
 
 log = structlog.get_logger()
 
@@ -129,6 +129,8 @@ async def extract(r: Redis, kind: str, source_id: str, ocr: doctext.Ocr = doctex
         await r.register_script(jobs.RELEASE)(keys=[lock], args=[token])
     if rows:
         jobs.send(EMBED_CHUNKS)
+        if kind == "court_order":
+            jobs.send(ORDER_AI, source_id)  # its summaries and order intelligence (summaries.py)
     log.info("text_extracted", kind=kind, id=source_id, pages=len(reading.pages), chunks=len(rows))
     return "done"
 

@@ -1,6 +1,6 @@
 """The order pipeline (spec §11.5): a new order's PDF is fetched once globally into court-orders/{cnr}/{sha256}.pdf and
 recorded on court_orders (storage_path, sha256), the same convention and Redis lock (order-pdf:{id}) as the API's
-fetch-on-open; then its text is read (text.py). Summaries come with P2 task 5. A shared fetch (platform row, §11.8):
+fetch-on-open; then its text is read (text.py) and summarised (summaries.py). A shared fetch (platform row, §11.8):
 it pauses at the global daily cap and skips a CNR whose tracking organisations are all over budget; the API then
 fetches the PDF when someone opens it."""
 

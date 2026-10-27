@@ -57,6 +57,11 @@ services:
     <<: *python
     command: celery -A advocate_workers.celery_app worker -Q text --concurrency=1 --loglevel=INFO
 
+  # Order summaries and intelligence: each task mostly waits on the model (Bedrock), so a few run at once.
+  worker-ai:
+    <<: *python
+    command: celery -A advocate_workers.celery_app worker -Q ai --concurrency=4 --loglevel=INFO
+
   beat:
     <<: *python
     # The app directory isn't writable by the container user: the schedule file goes to /tmp.

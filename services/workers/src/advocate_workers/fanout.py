@@ -49,15 +49,22 @@ on conflict (matter_id, court_hearing_id) do update set date = excluded.date, pu
 where (hearings.date, hearings.purpose, hearings.outcome, hearings.next_date, hearings.deleted_at)
   is distinct from (excluded.date, excluded.purpose, excluded.outcome, excluded.next_date, null)
 """
-# The title is the order type (order, judgment, interim); the app shows it in the user's language.
+# The title is the order type (order, judgment, interim); the app shows it in the user's language. Summaries made
+# before an organisation tracked the case, or while its matter was deleted, come with the rows (order_ai.fan_out
+# reaches live rows only).
 SYNC_ORDERS = """
-insert into public.orders (org_id, matter_id, court_order_id, order_date, title)
-select m.org_id, m.id, o.id, o.order_date, o.order_type
+insert into public.orders (org_id, matter_id, court_order_id, order_date, title, summary_en, summary_hi)
+select m.org_id, m.id, o.id, o.order_date, o.order_type, en.summary, hi.summary
 from public.matters m join public.court_orders o on o.cnr = m.cnr
+left join public.public_summaries en on en.doc_kind = 'court_order' and en.doc_ref = o.id::text and en.language = 'en'
+left join public.public_summaries hi on hi.doc_kind = 'court_order' and hi.doc_ref = o.id::text and hi.language = 'hi'
 where m.cnr = :cnr and m.tracking = 'auto' and m.deleted_at is null
 on conflict (matter_id, court_order_id) do update set order_date = excluded.order_date, title = excluded.title,
-  deleted_at = null
-where (orders.order_date, orders.title, orders.deleted_at) is distinct from (excluded.order_date, excluded.title, null)
+  deleted_at = null, summary_en = coalesce(orders.summary_en, excluded.summary_en),
+  summary_hi = coalesce(orders.summary_hi, excluded.summary_hi)
+where (orders.order_date, orders.title, orders.deleted_at, orders.summary_en, orders.summary_hi)
+  is distinct from (excluded.order_date, excluded.title, null, coalesce(orders.summary_en, excluded.summary_en),
+                    coalesce(orders.summary_hi, excluded.summary_hi))
 """
 
 
