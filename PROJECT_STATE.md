@@ -26,6 +26,13 @@ Last updated: 2026-10-27
   ~400-token chunks with page and paragraph numbers, on their own `text` queue; `services/embedder` (BGE-M3 +
   bge-reranker-v2-m3 on CPU, fake models in CI); hybrid search (full text + vectors, RRF, rerank, top 8) with nukta,
   visarga and digit folding; search inside documents in the app, hits opening at their page. Sarvam OCR waits for B7.
+- Order pipeline ([ADR 0023](docs/adr/0023-p2-order-pipeline.md)): new court orders summarised in each tracking
+  member's language (cached once per order and language, copied to every organisation's orders, billed to one
+  organisation's automatic-AI cap), order intelligence on recent orders → proposed tasks and deadlines (one language per
+  organisation, never re-proposed) → "New order in … — N actions found"; on-demand summaries and Find actions as jobs
+  on an `ai` queue, paid in credits after the app asks; summary sheet with the Hindi/English switch, page chips, "As
+  cited in this order — not verified", Confirm / Dismiss / Confirm all with Undo; uploaded orders summarised into
+  `ai_answers`.
 
 ## Done (Phase 1, Track A)
 - Gate exceptions decided 26 Oct 2026 (the founder delegated the call) ([phase-1-report.md](docs/phases/phase-1-report.md)): the focus
@@ -95,8 +102,8 @@ Last updated: 2026-10-27
   Hindi review, privacy-policy page.
 
 ## Next up
-1. P2 Track A tasks 5–14 in order ([phase-2-plan.md](docs/phases/phase-2-plan.md)); next is task 5, the order
-   pipeline (order summary and order intelligence).
+1. P2 Track A tasks 6–14 in order ([phase-2-plan.md](docs/phases/phase-2-plan.md)); next is task 6, Ask your case
+   and Brief me.
 2. iOS (P2): NSCameraUsageDescription and NSFaceIDUsageDescription in Info.plist.
 3. Phase 0 and 1 gates: Track B (on hold); see [phase-1-report.md](docs/phases/phase-1-report.md).
 
