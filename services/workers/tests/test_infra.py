@@ -63,6 +63,8 @@ def test_the_beat_schedule_runs_on_its_own_queue():
         assert routes[name] == {"queue": "scheduled"}
     assert tasks.SCAN_DOCUMENT not in routes and tasks.FIND_CASES not in routes  # user jobs: the default queue
     assert routes[tasks.EXTRACT_TEXT] == {"queue": "text"}  # a long scan's OCR holds up neither
+    for name in (celery_app.ORDER_AI, tasks.SUMMARISE_ORDER, tasks.SUMMARISE_DOCUMENT, tasks.ORDER_INTEL):
+        assert routes[name] == {"queue": "ai"}  # nor does a model call
 
 
 def test_a_long_extraction_is_stopped_before_redis_hands_it_out_again():
@@ -79,6 +81,7 @@ def test_every_module_is_included_and_every_beat_task_is_named():
         if k.isupper() and isinstance(v, str) and v.startswith("advocate_workers.")
     }
     names |= {tasks.FIND_CASES, tasks.FETCH_CASES, tasks.REFRESH_CASE, tasks.SCAN_DOCUMENT, tasks.EXTRACT_TEXT}
+    names |= {tasks.SUMMARISE_ORDER, tasks.SUMMARISE_DOCUMENT, tasks.ORDER_INTEL}
     beat = {entry["task"] for entry in celery_app.app.conf.beat_schedule.values()}
     assert beat <= names
     for module in celery_app.app.conf.include:

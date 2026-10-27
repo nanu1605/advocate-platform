@@ -643,6 +643,8 @@ final class CaseOrder extends TimelineEntry {
     this.hasCourtCopy = true,
     this.read = false,
     this.createdAt,
+    this.summaryEn,
+    this.summaryHi,
   });
 
   factory CaseOrder.fromRow(Map<String, dynamic> r) => CaseOrder(
@@ -653,6 +655,8 @@ final class CaseOrder extends TimelineEntry {
     hasCourtCopy: r['court_order_id'] != null,
     read: r['is_read'] == 1,
     createdAt: parseInstant(r['created_at']),
+    summaryEn: _object(r['summary_en']),
+    summaryHi: _object(r['summary_hi']),
   );
 
   final String id;
@@ -666,7 +670,20 @@ final class CaseOrder extends TimelineEntry {
   final bool read;
   @override
   final DateTime? createdAt;
+
+  /// The AI summary (spec F07) in English and in Hindi as the pipeline stored it (`OrderSummaryView.fromJson`
+  /// reads it); null until made.
+  final Map<String, Object?>? summaryEn;
+  final Map<String, Object?>? summaryHi;
+
+  /// The summary in [language] (`en` or `hi`).
+  Map<String, Object?>? summary(String language) =>
+      language == 'hi' ? summaryHi : summaryEn;
 }
+
+/// A synced JSON column (JSON text on the device) as a map.
+Map<String, Object?>? _object(Object? v) =>
+    ((v is String ? jsonDecode(v) : v) as Map?)?.cast();
 
 /// Newest first; on the same day an order comes before the hearing it followed, then the newer row first.
 List<TimelineEntry> timelineOf(
@@ -731,8 +748,8 @@ final StreamProviderFamily<List<CaseOrder>, String> caseOrdersProvider =
     StreamProvider.autoDispose.family<List<CaseOrder>, String>(
       (ref, id) => _rows(
         ref,
-        'select o.id, o.order_date, o.title, o.document_id, o.court_order_id, o.created_at, '
-        'exists(select 1 from order_reads r where r.order_id = o.id and r.user_id = ?2) as is_read '
+        'select o.id, o.order_date, o.title, o.document_id, o.court_order_id, o.created_at, o.summary_en, '
+        'o.summary_hi, exists(select 1 from order_reads r where r.order_id = o.id and r.user_id = ?2) as is_read '
         'from orders o where o.matter_id = ?1 and o.deleted_at is null order by o.order_date desc, o.created_at desc',
         [id, ref.watch(currentUserIdProvider)],
         CaseOrder.fromRow,
@@ -994,6 +1011,7 @@ class CaseDeadline {
     required this.kind,
     required this.dueDate,
     this.status = 'active',
+    this.title,
   });
 
   factory CaseDeadline.fromRow(Map<String, dynamic> r) => CaseDeadline(
@@ -1001,6 +1019,7 @@ class CaseDeadline {
     kind: r['kind'] as String? ?? 'other',
     dueDate: parseDay(r['due_date'])!,
     status: r['status'] as String? ?? 'active',
+    title: r['title'] as String?,
   );
 
   final String id;
@@ -1014,6 +1033,9 @@ class CaseDeadline {
   /// `active` or `done`.
   final String status;
 
+  /// What a deadline confirmed from an order says (`basis.title`); others show their kind.
+  final String? title;
+
   bool get done => status == 'done';
 }
 
@@ -1022,12 +1044,103 @@ final StreamProviderFamily<List<CaseDeadline>, String> caseDeadlinesProvider =
     StreamProvider.autoDispose.family<List<CaseDeadline>, String>(
       (ref, id) => _rows(
         ref,
-        'select id, kind, due_date, status from deadlines '
+        r"select id, kind, due_date, status, json_extract(basis, '$.title') as title from deadlines "
         "where matter_id = ?1 and deleted_at is null and status in ('active', 'done') "
         "order by status = 'done', due_date, created_at",
         [id],
         CaseDeadline.fromRow,
       ),
+    );
+
+/// A task or deadline the AI read in one of the case's orders (spec F13), waiting for one tap: Confirm (a task
+/// opens, a deadline becomes active) or Dismiss. Nothing is added until then (hard rule 2).
+@immutable
+class CaseProposal {
+  const CaseProposal({
+    required this.id,
+    required this.table,
+    required this.matterId,
+    required this.orderId,
+    required this.title,
+    this.due,
+    this.orderTitle,
+    this.orderDate,
+    this.page,
+  });
+
+  /// A [caseProposalsProvider] row: a task's due instant is an IST midnight (see `taskDueAt`).
+  factory CaseProposal.fromRow(Map<String, dynamic> r) {
+    final table = r['tbl'] as String;
+    final due = r['due'];
+    return CaseProposal(
+      id: r['id'] as String,
+      table: table,
+      matterId: r['matter_id'] as String,
+      orderId: r['order_id'] as String? ?? '',
+      title: r['title'] as String? ?? '',
+      due: table == 'tasks'
+          ? switch (parseInstant(due)) {
+              final at? => istDay(istOf(at)),
+              null => null,
+            }
+          : parseDay(due),
+      orderTitle: r['order_title'] as String?,
+      orderDate: parseDay(r['order_date']),
+      page: r['page'] as int?,
+    );
+  }
+
+  final String id;
+
+  /// `tasks` or `deadlines`.
+  final String table;
+
+  final String matterId;
+
+  /// The order (`orders.id`) it was read in: its source (spec F13), named by its title or date.
+  final String orderId;
+  final String? orderTitle;
+  final DateTime? orderDate;
+
+  /// A deadline's first page in that order (`basis.pages`); a task has none.
+  final int? page;
+  final String title;
+
+  /// IST day.
+  final DateTime? due;
+
+  bool get task => table == 'tasks';
+
+  /// A date the AI counted from the order is marked "verify" (spec F13).
+  bool get verify => due != null;
+}
+
+/// The case's proposals from orders, soonest due first (undated last). Deadlines keep their title in `basis`.
+final StreamProviderFamily<List<CaseProposal>, String> caseProposalsProvider =
+    StreamProvider.autoDispose.family<List<CaseProposal>, String>(
+      (ref, id) =>
+          _rows(
+            ref,
+            "select t.id, 'tasks' as tbl, t.matter_id, t.source_ref as order_id, t.title, t.due_at as due, "
+            'null as page, o.title as order_title, o.order_date from tasks t left join orders o on o.id = t.source_ref '
+            "where t.matter_id = ?1 and t.deleted_at is null and t.status = 'proposed' and t.source = 'order' "
+            r"union all select d.id, 'deadlines', d.matter_id, d.source_order_id, json_extract(d.basis, '$.title'), "
+            r"d.due_date, json_extract(d.basis, '$.pages[0]'), o.title, o.order_date from deadlines d "
+            'left join orders o on o.id = d.source_order_id where d.matter_id = ?1 and d.deleted_at is null '
+            "and d.status = 'proposed' and d.source_order_id is not null",
+            [id],
+            CaseProposal.fromRow,
+          ).map(
+            (ps) => ps
+              ..sort(
+                (a, b) => switch ((a.due, b.due)) {
+                  (final x?, final y?) when x != y => x.compareTo(y),
+                  (null, _?) => 1,
+                  (_?, null) => -1,
+                  _ => a.title.compareTo(b.title),
+                },
+              ),
+          ),
     );
 
 /// A client of the org (spec §4.3 Clients): the Clients list, the profile and Link client. Never log any of it.
@@ -1371,6 +1484,29 @@ class CaseWriter {
 
   Future<void> deleteDeadline(String deadlineId) =>
       _softDelete('deadlines', deadlineId);
+
+  /// Confirm proposals from orders (spec F13: one tap, or Confirm all): a task opens, a deadline becomes active.
+  Future<void> confirmProposals(Iterable<CaseProposal> ps) =>
+      _setProposals(ps, (p) => p.task ? 'open' : 'active');
+
+  Future<void> dismissProposal(CaseProposal p) =>
+      _setProposals([p], (_) => 'dismissed');
+
+  /// Undo of [confirmProposals] and [dismissProposal]: proposed again.
+  Future<void> restoreProposals(Iterable<CaseProposal> ps) =>
+      _setProposals(ps, (_) => 'proposed');
+
+  Future<void> _setProposals(
+    Iterable<CaseProposal> ps,
+    String Function(CaseProposal p) status,
+  ) async {
+    for (final p in ps) {
+      await _run('update ${p.table} set status = ? where id = ?', [
+        status(p),
+        p.id,
+      ]);
+    }
+  }
 
   /// A new client, with `search_key` from [searchKey] so the server's search matches the app's. [language] is
   /// `hi`, `en` or null; [phone] as `normalizePhone` (clients.dart) gives it.

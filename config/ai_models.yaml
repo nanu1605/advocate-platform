@@ -45,6 +45,7 @@ credits:                         # spec §12.14, §14.2: 1 credit = ₹0.25 of m
     brief_me: 4
     voice_parse: 4               # speech-to-text + parse
     client_update: 2
+    order_intel: 2               # "Find actions" on an order nobody's automatic AI covered (ADR 0023)
   order_summary:                 # "4–24, by length": 4 per 5 pages, at most 24
     per_5_pages: 4
     max: 24

@@ -53,7 +53,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers.dart';
 import 'board_test.dart' show boardSample;
-import 'case_page_test.dart' show sampleCases;
+import 'case_page_test.dart' show orderSummary, sampleCases;
 import 'documents_test.dart' show FakeSources, fakeFile, sampleQueue;
 import 'notifications_test.dart' show sampleNotifications;
 import 'today_test.dart' show sampleDiary;
@@ -195,6 +195,23 @@ List<Override> _world() => [
 List<Override> _notifications() => [
   ...sampleCases(pendingFound: 3).overrides,
   ...sampleNotifications().overrides,
+  ..._services(),
+];
+
+/// As [_world], with the 28 Oct order summarised in English only (Hindi is on request) and nothing proposed.
+List<Override> _englishSummary() => [
+  ...sampleDiary(tomorrow: boardSample()).overrides,
+  ...(sampleCases(pendingFound: 3)
+        ..orders['m-1'] = [
+          CaseOrder(
+            id: 'o-1',
+            date: DateTime.utc(2026, 10, 28),
+            title: 'Reply within 4 weeks',
+            summaryEn: orderSummary(),
+          ),
+        ]
+        ..proposals.clear())
+      .caseOverrides,
   ..._services(),
 ];
 
@@ -674,6 +691,40 @@ final _scenes = <_Scene>[
     location: '/cases/m-1?tab=client',
     open: (t, l) => _tap(t, find.text(l.casePageLinkClient), within: _casePage),
     shows: _sheet,
+  ),
+  _Scene(
+    'case page, order summary',
+    location: '/cases/m-1',
+    open: (t, l) => _tap(t, find.text(l.summaryButton), within: _casePage),
+    shows: _sheet,
+  ),
+  _Scene(
+    'case page, summary credits',
+    location: '/cases/m-1',
+    data: _englishSummary,
+    open: (t, l) async {
+      (container(t).read(apiClientProvider) as FakeApi).ai['summariseOrder'] = [
+        const ApiException(
+          'AI_CREDITS_NEEDED',
+          status: 409,
+          details: {'credits': 4, 'left': 96},
+        ),
+      ];
+      await _tap(t, find.text(l.summaryButton), within: _casePage);
+      await _tap(
+        t,
+        find.descendant(
+          of: find.byType(BottomSheet),
+          matching: find.text('हिंदी'),
+        ),
+      );
+      await _tap(
+        t,
+        find.text(l.summariseIn('हिंदी')),
+        within: find.byType(BottomSheet),
+      );
+    },
+    shows: (l) => find.text(l.summaryCreditsTitle),
   ),
   _Scene(
     'case page, official portal',

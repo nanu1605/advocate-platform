@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:advocate_app/data/cases.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:powersync/powersync.dart' hide SyncStatus;
@@ -314,6 +316,102 @@ void main() {
       );
     });
 
+    test("orders' summaries, and the tasks and deadlines proposed from orders "
+        '(spec F07, F13)', () async {
+      await db.execute("update orders set summary_en = ? where id = 'o1'", [
+        jsonEncode({
+          'title': 'Order',
+          'source_pages': {'S1': 2},
+        }),
+      ]);
+      Map<String, Object?> proposed(
+        String title, [
+        String status = 'proposed',
+      ]) => {
+        'matter_id': 'm1',
+        'title': title,
+        'status': status,
+        'source': 'order',
+        'source_ref': 'o1',
+      };
+      await insertRows(db, 'tasks', [
+        _row('tp1', proposed('Get instructions')),
+        _row('tp2', {...proposed('Reply'), 'due_at': '2026-11-24T18:30:00Z'}),
+        _row('tp3', proposed('Dismissed', 'dismissed')),
+        _row('tp4', {
+          ...proposed('Gone'),
+          'deleted_at': '2026-11-02T00:00:00Z',
+        }),
+      ]);
+      Map<String, Object?> deadline(
+        String due,
+        String status, [
+        String? order,
+        String? title,
+      ]) => {
+        'matter_id': 'm1',
+        'kind': 'compliance',
+        'due_date': due,
+        'status': status,
+        'source_order_id': order,
+        'basis': title == null
+            ? null
+            : jsonEncode({
+                'title': title,
+                'pages': [3, 1],
+                'verify': true,
+              }),
+      };
+      await insertRows(db, 'deadlines', [
+        _row('dp1', deadline('2026-11-20', 'proposed', 'o1', 'File the reply')),
+        _row('dp2', deadline('2026-11-21', 'proposed')), // not from an order
+        _row('dp3', deadline('2026-11-22', 'active', 'o1', 'Pay the costs')),
+      ]);
+      final c = dbContainer(db);
+
+      final o1 = (await firstValue(c, caseOrdersProvider('m1'))).first;
+      expect(o1.summary('en'), {
+        'title': 'Order',
+        'source_pages': {'S1': 2},
+      });
+      expect(o1.summary('hi'), isNull);
+
+      // Soonest first, undated last; a task's due instant is its IST day. t5 is proposed but not from an order.
+      final ps = await firstValue(c, caseProposalsProvider('m1'));
+      // Each with its order, and a deadline with the first page it was read on.
+      expect(ps.map((p) => (p.matterId, p.orderTitle, p.orderDate, p.page)), [
+        ('m1', 'Order', DateTime.utc(2026, 10, 20), 3),
+        ('m1', 'Order', DateTime.utc(2026, 10, 20), null),
+        ('m1', 'Order', DateTime.utc(2026, 10, 20), null),
+      ]);
+      expect(
+        ps.map((p) => (p.id, p.table, p.orderId, p.title, p.due, p.verify)),
+        [
+          (
+            'dp1',
+            'deadlines',
+            'o1',
+            'File the reply',
+            DateTime.utc(2026, 11, 20),
+            true,
+          ),
+          ('tp2', 'tasks', 'o1', 'Reply', DateTime.utc(2026, 11, 25), true),
+          ('tp1', 'tasks', 'o1', 'Get instructions', null, false),
+        ],
+      );
+
+      // Confirmed ones show their title; the lists still leave proposals out.
+      final deadlines = await firstValue(c, caseDeadlinesProvider('m1'));
+      expect(deadlines.map((d) => (d.id, d.title)), [
+        ('dl3', null),
+        ('dl1', null),
+        ('dp3', 'Pay the costs'),
+        ('dl2', null),
+      ]);
+      final tasks = await firstValue(c, caseTasksProvider('m1'));
+      expect(tasks.map((t) => t.id), ['t2', 't1', 't4', 't3']);
+    });
+
     test('documents, notes, tasks, deadlines and clients of a case', () async {
       final c = dbContainer(db);
       final docs = await firstValue(c, caseDocumentsProvider('m1'));
@@ -530,6 +628,64 @@ void main() {
       expect(data(17)['search_key'], isNotEmpty);
       expect(data(20)['user_id'], 'user-1');
     });
+
+    test(
+      "confirm, dismiss and their Undo change only a proposal's status",
+      () async {
+        await insertRows(db, 'tasks', [
+          _row('tp1', {
+            'matter_id': 'm1',
+            'title': 'Get instructions',
+            'status': 'proposed',
+            'source': 'order',
+            'source_ref': 'o1',
+          }),
+        ]);
+        await insertRows(db, 'deadlines', [
+          _row('dp1', {
+            'matter_id': 'm1',
+            'kind': 'compliance',
+            'due_date': '2026-11-20',
+            'status': 'proposed',
+            'source_order_id': 'o1',
+            'basis': jsonEncode({'title': 'File the reply'}),
+          }),
+        ]);
+        await clearPendingWrites(db);
+        final c = dbContainer(db);
+        final w = c.read(caseWriterProvider);
+        final ps = await firstValue(
+          c,
+          caseProposalsProvider('m1'),
+          (ps) => ps.length == 2,
+        );
+
+        await w.confirmProposals(ps);
+        await w.restoreProposals(ps);
+        await w.dismissProposal(ps.last);
+        expect(
+          [
+            for (final [op, table, id, data] in await pendingWrites(db))
+              '${(op! as UpdateType).name} $table $id $data',
+          ],
+          [
+            'patch deadlines dp1 {status: active}',
+            'patch tasks tp1 {status: open}',
+            'patch deadlines dp1 {status: proposed}',
+            'patch tasks tp1 {status: proposed}',
+            'patch tasks tp1 {status: dismissed}',
+          ],
+        );
+        expect(
+          await firstValue(
+            c,
+            caseProposalsProvider('m1'),
+            (ps) => ps.length == 1,
+          ),
+          hasLength(1),
+        );
+      },
+    );
 
     test('local writes show at once in the reads', () async {
       final c = dbContainer(db);

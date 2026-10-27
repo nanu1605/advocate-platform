@@ -16,7 +16,7 @@ from advocate_embedder.fake import FakeModels
 from advocate_shared import embedder, tasks
 from advocate_shared.settings import get_settings
 from advocate_workers import doctext, embed, storage, text
-from advocate_workers.celery_app import EMBED_CHUNKS
+from advocate_workers.celery_app import EMBED_CHUNKS, ORDER_AI
 
 ENGLISH = ["IN THE HIGH COURT OF MADHYA PRADESH AT INDORE", "1. Heard counsel for the petitioner on bail."]
 LEGACY = ["U;k;ky; us vkns'k fn;k fd vkosnd dks tekur ij fjgk fd;k tk,A"]
@@ -197,6 +197,7 @@ async def test_a_court_orders_chunks_are_shared(court_order, r, sent):
     assert [c["org_id"] for c in rows] == [None, None]
     [order] = await sql("select text_status, pages from public.court_orders where id = :id", id=court_order)
     assert order == {"text_status": "text", "pages": 2}
+    assert sent == [(EMBED_CHUNKS, ()), (ORDER_AI, (court_order,))]  # then its summaries (summaries.py)
 
 
 async def test_embeddings_fill_in_and_survive_an_outage(stored, r, sent, fake_embedder, monkeypatch):

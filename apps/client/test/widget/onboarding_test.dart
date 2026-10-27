@@ -114,7 +114,7 @@ void main() {
     testWidgets(
       'a set-up account on a new device skips onboarding in $locale: Today → Settings',
       (tester) async {
-        await pumpApp(tester, locale: locale);
+        final api = await pumpApp(tester, locale: locale);
 
         // Today, in the chosen language, with the P1 bottom bar.
         expect(find.text(l.todayEmpty), findsOneWidget);
@@ -137,6 +137,9 @@ void main() {
         expect(container(tester).read(settingsProvider).locale, Locale(other));
         expect(find.text(o.settingsLanguage), findsOneWidget);
         expect(find.text(l.settingsLanguage), findsNothing);
+        // The server learns it too: automatic order summaries follow it (spec F07).
+        expect(api.calls.last.name, 'patchMe');
+        expect(api.calls.last.args, {'preferred_language': other});
       },
     );
   }

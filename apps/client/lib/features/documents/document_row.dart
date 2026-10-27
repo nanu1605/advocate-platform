@@ -9,6 +9,7 @@ import 'package:advocate_app/data/documents.dart';
 import 'package:advocate_app/features/case_page/case_page_text.dart';
 import 'package:advocate_app/features/case_page/links.dart';
 import 'package:advocate_app/features/case_page/sheet_form.dart';
+import 'package:advocate_app/features/case_page/summary_sheet.dart';
 import 'package:advocate_app/features/documents/upload_flow.dart';
 import 'package:advocate_app/ui/icons.dart';
 import 'package:advocate_app/ui/sheets.dart';
@@ -19,8 +20,8 @@ import 'package:go_router/go_router.dart';
 
 /// A document on the Documents screen or a case's Documents tab (spec §4.3): type, size, case ([showCase]), the
 /// safety check, "Available offline", and the user's Keep offline toggle; the menu edits its details or deletes it
-/// with Undo. A ready file opens in the viewer (over the list, so Back returns to it); one being checked or blocked
-/// says why it can't open.
+/// with Undo, and has a ready order's Summary (spec F07). A ready file opens in the viewer (over the list, so Back
+/// returns to it); one being checked or blocked says why it can't open.
 class DocumentRow extends ConsumerWidget {
   const DocumentRow(this.doc, {this.showCase = true, super.key});
 
@@ -70,6 +71,13 @@ class DocumentRow extends ConsumerWidget {
             icon: const Icon(AppIcons.dotsThreeVertical),
             onSelected: (run) => run(),
             itemBuilder: (_) => [
+              if (d.ready && d.kind == 'order')
+                PopupMenuItem(
+                  value: () => unawaited(
+                    showOrderSummarySheet(context, d.matterId, document: d),
+                  ),
+                  child: Text(l.summaryButton),
+                ),
               PopupMenuItem(
                 value: () =>
                     unawaited(showDocumentDetailsSheet(context, document: d)),

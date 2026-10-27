@@ -122,7 +122,7 @@ async def _document(db: AsyncConnection, org_id: UUID, document_id: UUID) -> dic
         (
             await db.execute(
                 text(
-                    "select storage_path, mime, upload_status from public.documents "
+                    "select storage_path, mime, kind, upload_status from public.documents "
                     "where id = :id and org_id = :o and deleted_at is null"
                 ),
                 {"id": document_id, "o": org_id},
@@ -134,6 +134,16 @@ async def _document(db: AsyncConnection, org_id: UUID, document_id: UUID) -> dic
     if row is None:
         raise ApiError(404, "NOT_FOUND", "Document not found")
     return dict(row)
+
+
+async def ready_document(db: AsyncConnection, org_id: UUID, document_id: UUID) -> dict[str, Any]:
+    """A live document whose upload passed the scan: 404, or 409 while it is checked or when it failed."""
+    doc = await _document(db, org_id, document_id)
+    if doc["upload_status"] == "pending":
+        raise ApiError(409, "DOCUMENT_NOT_READY", "This document is still being checked", retryable=True)
+    if doc["upload_status"] == "quarantined":
+        raise ApiError(409, "DOCUMENT_QUARANTINED", "This file failed the safety check")
+    return doc
 
 
 @router.post("/documents/{document_id}/complete", status_code=202)
@@ -177,11 +187,7 @@ async def complete_upload(
 
 @router.get("/documents/{document_id}/download-url")
 async def document_download_url(db: UserDb, org: CurrentOrg, document_id: UUID) -> SignedUrl:
-    doc = await _document(db, org.org_id, document_id)
-    if doc["upload_status"] == "pending":
-        raise ApiError(409, "DOCUMENT_NOT_READY", "This document is still being checked", retryable=True)
-    if doc["upload_status"] == "quarantined":
-        raise ApiError(409, "DOCUMENT_QUARANTINED", "This file failed the safety check")
+    doc = await ready_document(db, org.org_id, document_id)
     ext = EXTENSIONS.get(doc["mime"] or "")
     filename = f"{document_id}.{ext}" if ext else str(document_id)  # no titles in URLs (§10.1); the app names the file
     url = await storage.download_url("documents", doc["storage_path"], filename)
@@ -232,8 +238,13 @@ async def order_pdf_url(db: UserDb, org: CurrentOrg, order_id: UUID) -> SignedUr
     court_order_id = row.court_order_id
     if court_order_id is None:
         raise ApiError(404, "ORDER_PDF_UNAVAILABLE", "No court copy of this order")
-    path = (await _court_order(court_order_id))["storage_path"] or await _fetch_order_pdf(org.org_id, court_order_id)
+    path = await order_pdf(org.org_id, court_order_id)
     return SignedUrl(url=await storage.download_url("court-orders", path), expires_in_s=storage.DOWNLOAD_TTL_S)
+
+
+async def order_pdf(org_id: UUID, court_order_id: UUID) -> str:
+    """The court order's stored PDF, fetched first if nobody has yet (costed to `org_id`; then its text is read)."""
+    return (await _court_order(court_order_id))["storage_path"] or await _fetch_order_pdf(org_id, court_order_id)
 
 
 async def _fetch_order_pdf(org_id: UUID, court_order_id: UUID) -> str:

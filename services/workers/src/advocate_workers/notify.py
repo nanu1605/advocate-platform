@@ -123,6 +123,11 @@ on conflict (user_id, (data->>'event_key'))"""
 REPLACE = """ do update set title = excluded.title, body = excluded.body, data = excluded.data
 where (notifications.title, notifications.body, notifications.data)
   is distinct from (excluded.title, excluded.body, excluded.data)"""
+# Rewrites a message already written (when changed), never adding one.
+UPDATE = """
+update public.notifications set title = :t, body = :b, data = cast(:d as jsonb)
+where user_id = :u and data->>'event_key' = :key
+  and (title, body, data) is distinct from (cast(:t as text), cast(:b as text), cast(:d as jsonb))"""
 
 
 async def write(
@@ -134,14 +139,16 @@ async def write(
     data: dict[str, Any],
     *,
     replace: bool = False,
+    update_only: bool = False,
 ) -> int:
     """One row per recipient, keyed (user, `key`). A retry with the same key is skipped, or with `replace` rewrites
-    the row when it changed (one board message per evening, §13.2). Returns the rows written."""
+    the row when it changed (one board message per evening, §13.2); `update_only` rewrites only the rows already
+    written, adding none. Returns the rows written."""
     payload = json.dumps({"kind": kind, "org_id": str(org_id), "event_key": key, **data}, default=str)
     written = 0
     for who in await recipients(conn, org_id, kind):
         result = await conn.execute(
-            text(INSERT + (REPLACE if replace else " do nothing")),
+            text(UPDATE if update_only else INSERT + (REPLACE if replace else " do nothing")),
             {
                 "o": org_id,
                 "u": who.user_id,
@@ -149,36 +156,55 @@ async def write(
                 "t": TITLES[kind][who.lang == "hi"],
                 "b": body(who),
                 "d": payload,
+                "key": key,
             },
         )
         written += result.rowcount  # type: ignore[attr-defined]
     return written
 
 
-async def case_event(conn: AsyncConnection, matter: Mapping[str, Any], event: Event) -> int:
-    """next_date_set, new_order or status_changed for one tracking matter (fanout.live_matters row)."""
-
-    def body(who: Recipient) -> str:
-        label, hi = case_label(matter, who.include_titles), who.lang == "hi"
-        match event.kind:
-            case "next_date_set":
-                when = day_text(date.fromisoformat(event.value), who.lang)
-                return f"{label}: अगली तारीख {when}।" if hi else f"{label}: next date {when}."
-            case "new_order":
-                return f"{label} में नया आदेश।" if hi else f"New order in {label}."
-            case _:
-                if hi:
-                    return f"{label} {'निराकृत' if event.value == 'disposed' else 'स्थानांतरित'} दर्ज किया गया।"
-                return f"{label} marked {event.value}."
-
+def _case_data(matter: Mapping[str, Any], event: Event) -> dict[str, Any]:
     facts = {"next_date_set": "date", "new_order": "provider_ref", "status_changed": "status"}
-    data = {
+    return {
         "matter_id": str(matter["id"]),
         "link": f"/cases/{matter['id']}",
         "collapse_key": f"{event.kind}:{matter['id']}",
         facts[event.kind]: event.value,
     }
-    return await write(conn, matter["org_id"], event.kind, event.key, body, data)
+
+
+async def case_event(conn: AsyncConnection, matter: Mapping[str, Any], event: Event) -> int:
+    """next_date_set, new_order or status_changed for one tracking matter (fanout.live_matters row)."""
+    if event.kind == "new_order":
+        return await new_order(conn, matter, event)
+
+    def body(who: Recipient) -> str:
+        label, hi = case_label(matter, who.include_titles), who.lang == "hi"
+        if event.kind == "next_date_set":
+            when = day_text(date.fromisoformat(event.value), who.lang)
+            return f"{label}: अगली तारीख {when}।" if hi else f"{label}: next date {when}."
+        if hi:
+            return f"{label} {'निराकृत' if event.value == 'disposed' else 'स्थानांतरित'} दर्ज किया गया।"
+        return f"{label} marked {event.value}."
+
+    return await write(conn, matter["org_id"], event.kind, event.key, body, _case_data(matter, event))
+
+
+async def new_order(conn: AsyncConnection, matter: Mapping[str, Any], event: Event, actions: int = 0) -> int:
+    """ "New order in WP 1234/2024." when the court records it; once order intelligence has proposed `actions` tasks
+    and deadlines, the same message (event key) is rewritten "New order in WP 1234/2024 — 2 actions found." (§13.1).
+    Only a message already written is: an order never notified as new (a case's first fetch, §13.1) gets none."""
+
+    def body(who: Recipient) -> str:
+        label = case_label(matter, who.include_titles)
+        if who.lang == "hi":
+            found = f" — {actions} काम {'मिला' if actions == 1 else 'मिले'}" if actions else ""
+            return f"{label} में नया आदेश{found}।"
+        found = f" — {actions} action{'s' * (actions != 1)} found" if actions else ""
+        return f"New order in {label}{found}."
+
+    data = _case_data(matter, event) | ({"actions": actions} if actions else {})
+    return await write(conn, matter["org_id"], "new_order", event.key, body, data, update_only=bool(actions))
 
 
 async def listed_unexpectedly(

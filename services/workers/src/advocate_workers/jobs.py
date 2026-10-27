@@ -31,6 +31,9 @@ KIND_TASKS = {
     "fetch_cases": tasks.FETCH_CASES,
     "refresh_case": tasks.REFRESH_CASE,
     "scan_document": tasks.SCAN_DOCUMENT,
+    "order_summary": tasks.SUMMARISE_ORDER,
+    "document_summary": tasks.SUMMARISE_DOCUMENT,
+    "order_intel": tasks.ORDER_INTEL,
 }
 
 
@@ -65,10 +68,11 @@ class RetryLater(Exception):
 type Body = Callable[[Job, Redis], Awaitable[dict[str, Any] | None]]
 
 
-def send(name: str, *args: str) -> None:
+def send(name: str, *args: str, countdown: int | None = None, **kwargs: Any) -> None:
     """The one place workers enqueue Celery tasks, called only after the transaction that made the work visible has
-    committed. Tests replace it; call it as `jobs.send(...)` so they can."""
-    app.send_task(name, args=list(args))
+    committed; `countdown` delays it (seconds), `kwargs` are the task's keyword arguments. Tests replace it; call it
+    as `jobs.send(...)` so they can."""
+    app.send_task(name, args=list(args), kwargs=kwargs or None, countdown=countdown)
 
 
 def _json(value: Any) -> str:

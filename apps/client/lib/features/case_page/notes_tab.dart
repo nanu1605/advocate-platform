@@ -9,6 +9,7 @@ import 'package:advocate_app/data/case_text.dart';
 import 'package:advocate_app/data/cases.dart';
 import 'package:advocate_app/features/case_page/case_page_text.dart';
 import 'package:advocate_app/features/case_page/sheet_form.dart';
+import 'package:advocate_app/features/case_page/summary_sheet.dart';
 import 'package:advocate_app/features/case_page/task_sheet.dart';
 import 'package:advocate_app/ui/fields.dart';
 import 'package:advocate_app/ui/icons.dart';
@@ -21,9 +22,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Notes & tasks (spec §4.3): team and private notes (members edit and delete any note they can see, RLS
-/// `notes_update`; private notes reach only their author's device), the case's tasks (done with Undo) and its
-/// manual deadlines (spec §17 P1; calendar views are task 10). All local writes; deletes have Undo. A sliver for
-/// the case page.
+/// `notes_update`; private notes reach only their author's device), the case's tasks (done with Undo), its deadlines
+/// (spec §17 P1; calendar views are task 10), and the tasks and deadlines the AI proposed from orders, to confirm or
+/// dismiss (F13; the timeline's "2 actions to review" leads to them too). All local writes; deletes have Undo. A
+/// sliver for the case page.
 class NotesTab extends ConsumerWidget {
   const NotesTab(this.c, {super.key});
 
@@ -57,6 +59,8 @@ class NotesTab extends ConsumerWidget {
       for (final d in deadlinesAsync.requireValue)
         if (!hidden.contains(d.id)) d,
     ];
+    final proposals =
+        ref.watch(caseProposalsProvider(c.id)).value ?? const <CaseProposal>[];
     Widget none(String text) => Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(text, style: context.text.bodyMedium),
@@ -88,6 +92,15 @@ class NotesTab extends ConsumerWidget {
         ),
         if (deadlines.isEmpty) none(l.casePageDeadlinesEmpty),
         for (final d in deadlines) _Deadline(d),
+        if (proposals.isNotEmpty) ...[
+          SectionHeader(
+            l.proposalsTitle,
+            count: proposals.length,
+            actionLabel: l.proposalsConfirmAll,
+            onAction: () => confirmWithUndo(context, ref, proposals),
+          ),
+          for (final p in proposals) ProposalRow(p, key: ValueKey(p.id)),
+        ],
       ],
     );
   }
@@ -242,7 +255,7 @@ class _Deadline extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
     final d = deadline;
-    final kind = deadlineKindLabel(l, d.kind);
+    final kind = d.title ?? deadlineKindLabel(l, d.kind);
     final writer = ref.read(caseWriterProvider);
     return Row(
       children: [

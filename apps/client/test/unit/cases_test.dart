@@ -1,6 +1,7 @@
 import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/data/case_text.dart';
 import 'package:advocate_app/data/cases.dart';
+import 'package:advocate_app/data/order_summary.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -446,5 +447,62 @@ void main() {
         }, hasLength(deadlineKinds.length));
       }
     });
+  });
+
+  test("an order summary's points carry their pages, from its source ids", () {
+    final s = OrderSummaryView.fromJson(const {
+      'title': 'Order dated 28-10-2026',
+      'court': 'MPHC Indore',
+      'order_date': '2026-10-28',
+      'judges': ['Justice A. B. Sharma'],
+      'header_sources': ['S1'],
+      'outcome': null,
+      'gist': {
+        'text': 'Notice issued.',
+        'sources': ['S3', 'S1', 'S2'],
+      },
+      'directions': [
+        {
+          'text': 'File a reply.',
+          'sources': ['S2', 'S9'], // S9 has no page: left out
+          'who': 'the respondents',
+          'by_when': 'within 4 weeks',
+        },
+      ],
+      'next_date': {
+        'date': '2026-12-02',
+        'sources': ['S2'],
+      },
+      'relief': null,
+      'key_reasons': [],
+      'authorities_cited_in_document': [
+        {
+          'text': '(2019) 5 SCC 123',
+          'sources': ['S3'],
+        },
+      ],
+      'next_steps_for_us': [],
+      // Two chunks of page 2 are two sources.
+      'source_pages': {'S1': 1, 'S2': 2, 'S3': 2},
+    });
+    expect(
+      (s.title, s.court, s.orderDate),
+      ('Order dated 28-10-2026', 'MPHC Indore', DateTime.utc(2026, 10, 28)),
+    );
+    expect(s.judges, ['Justice A. B. Sharma']);
+    expect(s.headerPages, [1]);
+    expect(s.outcome, isNull);
+    expect(s.gist?.pages, [1, 2]);
+    final d = s.directions.single;
+    expect(
+      (d.text, d.who, d.byWhen),
+      ('File a reply.', 'the respondents', 'within 4 weeks'),
+    );
+    expect(d.pages, [2]);
+    expect(s.nextDate, DateTime.utc(2026, 12, 2));
+    expect(s.nextDatePages, [2]);
+    expect(s.authorities.single.pages, [2]);
+    expect(s.relief, isNull);
+    expect([...s.keyReasons, ...s.nextSteps], isEmpty);
   });
 }

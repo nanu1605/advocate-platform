@@ -482,6 +482,60 @@ class FakeApi extends ApiClient {
         (tracking: tracking, jobId: tracking == 'auto' ? trackingJobId : null),
   );
 
+  /// What summariseOrder, summariseDocument and orderIntel answer, by method name: each call takes the next
+  /// [AiResult], or throws the next [ApiException]; the last one repeats. Unscripted, they start job `job-ai`.
+  final ai = <String, List<Object>>{};
+
+  Future<AiResult> _ai(String name, Map<String, Object?> args) =>
+      _call(name, args, () {
+        final script = ai[name] ?? [];
+        final next = script.length > 1
+            ? script.removeAt(0)
+            : script.firstOrNull ?? const AiResult(jobId: 'job-ai');
+        if (next is ApiException) throw next;
+        return next as AiResult;
+      });
+
+  @override
+  Future<AiResult> summariseOrder({
+    required String orgId,
+    required String orderId,
+    required String language,
+    required String idempotencyKey,
+    int credits = 0,
+  }) => _ai('summariseOrder', {
+    'id': orderId,
+    'language': language,
+    'credits': credits,
+    'key': idempotencyKey,
+  });
+
+  @override
+  Future<AiResult> summariseDocument({
+    required String orgId,
+    required String documentId,
+    required String language,
+    required String idempotencyKey,
+    int credits = 0,
+  }) => _ai('summariseDocument', {
+    'id': documentId,
+    'language': language,
+    'credits': credits,
+    'key': idempotencyKey,
+  });
+
+  @override
+  Future<AiResult> orderIntel({
+    required String orgId,
+    required String orderId,
+    required String idempotencyKey,
+    int credits = 0,
+  }) => _ai('orderIntel', {
+    'id': orderId,
+    'credits': credits,
+    'key': idempotencyKey,
+  });
+
   /// What searchDocuments returns.
   List<DocumentHit> documentHits = const [];
 
@@ -983,6 +1037,7 @@ class FakeCases extends CaseWriter {
     Map<String, List<CaseNote>> notes = const {},
     Map<String, List<CaseTask>> tasks = const {},
     Map<String, List<CaseDeadline>> deadlines = const {},
+    Map<String, List<CaseProposal>> proposals = const {},
     Map<String, List<LinkedClient>> links = const {},
     List<ClientInfo> clients = const [],
     this.members = testMembers,
@@ -997,6 +1052,7 @@ class FakeCases extends CaseWriter {
        notes = _copy(notes),
        tasks = _copy(tasks),
        deadlines = _copy(deadlines),
+       proposals = _copy(proposals),
        links = _copy(links),
        clients = [...clients],
        super(null, DateTime.now, orgId: 'org-1', userId: me);
@@ -1012,6 +1068,13 @@ class FakeCases extends CaseWriter {
   final Map<String, List<CaseNote>> notes;
   final Map<String, List<CaseTask>> tasks;
   final Map<String, List<CaseDeadline>> deadlines;
+
+  /// Proposals from orders (status `proposed`), by case: confirming one moves it into [tasks] (open) or
+  /// [deadlines] (active, `compliance`), dismissing drops it, and restoring puts it back.
+  final Map<String, List<CaseProposal>> proposals;
+
+  /// The case of each confirmed or dismissed proposal, for restoring it.
+  final _handled = <String, String>{};
   final Map<String, List<LinkedClient>> links;
   final List<ClientInfo> clients;
   final List<OrgMember> members;
@@ -1084,6 +1147,9 @@ class FakeCases extends CaseWriter {
     caseTasksProvider.overrideWith((ref, id) => _watch(() => [...?tasks[id]])),
     caseDeadlinesProvider.overrideWith(
       (ref, id) => _watch(() => [...?deadlines[id]]),
+    ),
+    caseProposalsProvider.overrideWith(
+      (ref, id) => _watch(() => [...?proposals[id]]),
     ),
     caseClientsProvider.overrideWith(
       (ref, id) => _table('clients', () => [...?links[id]]),
@@ -1544,6 +1610,61 @@ class FakeCases extends CaseWriter {
   }
 
   @override
+  Future<void> confirmProposals(Iterable<CaseProposal> ps) async {
+    for (final p in ps) {
+      final m = _unpropose(p);
+      if (m == null) continue;
+      if (p.task) {
+        (tasks[m] ??= []).add(
+          CaseTask(
+            id: p.id,
+            title: p.title,
+            dueAt: p.due == null ? null : istInstant(p.due!),
+          ),
+        );
+      } else {
+        (deadlines[m] ??= []).add(
+          CaseDeadline(
+            id: p.id,
+            kind: 'compliance',
+            dueDate: p.due!,
+            title: p.title,
+          ),
+        );
+      }
+    }
+    _record('confirmProposals', [for (final p in ps) p.id]);
+  }
+
+  @override
+  Future<void> dismissProposal(CaseProposal p) async {
+    _unpropose(p);
+    _record('dismissProposal', p.id);
+  }
+
+  @override
+  Future<void> restoreProposals(Iterable<CaseProposal> ps) async {
+    for (final p in ps) {
+      final m = _handled.remove(p.id);
+      if (m == null) continue;
+      _replace<CaseTask>(tasks, (t) => t.id == p.id, (_) => null);
+      _replace<CaseDeadline>(deadlines, (d) => d.id == p.id, (_) => null);
+      (proposals[m] ??= []).add(p);
+    }
+    _record('restoreProposals', [for (final p in ps) p.id]);
+  }
+
+  /// Takes [p] out of [proposals]; returns its case.
+  String? _unpropose(CaseProposal p) {
+    for (final MapEntry(key: m, value: list) in proposals.entries) {
+      if (!list.any((x) => x.id == p.id)) continue;
+      list.removeWhere((x) => x.id == p.id);
+      return _handled[p.id] = m;
+    }
+    return null;
+  }
+
+  @override
   Future<void> setDeadlineDone(String deadlineId, {required bool done}) async {
     _replace<CaseDeadline>(
       deadlines,
@@ -1553,6 +1674,7 @@ class FakeCases extends CaseWriter {
         kind: d.kind,
         dueDate: d.dueDate,
         status: done ? 'done' : 'active',
+        title: d.title,
       ),
     );
     _record('setDeadlineDone', {'id': deadlineId, 'done': done});
@@ -1770,6 +1892,8 @@ class FakeCases extends CaseWriter {
         hasCourtCopy: o.hasCourtCopy,
         read: true,
         createdAt: o.createdAt,
+        summaryEn: o.summaryEn,
+        summaryHi: o.summaryHi,
       ),
     );
     _record('markOrderRead', orderId);

@@ -451,4 +451,32 @@ void main() {
     await tester.tap(find.text(l.undo));
     expect(undone, 1);
   });
+
+  testWidgets('an AI answer may have section headings, and notes under lines', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(
+      host(
+        const AIAnswerCard(
+          lines: [
+            AnswerLine.heading('Authorities', note: 'As cited — not verified'),
+            AnswerLine(
+              'File a reply.',
+              note: 'Who: the respondents',
+              sources: [SourceChip('Order', page: 2)],
+            ),
+          ],
+        ),
+      ),
+    );
+    expect(
+      tester.getSemantics(find.text('Authorities')),
+      isSemantics(label: 'Authorities', isHeader: true),
+    );
+    expect(find.text('As cited — not verified'), findsOneWidget);
+    expect(find.text('Who: the respondents'), findsOneWidget);
+    expect(find.byType(SourceChip), findsOneWidget);
+    handle.dispose();
+  });
 }

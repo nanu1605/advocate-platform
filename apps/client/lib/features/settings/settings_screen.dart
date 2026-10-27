@@ -5,6 +5,7 @@ import 'package:advocate_app/core/l10n/l10n.dart';
 import 'package:advocate_app/core/settings/settings.dart';
 import 'package:advocate_app/core/theme/app_colors.dart';
 import 'package:advocate_app/core/theme/app_theme.dart';
+import 'package:advocate_app/data/api_client.dart';
 import 'package:advocate_app/data/feedback.dart';
 import 'package:advocate_app/data/sync/sync.dart';
 import 'package:advocate_app/features/feedback/feedback_sheet.dart';
@@ -66,7 +67,13 @@ class SettingsScreen extends ConsumerWidget {
               ButtonSegment(value: 'en', label: Text('English')),
             ],
             selected: {s.locale?.languageCode ?? 'hi'},
-            onSelectionChanged: (v) => ctl.setLocale(Locale(v.first)),
+            onSelectionChanged: (v) {
+              unawaited(ctl.setLocale(Locale(v.first)));
+              // Automatic order summaries are made in each user's language (spec F07). Best effort: offline is fine.
+              ref.read(apiClientProvider).patchMe({
+                'preferred_language': v.first,
+              }).ignore();
+            },
           ),
           SectionHeader('${l.settingsTextSize} · $scale%'),
           Card(

@@ -308,8 +308,9 @@ async def r() -> AsyncIterator[Redis]:
 
 
 @pytest.fixture
-def sent(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, tuple[str, ...]]]:
-    """Celery tasks the code would have sent, as (task name, args), instead of sending them."""
-    calls: list[tuple[str, tuple[str, ...]]] = []
-    monkeypatch.setattr(jobs, "send", lambda name, *args: calls.append((name, args)))
+def sent(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Any, ...]]:
+    """Celery tasks the code would have sent, as (task name, args), or (task name, args, keywords) when it passed
+    any (countdown included), instead of sending them."""
+    calls: list[tuple[Any, ...]] = []
+    monkeypatch.setattr(jobs, "send", lambda name, *args, **kw: calls.append((name, args, kw) if kw else (name, args)))
     return calls

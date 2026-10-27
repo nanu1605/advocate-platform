@@ -177,6 +177,24 @@ class DocumentHit {
   final String snippet;
 }
 
+/// What an on-demand AI request answers (spec §12.14): the result now when it is cached ([summary], or how many
+/// actions order intelligence [proposed]), else the job making it ([jobId]).
+@immutable
+class AiResult {
+  const AiResult({this.summary, this.proposed, this.jobId});
+
+  factory AiResult.fromJson(Map<String, dynamic> j) => AiResult(
+    summary: (j['summary'] as Map?)?.cast(),
+    proposed: j['proposed'] as int?,
+    jobId: j['job_id'] as String?,
+  );
+
+  /// An order summary's JSON (`OrderSummaryView.fromJson`).
+  final Map<String, Object?>? summary;
+  final int? proposed;
+  final String? jobId;
+}
+
 /// An invite to the team (spec §10.2 Team): its 8-character [code] works for 7 days, for anyone or (with [phone])
 /// only that number. Invites never sync (§9.4): the owner lists them through the API.
 @immutable
@@ -601,6 +619,57 @@ class ApiClient {
         DocumentHit.fromJson((h as Map).cast()),
     ];
   }
+
+  /// An order's AI summary in [language] (spec F07, §12.14): ready when cached (free), else a job that makes it for
+  /// [credits], after which asking again gets it (and sync brings it to the order). AI_CREDITS_NEEDED (409, details
+  /// `{credits, left}`: ask the user, then send that many), AI_CREDITS_EXHAUSTED (402), ORDER_TEXT_PENDING
+  /// (retryable), ORDER_TEXT_UNREADABLE, ORDER_SUMMARY_UNAVAILABLE.
+  Future<AiResult> summariseOrder({
+    required String orgId,
+    required String orderId,
+    required String language,
+    required String idempotencyKey,
+    int credits = 0,
+  }) => _ai('/v1/orders/$orderId/summary', orgId, idempotencyKey, {
+    'language': language,
+    'credits': credits,
+  });
+
+  /// [summariseOrder] for an uploaded order; its summary never syncs. DOCUMENT_NOT_AN_ORDER.
+  Future<AiResult> summariseDocument({
+    required String orgId,
+    required String documentId,
+    required String language,
+    required String idempotencyKey,
+    int credits = 0,
+  }) => _ai('/v1/documents/$documentId/summary', orgId, idempotencyKey, {
+    'language': language,
+    'credits': credits,
+  });
+
+  /// Order intelligence (spec F13): proposes the order's tasks and deadlines, which sync as `proposed`, in the org
+  /// owner's language (one language per org). Ready with how many it added, else a job whose result has them.
+  /// Owners, advocates and juniors. ORDER_DATE_UNKNOWN, and [summariseOrder]'s codes.
+  Future<AiResult> orderIntel({
+    required String orgId,
+    required String orderId,
+    required String idempotencyKey,
+    int credits = 0,
+  }) => _ai('/v1/ai/order-intel', orgId, idempotencyKey, {
+    'order_id': orderId,
+    'credits': credits,
+  });
+
+  Future<AiResult> _ai(
+    String path,
+    String orgId,
+    String idempotencyKey,
+    Map<String, Object?> body,
+  ) async => AiResult.fromJson(
+    await _send(
+      () => _dio.post(path, data: body, options: _org(orgId, idempotencyKey)),
+    ),
+  );
 
   /// A short-lived link to a document's file (no title in it). DOCUMENT_NOT_READY (still being checked),
   /// DOCUMENT_QUARANTINED (failed the safety check).
